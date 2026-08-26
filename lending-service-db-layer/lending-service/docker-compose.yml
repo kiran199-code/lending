@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: lending-postgres
+    environment:
+      POSTGRES_DB: lending
+      POSTGRES_USER: lending_app
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - lending_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lending_app -d lending"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lending_pg_data:

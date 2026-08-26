@@ -1,0 +1,44 @@
+{
+  "family": "lending-batch-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "REPLACE_WITH_ECS_TASK_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "REPLACE_WITH_LENDING_BATCH_SERVICE_TASK_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "lending-batch-service",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8081, "protocol": "tcp" }],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" }
+      ],
+      "secrets": [
+        { "name": "DB_HOST", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/db-host::" },
+        { "name": "DB_NAME", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/db-name::" },
+        { "name": "DB_USERNAME", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/db-username::" },
+        { "name": "DB_PASSWORD", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/db-password::" },
+        { "name": "KAFKA_BOOTSTRAP_SERVERS", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/kafka-bootstrap::" },
+        { "name": "BATCH_ADMIN_USERNAME", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/admin-username::" },
+        { "name": "BATCH_ADMIN_PASSWORD", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-batch-service/admin-password::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/lending-batch-service",
+          "awslogs-region": "REPLACE_WITH_AWS_REGION",
+          "awslogs-stream-prefix": "lending-batch-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+# Local dev / integration environment for the full lending platform. Not a deployment artifact --
+# see docs/CLOUD_DEPLOYMENT.md for how these same two images get built and run in the cloud
+# (ECS Fargate, not docker-compose).
+#
+# Usage:
+#   docker compose up --build
+#   lending-service:        http://localhost:8080  (Swagger UI at /swagger-ui.html)
+#   lending-batch-service:  http://localhost:8081  (admin API under /api/v1/batch-admin,
+#                            HTTP Basic batch-admin/changeme -- see BATCH_ADMIN_* below)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lending
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lending"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Single-node Kafka in KRaft mode (no Zookeeper) -- sufficient for local dev; MSK in cloud
+  # deployments is a managed multi-broker cluster, see docs/CLOUD_DEPLOYMENT.md.
+  kafka:
+    image: apache/kafka:3.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "29092:29092"
+
+  lending-service:
+    build:
+      context: ./lending-service-db-layer/lending-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/lending
+      DB_USER: lending_app
+      DB_PASSWORD: changeme
+    ports:
+      - "8080:8080"
+
+  lending-batch-service:
+    build:
+      context: ./lending-batch-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      # Ensures loan_account and friends exist (and lending_batch's read grants apply cleanly)
+      # before the batch service's own Flyway migrations and first job-registry build run.
+      lending-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_USERNAME: lending_batch
+      DB_PASSWORD: lending_batch
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BATCH_ADMIN_USERNAME: batch-admin
+      BATCH_ADMIN_PASSWORD: changeme
+    ports:
+      - "8081:8081"
+
+volumes:
+  pgdata:

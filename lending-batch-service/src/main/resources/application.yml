@@ -1,0 +1,78 @@
+# Profile-agnostic defaults shared by every environment. Activate a profile with
+# --spring.profiles.active=local (default for `mvn spring-boot:run` / IDE runs) or
+# --spring.profiles.active=prod (see application-prod.yml and the README "Running" section).
+spring:
+  application:
+    name: lending-batch-service
+
+  # Job execution is driven exclusively by QuartzJobBridge (cron) and BatchAdminController
+  # (manual trigger) — never by Spring Boot's "run every discovered Job at startup" default.
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      # BATCH_JOB_INSTANCE / BATCH_JOB_EXECUTION / ... created on first startup, into the
+      # 'batch' schema via the JDBC URL's currentSchema search_path (see each profile's
+      # datasource.url). Safe to leave 'always' across repeated startups: Boot only runs the
+      # scripts once the tables are confirmed absent.
+      initialize-schema: always
+
+  quartz:
+    job-store-type: jdbc
+    # We own the QRTZ_* DDL ourselves (V3__quartz_schema.sql) so it ships through the same
+    # Flyway pipeline as the rest of the batch schema instead of Quartz's own bootstrap script.
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.scheduler.instanceName: LendingBatchScheduler
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+      org.quartz.jobStore.tablePrefix: batch.QRTZ_
+      org.quartz.jobStore.useProperties: false
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 20000
+      org.quartz.jobStore.misfireThreshold: 60000
+      org.quartz.threadPool.class: org.quartz.simpl.SimpleThreadPool
+      org.quartz.threadPool.threadCount: 10
+      org.quartz.threadPool.threadPriority: 5
+
+  flyway:
+    schemas: batch
+    default-schema: batch
+    create-schemas: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+# Admin/ops REST layer under /api/v1/batch-admin — see SecurityConfig. Override the password in
+# every real environment; the default below only exists so `local` boots without extra setup.
+batch:
+  admin:
+    username: ${BATCH_ADMIN_USERNAME:batch-admin}
+    password: ${BATCH_ADMIN_PASSWORD:changeme}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.bank.lending.batch: INFO
+    org.springframework.batch: INFO
+    org.quartz: WARN

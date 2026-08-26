@@ -1,0 +1,37 @@
+# Runs on every push and PR. This is where `mvn package` actually happens for real -- GitHub's
+# hosted runners have genuine internet access to Maven Central, unlike the sandboxed environment
+# this project was scaffolded in. If this workflow is green, the JARs are real and tested.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+        # A single JDK 21 install compiles both modules: lending-service targets --release 21,
+        # lending-batch-service targets --release 17 -- javac on JDK 21 can target either.
+
+      - name: Build and test both microservices (reactor build)
+        run: mvn -B clean verify --file pom.xml
+
+      - name: Upload JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-jars
+          path: |
+            lending-service-db-layer/lending-service/target/*.jar
+            lending-batch-service/target/*.jar
+          retention-days: 14

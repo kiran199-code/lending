@@ -1,0 +1,37 @@
+{
+  "family": "lending-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "REPLACE_WITH_ECS_TASK_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "REPLACE_WITH_LENDING_SERVICE_TASK_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "lending-service",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
+      "secrets": [
+        { "name": "DB_URL", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-service/db-url::" },
+        { "name": "DB_USER", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-service/db-user::" },
+        { "name": "DB_PASSWORD", "valueFrom": "REPLACE_WITH_SECRETS_MANAGER_ARN:lending-service/db-password::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/lending-service",
+          "awslogs-region": "REPLACE_WITH_AWS_REGION",
+          "awslogs-stream-prefix": "lending-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

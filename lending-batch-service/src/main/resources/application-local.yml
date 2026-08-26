@@ -1,0 +1,36 @@
+# Local/dev profile: a single instance against a local (or docker-compose) PostgreSQL and Kafka,
+# no clustering concerns, verbose logging. Run with --spring.profiles.active=local (or just leave
+# the default active profile — see the parent pom / IDE run configuration).
+spring:
+  datasource:
+    # currentSchema puts search_path=batch,public on every connection from this pool, so
+    # Spring Batch's and Quartz's own unqualified table references (BATCH_*, QRTZ_*) resolve
+    # into the 'batch' schema without needing a table-prefix override for Spring Batch too.
+    # DB_HOST defaults to localhost for a bare `mvn spring-boot:run` against a locally-installed
+    # Postgres, but is overridden to the `postgres` compose service name in docker-compose.yml.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lending}?currentSchema=batch,public
+    username: ${DB_USERNAME:lending_batch}
+    password: ${DB_PASSWORD:lending_batch}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      pool-name: lending-batch-hikari-local
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: batch
+
+server:
+  port: ${SERVER_PORT:8081}
+
+logging:
+  level:
+    com.bank.lending.batch: DEBUG

@@ -1,0 +1,40 @@
+# Prod profile: every environment-specific value comes from the environment (12-factor); nothing
+# here has a real secret default. Multiple instances of this service can run against the same
+# database concurrently — Quartz's isClustered=true (application.yml) plus JobExplorer's
+# findRunningJobExecutions idempotency check (BatchJobLauncherService) make that safe.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}?currentSchema=batch,public
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:40}
+      minimum-idle: ${DB_POOL_MIN_IDLE:10}
+      pool-name: lending-batch-hikari-prod
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      properties:
+        security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: batch
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.bank.lending.batch: INFO
+    org.springframework.batch: WARN

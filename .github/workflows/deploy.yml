@@ -1,0 +1,109 @@
+# Builds Docker images for both microservices, pushes to ECR, and updates the ECS Fargate
+# services. Only runs on push to main, and only once the repository secrets/variables below are
+# configured -- see docs/CLOUD_DEPLOYMENT.md "CI/CD" section for the one-time setup steps
+# (OIDC role, ECR repos, ECS cluster/services, task-def placeholder values).
+#
+# Required repository variables (Settings -> Secrets and variables -> Actions -> Variables):
+#   AWS_REGION, AWS_ACCOUNT_ID, ECS_CLUSTER
+# Required repository secrets:
+#   AWS_OIDC_ROLE_ARN   -- role this workflow assumes via GitHub's OIDC provider, no static keys
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write   # required for OIDC -> AssumeRoleWithWebIdentity
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      lending-service-image: ${{ steps.build-lending-service.outputs.image }}
+      lending-batch-service-image: ${{ steps.build-batch-service.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no long-lived keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push lending-service image
+        id: build-lending-service
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: lending-service
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REGISTRY/$REPOSITORY:$TAG" -t "$REGISTRY/$REPOSITORY:latest" \
+            ./lending-service-db-layer/lending-service
+          docker push "$REGISTRY/$REPOSITORY:$TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image=$REGISTRY/$REPOSITORY:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push lending-batch-service image
+        id: build-batch-service
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: lending-batch-service
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REGISTRY/$REPOSITORY:$TAG" -t "$REGISTRY/$REPOSITORY:latest" \
+            ./lending-batch-service
+          docker push "$REGISTRY/$REPOSITORY:$TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image=$REGISTRY/$REPOSITORY:$TAG" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production   # wire up required reviewers here for a manual approval gate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no long-lived keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Render lending-service task definition with the new image
+        id: render-lending-service
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: deploy/aws/ecs/lending-service-taskdef.json
+          container-name: lending-service
+          image: ${{ needs.build-and-push.outputs.lending-service-image }}
+
+      - name: Deploy lending-service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-lending-service.outputs.task-definition }}
+          service: lending-service
+          cluster: ${{ vars.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Render lending-batch-service task definition with the new image
+        id: render-batch-service
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: deploy/aws/ecs/lending-batch-service-taskdef.json
+          container-name: lending-batch-service
+          image: ${{ needs.build-and-push.outputs.lending-batch-service-image }}
+
+      - name: Deploy lending-batch-service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-batch-service.outputs.task-definition }}
+          service: lending-batch-service
+          cluster: ${{ vars.ECS_CLUSTER }}
+          wait-for-service-stability: true

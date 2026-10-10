@@ -1,5 +1,6 @@
 package com.bank.lending.batch.core.listener;
 
+import com.bank.lending.batch.core.JobParamsUtil;
 import com.bank.lending.batch.core.BatchJobContext;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
@@ -22,7 +23,7 @@ public class BatchJobContextStepListener implements StepExecutionListener {
     @Override
     public void beforeStep(StepExecution stepExecution) {
         String jobParamsJson = stepExecution.getJobParameters().getString("jobParamsJson");
-        BatchJobContext.set(stepExecution.getJobParameters().getLocalDate("businessDate"), jobParamsJson);
+        BatchJobContext.set(JobParamsUtil.businessDate(stepExecution.getJobParameters()), jobParamsJson);
     }
 
     @Override

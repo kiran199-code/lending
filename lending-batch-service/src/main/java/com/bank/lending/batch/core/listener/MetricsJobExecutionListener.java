@@ -1,5 +1,6 @@
 package com.bank.lending.batch.core.listener;
 
+import com.bank.lending.batch.core.JobParamsUtil;
 import com.bank.lending.batch.core.event.JobCompletionEvent;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -64,7 +65,7 @@ public class MetricsJobExecutionListener implements JobExecutionListener {
         log.info("Batch job finished: {} executionId={} status={} read={} written={} skipped={}",
                 jobName, jobExecution.getId(), status, readCount, writeCount, skipCount);
 
-        LocalDate businessDate = jobExecution.getJobParameters().getLocalDate("businessDate");
+        LocalDate businessDate = JobParamsUtil.businessDate(jobExecution.getJobParameters());
         eventPublisher.publishEvent(new JobCompletionEvent(
                 jobName,
                 jobExecution.getId(),

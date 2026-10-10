@@ -1,11 +1,12 @@
 package com.bank.lending.batch.core.listener;
 
+import com.bank.lending.batch.core.JobParamsUtil;
 import com.bank.lending.batch.domain.BatchJobErrorRecord;
 import com.bank.lending.batch.repository.BatchJobErrorRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.SkipListener;
 import org.springframework.batch.core.StepExecutionListener;
-import org.springframework.batch.core.step.skip.SkipListenerSupport;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -24,7 +25,7 @@ import java.time.LocalDate;
  * only ever needs {@code toString()} regardless of the item's static type.
  */
 @RequiredArgsConstructor
-public class DeadLetterSkipListener extends SkipListenerSupport<Object, Object> implements StepExecutionListener {
+public class DeadLetterSkipListener implements SkipListener<Object, Object>, StepExecutionListener {
 
     private final BatchJobErrorRecordRepository errorRecordRepository;
     private final String jobName;
@@ -35,7 +36,7 @@ public class DeadLetterSkipListener extends SkipListenerSupport<Object, Object> 
     @Override
     public void beforeStep(StepExecution stepExecution) {
         this.jobExecutionId = stepExecution.getJobExecutionId();
-        this.businessDate = stepExecution.getJobParameters().getLocalDate("businessDate");
+        this.businessDate = JobParamsUtil.businessDate(stepExecution.getJobParameters());
     }
 
     @Override

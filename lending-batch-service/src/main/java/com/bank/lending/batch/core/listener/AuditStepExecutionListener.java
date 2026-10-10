@@ -1,5 +1,6 @@
 package com.bank.lending.batch.core.listener;
 
+import com.bank.lending.batch.core.JobParamsUtil;
 import com.bank.lending.batch.domain.BatchJobAuditLog;
 import com.bank.lending.batch.repository.BatchJobAuditLogRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class AuditStepExecutionListener implements StepExecutionListener {
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        LocalDate businessDate = stepExecution.getJobParameters().getLocalDate("businessDate");
+        LocalDate businessDate = JobParamsUtil.businessDate(stepExecution.getJobParameters());
         Long durationMillis = (stepExecution.getStartTime() != null && stepExecution.getEndTime() != null)
                 ? java.time.Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis()
                 : null;

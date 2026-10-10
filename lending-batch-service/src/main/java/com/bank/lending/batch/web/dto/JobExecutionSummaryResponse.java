@@ -1,5 +1,6 @@
 package com.bank.lending.batch.web.dto;
 
+import com.bank.lending.batch.core.JobParamsUtil;
 import org.springframework.batch.core.JobExecution;
 
 import java.time.LocalDate;
@@ -26,7 +27,7 @@ public record JobExecutionSummaryResponse(
         }
         return new JobExecutionSummaryResponse(
                 e.getId(), e.getJobInstance().getJobName(), e.getStatus().toString(),
-                e.getExitStatus().getExitCode(), e.getJobParameters().getLocalDate("businessDate"),
+                e.getExitStatus().getExitCode(), JobParamsUtil.businessDate(e.getJobParameters()),
                 e.getStartTime(), e.getEndTime(), read, write, skip
         );
     }

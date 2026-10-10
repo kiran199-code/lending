@@ -79,7 +79,7 @@ public class BatchJobLauncherService {
         // JobInstance for a restartable job, per the businessDate-only restart contract described
         // in the README.
         JobParametersBuilder params = new JobParametersBuilder()
-                .addLocalDate("businessDate", businessDate)
+                .addString("businessDate", businessDate.toString())
                 .addString("triggeredBy", triggeredBy, false)
                 .addString("jobParamsJson", effectiveJobParamsJson, false);
 

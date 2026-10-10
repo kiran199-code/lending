@@ -18,10 +18,13 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.SkipListener;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.FaultTolerantStepBuilder;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
@@ -157,18 +160,23 @@ public class BatchJobRegistry {
         ItemWriter<O> writer = businessJob.writer();
         DeadLetterSkipListener skipListener = new DeadLetterSkipListener(batchJobErrorRecordRepository, config.getJobName());
 
-        var faultTolerantBuilder = new StepBuilder(config.getJobName() + "-worker", jobRepository)
+        // Configured with separate statements (the builder mutates itself) instead of one fluent
+        // chain: several listener(...) overloads return the plain SimpleStepBuilder, which would
+        // lose the fault-tolerant type needed for skip()/retry() below. The casts pick one
+        // overload explicitly for classes that implement more than one listener interface.
+        FaultTolerantStepBuilder<I, O> faultTolerantBuilder = new StepBuilder(config.getJobName() + "-worker", jobRepository)
                 .<I, O>chunk(chunkSize, transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
-                .faultTolerant()
-                .skipLimit(skipLimit)
-                .retryLimit(retryLimit)
-                .listener(reader)
-                .listener(new AuditStepExecutionListener(batchJobAuditLogRepository, config.getJobName()))
-                .listener(new BatchJobContextStepListener())
-                .listener(skipListener);
+                .faultTolerant();
+        faultTolerantBuilder.skipLimit(skipLimit);
+        faultTolerantBuilder.retryLimit(retryLimit);
+        faultTolerantBuilder.listener((StepExecutionListener) reader);
+        faultTolerantBuilder.listener((StepExecutionListener) new AuditStepExecutionListener(batchJobAuditLogRepository, config.getJobName()));
+        faultTolerantBuilder.listener((StepExecutionListener) new BatchJobContextStepListener());
+        faultTolerantBuilder.listener((StepExecutionListener) skipListener);
+        faultTolerantBuilder.listener((SkipListener<Object, Object>) skipListener);
 
         for (Class<? extends Throwable> ex : resolveExceptionClasses(config.getSkippableExceptions())) {
             faultTolerantBuilder.skip(ex);

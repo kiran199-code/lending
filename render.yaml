@@ -1,0 +1,85 @@
+# Render Blueprint: one free Postgres + the two Spring Boot services, all in one region so the
+# services reach the database over Render's private network.
+#
+# Free-tier trade-offs (this is a try-it setup, not production):
+#  - Free web services sleep after ~15 min idle (first request wakes them in ~1 min), so the
+#    batch service's Quartz schedules will not fire while it is asleep.
+#  - Free Postgres is deleted 30 days after creation unless upgraded.
+#  - No Kafka on Render: the batch service's job-completion events are simply dropped
+#    (logged as errors, jobs themselves are unaffected).
+#  - 512 MB RAM per service: JVM heap is capped explicitly below.
+databases:
+  - name: lending-db
+    plan: free
+    region: singapore
+    databaseName: lending
+    user: lending_app
+    ipAllowList: []   # private network only
+
+services:
+  - type: web
+    name: lending-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-service-db-layer/lending-service/Dockerfile
+    dockerContext: ./lending-service-db-layer/lending-service
+    healthCheckPath: /v3/api-docs
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  - type: web
+    name: lending-batch-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-batch-service/Dockerfile
+    dockerContext: ./lending-batch-service
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USERNAME
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+      # No broker on this setup; point at a dead address and fail sends fast.
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        value: "localhost:9092"
+      - key: BATCH_KAFKA_MAX_BLOCK_MS
+        value: "1000"
+      - key: BATCH_ADMIN_USERNAME
+        value: batch-admin
+      - key: BATCH_ADMIN_PASSWORD
+        generateValue: true   # read it in the Render dashboard -> Environment
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"

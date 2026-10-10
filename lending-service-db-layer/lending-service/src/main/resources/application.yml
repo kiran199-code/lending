@@ -3,12 +3,14 @@ spring:
     name: lending-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/lending}
+    # DB_URL wins if set; otherwise composed from DB_HOST/DB_PORT/DB_NAME (used by PaaS hosts such
+    # as Render that hand out host/port/name separately instead of a JDBC URL).
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lending}}
     username: ${DB_USER:lending_app}
     password: ${DB_PASSWORD:changeme}
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
 
   jpa:
     hibernate:

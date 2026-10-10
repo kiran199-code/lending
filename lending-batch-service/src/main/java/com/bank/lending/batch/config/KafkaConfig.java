@@ -22,6 +22,13 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
+    /**
+     * How long KafkaProducer.send() may block waiting for broker metadata. Kafka's default
+     * (60s) is kept; lower it in environments with no broker so job completion is never held up.
+     */
+    @Value("${batch.kafka.max-block-ms:60000}")
+    private long maxBlockMs;
+
     @Bean
     public ProducerFactory<String, String> jobEventProducerFactory() {
         Map<String, Object> config = new HashMap<>();
@@ -30,6 +37,7 @@ public class KafkaConfig {
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
         config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        config.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, maxBlockMs);
         return new DefaultKafkaProducerFactory<>(config);
     }
 

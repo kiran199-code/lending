@@ -9,6 +9,8 @@ import com.bank.lending.account.dto.LoanAccountResponse;
 import com.bank.lending.account.service.LoanAccountService;
 import com.bank.lending.common.dto.BatchOperationResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,25 @@ public class LoanAccountController {
     private final LoanAccountService loanAccountService;
 
     @Operation(summary = "Create a loan account (idempotent on sanctionRefId)")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(
+            mediaType = "application/json",
+            examples = {
+                    @ExampleObject(name = "Fixed-rate personal loan", value = """
+                            {
+                              "customerId": 1001, "sanctionRefId": 900001, "productCode": "PL01",
+                              "accountType": "UNSECURED", "sanctionedAmount": 500000.00, "tenureMonths": 36,
+                              "rateType": "FIXED", "interestRate": 10.5, "dayCountConvention": "ACT_365"
+                            }
+                            """),
+                    @ExampleObject(name = "Floating-rate personal loan", value = """
+                            {
+                              "customerId": 1002, "sanctionRefId": 900002, "productCode": "PL02",
+                              "accountType": "UNSECURED", "sanctionedAmount": 800000.00, "tenureMonths": 60,
+                              "rateType": "FLOATING", "interestRate": 9.0, "benchmarkRateRef": "REPO",
+                              "spread": 2.5, "dayCountConvention": "ACT_365"
+                            }
+                            """)
+            }))
     @PostMapping
     public ResponseEntity<LoanAccountResponse> createAccount(@Valid @RequestBody CreateLoanAccountRequest request,
                                                                UriComponentsBuilder uriBuilder) {
@@ -65,6 +86,11 @@ public class LoanAccountController {
     }
 
     @Operation(summary = "Disburse a sanctioned account (full or part) and generate its initial schedule")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(
+            mediaType = "application/json",
+            examples = @ExampleObject(name = "Full disbursement", value = """
+                    { "disbursedAmount": 500000.00, "firstEmiDueDate": "2026-11-05" }
+                    """)))
     @PostMapping("/{accountId}/disburse")
     public LoanAccountResponse disburse(@PathVariable Long accountId, @Valid @RequestBody DisburseRequest request) {
         return LoanAccountResponse.from(

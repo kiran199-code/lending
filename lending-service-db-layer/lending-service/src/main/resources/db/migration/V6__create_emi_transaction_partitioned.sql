@@ -27,6 +27,10 @@ CREATE TABLE emi_transaction_2026_09 PARTITION OF emi_transaction
     FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
 
 CREATE INDEX idx_emi_txn_account ON emi_transaction(account_id, value_date);
--- Idempotency: same idempotency_key must not be processed twice for a given account
-CREATE UNIQUE INDEX idx_emi_txn_idempotency ON emi_transaction(account_id, idempotency_key)
+-- Idempotency: same idempotency_key must not be processed twice for a given account.
+-- PostgreSQL requires a unique index on a partitioned table to include the partition key
+-- (value_date), so uniqueness is enforced per (account_id, idempotency_key, value_date).
+-- EmiPaymentService additionally checks (account_id, idempotency_key) at the application level
+-- before posting, which covers retries that land on a different value_date.
+CREATE UNIQUE INDEX idx_emi_txn_idempotency ON emi_transaction(account_id, idempotency_key, value_date)
     WHERE idempotency_key IS NOT NULL;

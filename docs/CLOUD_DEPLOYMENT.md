@@ -68,11 +68,9 @@ an **internal-only ALB** or AWS Cloud Map service discovery, not the internet �
 - Flyway owns all schema evolution for both services (`lending-service`'s `V1`–`V8`,
   `lending-batch-service`'s `V1`–`V3`) — never point `ddl-auto` at anything but `validate` in any
   environment past a laptop.
-- **Before the first real deployment**, fix the migration bug found while validating the
-  disbursement flow: `V6__create_emi_transaction_partitioned.sql`'s unique index doesn't include
-  the partition column (`value_date`) and Postgres rejects it — Flyway will fail on a truly fresh
-  database. This blocks `lending-service` from ever starting cleanly in a new environment until
-  it's fixed.
+- `V6__create_emi_transaction_partitioned.sql` previously failed on a fresh database (its unique
+  index omitted the partition column `value_date`); fixed — all of V1–V8 now apply cleanly to a
+  fresh PostgreSQL 16.
 
 ## 5. Kafka
 
@@ -195,8 +193,7 @@ how fast you need the first environment up:
 Carried over from earlier validation work, restated here because they block a *real* cloud
 deployment, not just a local one:
 
-- `V6__create_emi_transaction_partitioned.sql` fails against a fresh Postgres instance (§4) — RDS
-  included.
+- ~~`V6` migration fails on a fresh Postgres~~ — fixed (see §4).
 - `LedgerGatewayClient` has no real implementation — disbursement/EMI/foreclosure ledger postings
   will queue in `ledger_outbox` forever in any environment until one exists.
 - The MORTGAGE-account disbursement guard (`mortgage.charge_status = REGISTERED` before

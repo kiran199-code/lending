@@ -200,3 +200,18 @@ deployment, not just a local one:
   disbursing) is enforced only in `LoanAccountService.disburse()`, not by a database constraint —
   worth a defense-in-depth `CHECK`/trigger given this now runs as a multi-service system rather
   than a single app with one write path.
+
+---
+
+## 13. Render sandbox and the admin portal (added 10 October 2026)
+
+The AWS plan above is the production target. For a free try-it environment the repo also ships a Render blueprint (`render.yaml`): one free PostgreSQL database and three Docker web services (`lending-service`, `lending-batch-service`, `lending-admin-service`) in the Singapore region, talking to the database over Render's private network.
+
+| What | URL |
+|---|---|
+| Lending API | https://lending-service-5tqm.onrender.com |
+| Lending Swagger UI | https://lending-service-5tqm.onrender.com/swagger-ui.html |
+| Admin portal | https://lending-admin-service-<suffix>.onrender.com (suffix assigned by Render) |
+| Admin Swagger UI | .../swagger-ui.html on the admin host |
+
+Admin login: user `admin`, password = `ADMIN_PASSWORD` in the service's Environment tab. Free-tier trade-offs: services sleep after ~15 minutes idle, the database is deleted after 30 days, there is no Kafka (batch events are dropped), and each JVM heap is capped at 256 MB. The admin service uses a read-only database session; for a stricter setup run `lending-admin-service/db/create-readonly-role.sql` and point `DB_USER` at that role. Carry-over to AWS: add the admin service as a third Fargate service behind the internal ALB and a read-only RDS role, with SSO in front of it instead of the shared Basic login.

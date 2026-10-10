@@ -2,6 +2,9 @@
   "defaultFirstEmiDueDate": "2026-11-05",
   "items": [
     {
+      "accountId": 1
+    },
+    {
       "accountId": 2,
       "firstEmiDueDate": "2026-11-10"
     },

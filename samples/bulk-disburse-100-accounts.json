@@ -1,0 +1,356 @@
+{
+  "defaultFirstEmiDueDate": "2026-11-05",
+  "items": [
+    {
+      "accountId": 2,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 3,
+      "disbursedAmount": 412000.0,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 4
+    },
+    {
+      "accountId": 5,
+      "disbursedAmount": 930000.0,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 6,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 7
+    },
+    {
+      "accountId": 8,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 9,
+      "disbursedAmount": 495000.0,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 10,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 11
+    },
+    {
+      "accountId": 12,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 13
+    },
+    {
+      "accountId": 14,
+      "disbursedAmount": 220000.0
+    },
+    {
+      "accountId": 15
+    },
+    {
+      "accountId": 16
+    },
+    {
+      "accountId": 17
+    },
+    {
+      "accountId": 18,
+      "disbursedAmount": 630000.0
+    },
+    {
+      "accountId": 19,
+      "disbursedAmount": 400000.0
+    },
+    {
+      "accountId": 20
+    },
+    {
+      "accountId": 21
+    },
+    {
+      "accountId": 22,
+      "disbursedAmount": 1400000.0
+    },
+    {
+      "accountId": 23,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 24
+    },
+    {
+      "accountId": 25,
+      "disbursedAmount": 768000.0
+    },
+    {
+      "accountId": 26
+    },
+    {
+      "accountId": 27
+    },
+    {
+      "accountId": 28
+    },
+    {
+      "accountId": 29
+    },
+    {
+      "accountId": 30
+    },
+    {
+      "accountId": 31,
+      "disbursedAmount": 627000.0
+    },
+    {
+      "accountId": 32
+    },
+    {
+      "accountId": 33
+    },
+    {
+      "accountId": 34,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 35
+    },
+    {
+      "accountId": 36
+    },
+    {
+      "accountId": 37
+    },
+    {
+      "accountId": 38
+    },
+    {
+      "accountId": 39,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 40
+    },
+    {
+      "accountId": 41
+    },
+    {
+      "accountId": 42
+    },
+    {
+      "accountId": 43
+    },
+    {
+      "accountId": 44,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 45,
+      "disbursedAmount": 2195000.0,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 46,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 47
+    },
+    {
+      "accountId": 48,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 49
+    },
+    {
+      "accountId": 50
+    },
+    {
+      "accountId": 51
+    },
+    {
+      "accountId": 52
+    },
+    {
+      "accountId": 53,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 54,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 55,
+      "disbursedAmount": 1024000.0,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 56
+    },
+    {
+      "accountId": 57,
+      "disbursedAmount": 1690000.0
+    },
+    {
+      "accountId": 58,
+      "disbursedAmount": 645000.0
+    },
+    {
+      "accountId": 59
+    },
+    {
+      "accountId": 60,
+      "disbursedAmount": 1095000.0
+    },
+    {
+      "accountId": 61
+    },
+    {
+      "accountId": 62,
+      "disbursedAmount": 182000.0
+    },
+    {
+      "accountId": 63
+    },
+    {
+      "accountId": 64
+    },
+    {
+      "accountId": 65,
+      "disbursedAmount": 1360000.0
+    },
+    {
+      "accountId": 66
+    },
+    {
+      "accountId": 67
+    },
+    {
+      "accountId": 68,
+      "firstEmiDueDate": "2026-12-01"
+    },
+    {
+      "accountId": 69
+    },
+    {
+      "accountId": 70
+    },
+    {
+      "accountId": 71
+    },
+    {
+      "accountId": 72
+    },
+    {
+      "accountId": 73
+    },
+    {
+      "accountId": 74,
+      "disbursedAmount": 242000.0
+    },
+    {
+      "accountId": 75
+    },
+    {
+      "accountId": 76
+    },
+    {
+      "accountId": 77,
+      "disbursedAmount": 766000.0
+    },
+    {
+      "accountId": 78,
+      "firstEmiDueDate": "2026-12-01"
+    },
+    {
+      "accountId": 79
+    },
+    {
+      "accountId": 80
+    },
+    {
+      "accountId": 81
+    },
+    {
+      "accountId": 82,
+      "disbursedAmount": 870000.0
+    },
+    {
+      "accountId": 83
+    },
+    {
+      "accountId": 84,
+      "firstEmiDueDate": "2026-12-01"
+    },
+    {
+      "accountId": 85,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 86
+    },
+    {
+      "accountId": 87
+    },
+    {
+      "accountId": 88,
+      "disbursedAmount": 141000.0,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 89
+    },
+    {
+      "accountId": 90,
+      "disbursedAmount": 220000.0,
+      "firstEmiDueDate": "2026-11-15"
+    },
+    {
+      "accountId": 91,
+      "disbursedAmount": 6332000.0
+    },
+    {
+      "accountId": 92,
+      "firstEmiDueDate": "2026-12-05"
+    },
+    {
+      "accountId": 93
+    },
+    {
+      "accountId": 94,
+      "firstEmiDueDate": "2026-11-10"
+    },
+    {
+      "accountId": 95
+    },
+    {
+      "accountId": 96,
+      "disbursedAmount": 328000.0
+    },
+    {
+      "accountId": 97
+    },
+    {
+      "accountId": 98,
+      "disbursedAmount": 618000.0
+    },
+    {
+      "accountId": 99
+    },
+    {
+      "accountId": 100
+    },
+    {
+      "accountId": 101,
+      "firstEmiDueDate": "2026-12-01"
+    }
+  ]
+}

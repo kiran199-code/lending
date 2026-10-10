@@ -7,13 +7,21 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
@@ -60,6 +68,34 @@ public class GlobalExceptionHandler {
             ConstraintViolationException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    /** Malformed JSON, a wrong field type, or an enum value that does not exist. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST,
+                "Request body is missing, is not valid JSON, or contains an invalid value (check enum names and number formats)",
+                request);
+    }
+
+    /**
+     * Spring's own request-mapping failures (unknown URL, wrong HTTP method, unsupported content
+     * type, missing query parameter). Each already knows its correct status (404, 405, 415, 400);
+     * without this they fall through to the catch-all below and come back as a 500 with an
+     * error-level stack trace.
+     */
+    @ExceptionHandler({NoResourceFoundException.class, HttpRequestMethodNotSupportedException.class,
+            HttpMediaTypeNotSupportedException.class, HttpMediaTypeNotAcceptableException.class,
+            MissingServletRequestParameterException.class})
+    public ResponseEntity<ApiError> handleRequestMappingProblem(Exception ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(((ErrorResponse) ex).getStatusCode().value());
+        return build(status, status == HttpStatus.NOT_FOUND ? "No such resource: " + request.getRequestURI() : ex.getMessage(), request);
+    }
+
+    /** The caller hung up before the response was written (timeout, closed tab, load balancer probe). Nothing to answer. */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientAbort(AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        log.debug("Client closed the connection before the response was written: {} {}", request.getMethod(), request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

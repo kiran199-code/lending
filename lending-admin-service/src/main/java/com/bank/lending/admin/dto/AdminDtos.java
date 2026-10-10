@@ -1,0 +1,157 @@
+package com.bank.lending.admin.dto;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+
+/** Response shapes of the admin API. Plain records: the admin service never writes. */
+public final class AdminDtos {
+
+    private AdminDtos() {
+    }
+
+    public record PageResponse<T>(List<T> items, int page, int size, long total, int totalPages) {
+        public static <T> PageResponse<T> of(List<T> items, int page, int size, long total) {
+            int pages = size <= 0 ? 0 : (int) ((total + size - 1) / size);
+            return new PageResponse<>(items, page, size, total, pages);
+        }
+    }
+
+    // ---------------------------------------------------------------- accounts
+
+    public record AccountSummary(Long accountId, String accountNumber, Long customerId, Long sanctionRefId,
+                                 String productCode, String accountType, String accountStatus,
+                                 BigDecimal sanctionedAmount, BigDecimal disbursedAmount, BigDecimal interestRate,
+                                 Integer tenureMonths, BigDecimal emiAmount, LocalDate nextDueDate,
+                                 int daysPastDue, OffsetDateTime createdAt) {
+    }
+
+    public record AccountDetail(Long accountId, String accountNumber, Long customerId, Long sanctionRefId,
+                                String productCode, String accountType, String accountStatus,
+                                BigDecimal sanctionedAmount, BigDecimal disbursedAmount, Integer tenureMonths,
+                                String rateType, BigDecimal interestRate, String benchmarkRateRef, BigDecimal spread,
+                                String dayCountConvention, BigDecimal emiAmount, LocalDate emiStartDate,
+                                Long mortgageId, Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                                Figures figures) {
+    }
+
+    /** Numbers derived from the schedule, payments and accruals of one account. */
+    public record Figures(int installmentsTotal, int installmentsPaid, LocalDate nextDueDate,
+                          BigDecimal nextEmiAmount, int overdueInstallments, BigDecimal overdueAmount,
+                          int daysPastDue, BigDecimal outstandingPrincipal, BigDecimal totalPaid,
+                          BigDecimal totalAccrued, LocalDate lastAccrualDate) {
+        public Figures withAccrual(BigDecimal accrued, LocalDate lastDate) {
+            return new Figures(installmentsTotal, installmentsPaid, nextDueDate, nextEmiAmount, overdueInstallments,
+                    overdueAmount, daysPastDue, outstandingPrincipal, totalPaid, accrued, lastDate);
+        }
+    }
+
+    // ---------------------------------------------------------------- schedule
+
+    public record ScheduleRow(Integer installmentNumber, LocalDate dueDate, BigDecimal principal, BigDecimal interest,
+                              BigDecimal emi, BigDecimal outstandingBalance, String status, Integer scheduleVersion,
+                              int daysPastDue) {
+    }
+
+    public record ScheduleVersion(int version, int installments, OffsetDateTime generatedAt) {
+    }
+
+    public record ScheduleTotals(BigDecimal totalPrincipal, BigDecimal totalInterest, BigDecimal totalEmi,
+                                 BigDecimal paidEmi, BigDecimal pendingEmi, BigDecimal overdueEmi,
+                                 int paid, int pending, int overdue) {
+    }
+
+    /** selectedVersion is null for the combined view (every instalment at its latest version). */
+    public record ScheduleResponse(Long accountId, Integer selectedVersion, List<ScheduleVersion> versions,
+                                   List<ScheduleRow> rows, ScheduleTotals totals) {
+    }
+
+    // ---------------------------------------------------------------- accruals and payments
+
+    public record AccrualRow(LocalDate businessDate, Long accountId, String accountNumber,
+                             BigDecimal accruedAmount, BigDecimal outstandingPrincipal) {
+    }
+
+    public record AccrualResponse(List<AccrualRow> rows, BigDecimal total, int days) {
+    }
+
+    public record PaymentRow(Long transactionId, LocalDate valueDate, Long accountId, String accountNumber,
+                             Integer installmentNumber, String type, BigDecimal amount, BigDecimal principalPaid,
+                             BigDecimal interestPaid, String channel, String status, String idempotencyKey) {
+    }
+
+    public record PaymentResponse(List<PaymentRow> rows, BigDecimal totalReceived, BigDecimal principalReceived,
+                                  BigDecimal interestReceived, int failed) {
+    }
+
+    public record DailyAmount(LocalDate date, BigDecimal amount, long count) {
+    }
+
+    // ---------------------------------------------------------------- mortgage
+
+    public record ValuationRow(BigDecimal valuationAmount, LocalDate valuationDate, String valuerRef,
+                               String valuationType) {
+    }
+
+    public record MortgageDetail(Long mortgageId, Long accountId, String propertyType, String propertyAddress,
+                                 BigDecimal valuationAmount, LocalDate valuationDate, String valuerRef,
+                                 BigDecimal ltvRatio, String chargeStatus, String cersaiRegistrationRef,
+                                 String mortgageDeedRef, String insurancePolicyRef, String legalVerificationStatus,
+                                 List<ValuationRow> valuations) {
+    }
+
+    // ---------------------------------------------------------------- portfolio views
+
+    public record UpcomingPaymentRow(Long accountId, String accountNumber, Long customerId, String productCode,
+                                     String accountStatus, Integer installmentNumber, LocalDate dueDate,
+                                     BigDecimal principal, BigDecimal interest, BigDecimal emi, int daysToDue) {
+    }
+
+    public record UpcomingResponse(PageResponse<UpcomingPaymentRow> page, BigDecimal totalAmount, LocalDate from,
+                                   LocalDate to) {
+    }
+
+    public record OverdueRow(Long accountId, String accountNumber, Long customerId, String productCode,
+                             String accountStatus, Integer installmentNumber, LocalDate dueDate,
+                             BigDecimal principal, BigDecimal interest, BigDecimal emi, int daysPastDue) {
+    }
+
+    public record BucketSummary(String bucket, long accounts, BigDecimal amount) {
+    }
+
+    public record StatusCount(String status, long accounts, BigDecimal sanctioned, BigDecimal disbursed) {
+    }
+
+    public record Dashboard(LocalDate asOf, long totalAccounts, long activeAccounts, BigDecimal totalDisbursed,
+                            BigDecimal outstandingPrincipal, long overdueAccounts, BigDecimal overdueAmount,
+                            long dueNext7Count, BigDecimal dueNext7Amount, BigDecimal collectionsMtd,
+                            long collectionsMtdCount, LocalDate lastAccrualDate, BigDecimal lastAccrualAmount,
+                            BigDecimal accrualMtd, long outboxPending, long outboxFailed,
+                            List<StatusCount> byStatus, List<DailyAmount> accrualSeries,
+                            List<DailyAmount> collectionSeries) {
+    }
+
+    // ---------------------------------------------------------------- operations
+
+    public record OutboxRow(Long outboxId, Long accountId, String accountNumber, String eventType,
+                            String postingStatus, int retryCount, OffsetDateTime lastAttemptedAt,
+                            OffsetDateTime createdAt) {
+    }
+
+    public record OutboxResponse(PageResponse<OutboxRow> page, Map<String, Long> counts) {
+    }
+
+    public record BatchJobRow(String jobName, String category, String type, String cron, boolean enabled,
+                              Integer priority, Integer timeoutMinutes) {
+    }
+
+    public record BatchExecutionRow(Long executionId, String jobName, String status, String exitCode,
+                                    LocalDateTime startTime, LocalDateTime endTime) {
+    }
+
+    public record BatchOverview(List<BatchJobRow> jobs, List<BatchExecutionRow> recentExecutions, String note) {
+    }
+}

@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: lending-admin-service
+
+  datasource:
+    # Same database as lending-service (read-only use). DB_URL wins if set; otherwise composed from
+    # DB_HOST/DB_PORT/DB_NAME as handed out by PaaS hosts such as Render.
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lending}}
+    username: ${DB_USER:lending_app}
+    password: ${DB_PASSWORD:changeme}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      read-only: true
+      # Belt and braces: every session is read-only, so this service cannot change lending data
+      # even if someone adds a write query by mistake.
+      connection-init-sql: SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:8082}
+  compression:
+    enabled: true
+
+# Single admin login (HTTP Basic). Override both in every real environment.
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:changeme}
+  timezone: ${ADMIN_TIMEZONE:Asia/Kolkata}
+
+# Only used for the "Download statement" button: the PDF is produced by lending-service.
+lending:
+  service:
+    base-url: ${LENDING_SERVICE_URL:}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

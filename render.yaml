@@ -83,3 +83,38 @@ services:
         generateValue: true   # read it in the Render dashboard -> Environment
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  - type: web
+    name: lending-admin-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-admin-service/Dockerfile
+    dockerContext: ./lending-admin-service
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: DB_POOL_SIZE
+        value: "3"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true   # read it in the Render dashboard -> Environment
+      # Enables "Download statement" on the account page.
+      - key: LENDING_SERVICE_URL
+        value: https://lending-service-5tqm.onrender.com
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"

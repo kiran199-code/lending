@@ -5,6 +5,7 @@
 # Usage:
 #   docker compose up --build
 #   lending-service:        http://localhost:8080  (Swagger UI at /swagger-ui.html)
+#   lending-admin-service:  http://localhost:8082  (admin console, login admin/changeme)
 #   lending-batch-service:  http://localhost:8081  (admin API under /api/v1/batch-admin,
 #                            HTTP Basic batch-admin/changeme -- see BATCH_ADMIN_* below)
 
@@ -79,6 +80,23 @@ services:
       BATCH_ADMIN_PASSWORD: changeme
     ports:
       - "8081:8081"
+
+  # Read-only admin console (React UI + API) over the lending database. Login admin / changeme.
+  lending-admin-service:
+    build:
+      context: ./lending-admin-service
+    depends_on:
+      lending-service:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_USER: lending_app          # session is forced read-only; see lending-admin-service/db for a SELECT-only role
+      DB_PASSWORD: changeme
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: changeme
+      LENDING_SERVICE_URL: http://lending-service:8080
+    ports:
+      - "8082:8082"
 
 volumes:
   pgdata:

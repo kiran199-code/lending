@@ -17,6 +17,10 @@ public interface AmortizationScheduleRepository extends JpaRepository<Amortizati
     List<AmortizationScheduleEntry> findByAccountIdAndScheduleVersionOrderByInstallmentNumber(
             Long accountId, Integer scheduleVersion);
 
+    // Every version, oldest first. Used by the customer statement to show installments that were
+    // already paid before a part-payment or rate reset regenerated the schedule.
+    List<AmortizationScheduleEntry> findByAccountIdOrderByScheduleVersionAscInstallmentNumberAsc(Long accountId);
+
     List<AmortizationScheduleEntry> findByAccountIdAndScheduleVersionAndInstallmentStatus(
             Long accountId, Integer scheduleVersion, AmortizationScheduleEntry.InstallmentStatus status);
 

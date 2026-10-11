@@ -1,0 +1,45 @@
+# checkId,area,severity,title,expectation
+# severity: CRITICAL = money or balance is wrong; HIGH = a core lifecycle step does not happen or is unverifiable; MEDIUM = rule/behaviour deviation; LOW = reporting / hygiene
+checkId,area,severity,title,expectation
+SETUP-01,Account,HIGH,Account creation accepted,POST /loan-accounts returns 201 for a scenario that is inside product limits
+SETUP-02,Account,HIGH,Disbursal accepted,POST /disburse returns 200 and the account becomes ACTIVE with a schedule
+SCH-01,Schedule,CRITICAL,Schedule is internally consistent for the account terms,count/dates/interest(day count)/balance roll/closing zero/type rules
+SCH-02,Schedule,HIGH,Account EMI amount equals first scheduled instalment,loan_account.emiAmount matches schedule (EMI-type products)
+BAT-01,Batch,HIGH,Batch job trigger accepted,POST /batch-admin/jobs/{job}/trigger accepted for the simulated business date
+BAT-02,Batch,HIGH,Batch job reaches COMPLETED,execution reaches terminal COMPLETED within the poll timeout
+BAT-03,Batch,HIGH,Batch job processes eligible records,a job that owns accrual / DPD / NPA work reads > 0 records while eligible accounts exist
+BAT-04,Batch,MEDIUM,Batch re-run for the same business date is idempotent,second run for same date neither duplicates accruals nor corrupts state
+ACC-01,Accrual,HIGH,Daily accrual row exists for every active account,one accrual row per active account per business date
+ACC-02,Accrual,CRITICAL,Accrued amount equals principal x rate / day-count basis,independent calculation on the principal recorded in the row
+ACC-03,Accrual,CRITICAL,Accrual uses the correct outstanding principal,recorded principal equals opening or closing principal of the test ledger (per e2e.day.order)
+ACC-04,Accrual,MEDIUM,No accrual for closed or undisbursed accounts,no row on or after the closing date
+ACC-05,Accrual,MEDIUM,Accrued interest reconciles to interest paid at closure,sum(accruals) within tolerance of sum(interest paid)
+PAY-01,Payment,CRITICAL,EMI of the exact amount due is accepted and applied to the oldest unpaid instalment,200 and installmentNumber equals the oldest unpaid
+PAY-02,Payment,CRITICAL,Payment allocation equals the schedule split,principalPaid and interestPaid equal the instalment components and add up to the amount
+PAY-03,Payment,HIGH,Replay of the same Idempotency-Key is safe,same transaction returned and history not duplicated
+PAY-04,Payment,HIGH,A short payment is rejected without changing state,4xx and schedule/outstanding unchanged
+PAY-05,Payment,HIGH,Payment history reconciles to the test ledger,count and totals agree with what the test posted
+PAY-06,Payment,HIGH,Part-payment reduces principal and re-issues the schedule,outstanding falls by the amount and the schedule is regenerated and consistent
+PAY-07,Payment,HIGH,Foreclosure closes the account,account reaches FORECLOSED/CLOSED with zero outstanding
+BAL-01,Balance,CRITICAL,Outstanding principal equals the test ledger after every payment,admin outstanding principal equals schedule-derived expectation
+BAL-02,Balance,CRITICAL,Closed account has zero outstanding,outstanding principal 0 at closure
+STA-01,Status,HIGH,Fully paid account reaches a closed status,cohort A accounts end CLOSED (or FORECLOSED when foreclosed)
+STA-02,Status,HIGH,Status transitions are legal,terminal states never revert; no status for an account that was never disbursed
+DPD-01,Delinquency,HIGH,Status equals the bucket for the independently computed DPD,after the DPD/NPA jobs run for a business date
+DPD-02,Delinquency,MEDIUM,Status ladder is walked without skipping buckets,rising DPD passes through each lower bucket
+DPD-03,Delinquency,HIGH,Cured account returns to ACTIVE once arrears are cleared,status ACTIVE after the last overdue instalment is paid
+DPD-04,Delinquency,MEDIUM,Admin portal days-past-due follows the simulated business date,admin DPD equals test DPD (it uses the wall clock today)
+ARR-01,Arrears,HIGH,Past-due unpaid instalments are marked OVERDUE,schedule row status OVERDUE after the DPD job for that date
+NPA-01,NPA,HIGH,Account at or beyond the NPA threshold carries an NPA status,status in NPA family from e2e.dpd.npa-from-days
+CAP-PENAL,Capability,HIGH,Penal interest on overdue amounts,API surface exposes penal interest handling
+CAP-PROVISION,Capability,HIGH,Provisioning by asset class,API surface exposes provisioning
+CAP-NPA-SUSPENSE,Capability,HIGH,Interest suspension / reversal on NPA,API or accrual data distinguishes suspended interest
+CAP-LEDGER,Capability,HIGH,General ledger / double-entry postings,API surface exposes journals or GL balances (only an outbox exists)
+CAP-RESTRUCTURE,Capability,MEDIUM,Restructure an account after delinquency,API surface exposes restructure
+CAP-WRITEOFF,Capability,MEDIUM,Write-off of loss assets,API surface exposes write-off
+CAP-CURE-RULE,Capability,MEDIUM,Configurable cure / upgrade rule,upgrade rule is configurable rather than immediate
+CAP-PARTIAL-ALLOC,Capability,MEDIUM,Partial payment allocation against an instalment,partial instalment payments accepted and allocated by a documented waterfall
+CAP-THRESHOLDS,Capability,MEDIUM,DPD / NPA thresholds are configurable,thresholds are configuration not constants
+CAP-BIZDATE,Capability,MEDIUM,Business-date / EOD rollover service,a platform business date exists (the suite passes the date as a job parameter)
+LED-01,Ledger,MEDIUM,Ledger outbox event exists for disbursal and payments,at least one outbox row per account and per payment event
+ENV-01,Environment,HIGH,Partition / data-window problems,calls for the simulated dates succeed (interest_accrual and emi_transaction partitions exist for them)

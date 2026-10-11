@@ -1,0 +1,34 @@
+# Scenario matrix for the lending lifecycle suite. Edit freely - nothing here is hard-coded in the code.
+# columns:
+#  scenarioId        unique id used in the audit trail and defect list
+#  cohort            A = good borrower (must reach CLOSED), B = stress borrower (delinquency / NPA paths)
+#  weight            how many times the row is repeated in the round-robin that fills the account count; 0 disables the row
+#  productCode       must exist and be ACTIVE (checked by dry-run). Mortgage products (HL01) are excluded: they need a mortgage record.
+#  repaymentFrequency/interestRate/dayCount/moratoriumMonths/balloonPercent/stepUpPercent  blank = take the product default
+#  dayCount          API tokens: ACT_365 ACT_ACT ACT_360 THIRTY_360 THIRTY_E_360
+#  behaviour         see Scenario.Behaviour; behaviourParams = key=value;key=value
+#  observeDaysAfterLastDue  how long to keep simulating a stress account after its last scheduled due date
+#  requiresFeatures  platform capabilities this scenario relies on; if a capability probe says NOT FOUND the scenario is reported as a gap, not silently passed
+scenarioId,cohort,weight,description,productCode,amount,tenureMonths,repaymentFrequency,interestRate,dayCount,moratoriumMonths,balloonPercent,stepUpPercent,behaviour,behaviourParams,observeDaysAfterLastDue,requiresFeatures
+A01,A,1,Personal loan EMI monthly ACT/365 on time,PL01,300000,12,,,,,,,ON_TIME,,0,ACCRUAL
+A02,A,1,Equal principal 30E/360 on time,TL01,600000,12,,,,,,,ON_TIME,,0,ACCRUAL
+A03,A,1,Interest only (bullet) ACT/360 on time,BB01,1000000,6,,,,,,,ON_TIME,,0,ACCRUAL
+A04,A,1,Balloon 30% ACT/365 on time,AB01,500000,12,,,,,,,ON_TIME,,0,ACCRUAL
+A05,A,1,Step-up EMI 5% a year on time,SU01,400000,24,,,,,,,ON_TIME,,0,ACCRUAL
+A06,A,1,EMI with 12 month moratorium 30/360 on time,EM01,500000,24,,,,,,,ON_TIME,,0,ACCRUAL
+A07,A,1,Equal principal quarterly foreclosed at instalment 2,TL01,480000,12,QUARTERLY,,,,,,FORECLOSE_AT,atInstalment=2,0,ACCRUAL
+A08,A,1,EMI paid 3 days late every month then closes,PL01,250000,12,,,,,,,LATE_PAY,lateDays=3,0,ACCRUAL|DPD
+A09,A,1,Floating rate auto loan on ACT/ACT override on time,AL01,400000,12,,,ACT_ACT,,,,ON_TIME,,0,ACCRUAL
+A10,A,1,EMI with a 20% part-payment after instalment 2,PL01,350000,12,,,,,,,PART_PAY_THEN_ON_TIME,afterInstalment=2;percent=20,0,ACCRUAL
+A11,A,1,Balloon loan foreclosed at instalment 6,AB01,450000,12,,,,,,,FORECLOSE_AT,atInstalment=6,0,ACCRUAL
+A12,A,1,EMI on 30E/360 override,PL01,320000,12,,,THIRTY_E_360,,,,ON_TIME,,0,ACCRUAL
+A13,A,1,EMI on 30/360 US override,PL01,320000,12,,,THIRTY_360,,,,ON_TIME,,0,ACCRUAL
+B01,B,1,(a) stops paying after 2 instalments - walks through SMA buckets into NPA,PL01,300000,12,,,,,,,STOP_PAYING,payInstalments=2,400,ACCRUAL|DPD_PERSISTED|NPA_CLASSIFICATION|ARREARS|NPA_INTEREST_SUSPENSION|PROVISIONING
+B02,B,1,(b) misses instalment 3 and pays it 20 days late - cures inside SMA0,PL01,300000,12,,,,,,,MISS_THEN_CURE,missInstalment=3;lateDays=20,30,ACCRUAL|DPD_PERSISTED
+B03,B,1,(c) misses instalment 3 and pays 75 days late - cures from SMA2,PL01,300000,12,,,,,,,MISS_THEN_CURE,missInstalment=3;lateDays=75,30,ACCRUAL|DPD_PERSISTED
+B04,B,1,(d) misses instalment 3 and pays 120 days late - NPA then upgrade on full clearance,PL01,300000,12,,,,,,,MISS_THEN_CURE,missInstalment=3;lateDays=120,30,ACCRUAL|DPD_PERSISTED|NPA_CLASSIFICATION|CURE_PERIOD_RULE
+B05,B,1,(e) short payment of an instalment must be rejected then correct payment accepted,PL01,300000,12,,,,,,,SHORT_PAY_THEN_PAY,shortInstalment=2,0,ACCRUAL|PARTIAL_PAYMENT_ALLOCATION
+B06,B,1,(f) goes NPA then forecloses 150 days after first missed due date,PL01,300000,12,,,,,,,NPA_THEN_FORECLOSE,payInstalments=3;forecloseAfterDays=150,10,ACCRUAL|NPA_CLASSIFICATION
+B07,B,1,(g) goes NPA then restructure is attempted,PL01,300000,12,,,,,,,RESTRUCTURE_AFTER_NPA,payInstalments=2,120,NPA_CLASSIFICATION|RESTRUCTURE
+B08,B,1,Equal principal loan stops paying after 1 instalment,TL01,360000,12,,,,,,,STOP_PAYING,payInstalments=1,130,ACCRUAL|DPD_PERSISTED|NPA_CLASSIFICATION
+B09,B,0,LONG RUN (disabled by default): stops paying and is observed past 1095 days to reach LOSS,PL01,300000,12,,,,,,,STOP_PAYING,payInstalments=1,1200,ACCRUAL|DPD_PERSISTED|NPA_CLASSIFICATION|WRITE_OFF

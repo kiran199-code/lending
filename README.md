@@ -66,3 +66,11 @@ Every account is opened from a **loan product** (`loan_product`, API `/api/v1/lo
 ## Known gaps
 
 Lending API has no authentication (the admin portal and batch API use HTTP Basic); batch job bodies and the real ledger client are stubs; free-tier Postgres expires after 30 days; the admin portal's Spring layer has not yet had a first Maven build. See the Technical Design Document, section 15.10.
+
+## End-to-end lifecycle test suite
+
+`lending-e2e-test-service/` is a **separate, independently deployed** test project (own pom, jar, Docker image; not in the
+reactor above and not a dependency of any module). It drives the real lending API and the real batch service day by day
+over a simulated calendar, verifies through the admin portal's read APIs, and writes an audit trail, a run report and a
+ranked defect list. It refuses to run against production. See `lending-e2e-test-service/README.md` and
+`lending-e2e-test-service/docs/DISCOVERY_REPORT.md`.

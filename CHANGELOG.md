@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `lending-e2e-test-service`: standalone end-to-end lifecycle test suite (Phase 1). Scenario matrix (CSV), simulated business
+  calendar, real batch trigger + poll, read-only verification via admin APIs, independent day-count / schedule / DPD checks,
+  per-day audit trail, run report, ranked defect list, production guard, run-ID tagging, teardown SQL, optional REST trigger,
+  Dockerfile and optional Testcontainers profile. No production code changed; platform gaps are listed in its
+  `docs/DISCOVERY_REPORT.md`.
+
 ## 2026-10-11 (docs v1.3)
 
 - **Day-count conventions**: ACT/360, 30/360 (US) and 30E/360 added to ACT/365 and ACT/ACT (`DayCountCalculator.yearFraction`; daily accrual uses a 360 basis for the three 360-day conventions).

@@ -1,0 +1,131 @@
+package com.bank.lending.e2e.run;
+
+import com.bank.lending.e2e.client.AdminReadClient;
+import com.bank.lending.e2e.client.BatchClient;
+import com.bank.lending.e2e.client.LendingClient;
+import com.bank.lending.e2e.config.E2eConfig;
+import com.bank.lending.e2e.config.EnvironmentGuard;
+import com.bank.lending.e2e.http.Http;
+import com.bank.lending.e2e.report.Reporter;
+import com.bank.lending.e2e.scenario.Scenario;
+import com.bank.lending.e2e.scenario.ScenarioLoader;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+/** Orchestrates a run: guard -> plan -> preflight -> probes -> simulation -> reports. Used by the CLI and the REST trigger. */
+public final class E2eRunner {
+
+    public record Outcome(String runId, int exitCode, String summary, Path outputDir) {
+    }
+
+    private final E2eConfig cfg;
+    private final Consumer<String> log;
+
+    public E2eRunner(E2eConfig cfg, Consumer<String> log) {
+        this.cfg = cfg;
+        this.log = log;
+    }
+
+    public static Http http(E2eConfig cfg, String baseUrlKey, String userKey, String passKey) {
+        String url = cfg.get(baseUrlKey);
+        if (url == null || url.isEmpty()) {
+            return null;
+        }
+        return new Http(url, cfg.get(userKey), cfg.get(passKey), cfg.getSeconds("e2e.http.connect-timeout-seconds"),
+                cfg.getSeconds("e2e.http.request-timeout-seconds"), cfg.getInt("e2e.http.retries"),
+                Duration.ofMillis(cfg.getLong("e2e.http.retry-backoff-ms")));
+    }
+
+    public Outcome execute(boolean dryRun) throws IOException {
+        // 1. the guard comes before anything touches the network
+        EnvironmentGuard.enforce(cfg);
+
+        Path root = Path.of(cfg.require("e2e.output-dir"));
+        RunContext ctx = RunContext.create(cfg.getLong("e2e.id-base"), root);
+        log.accept("Run id " + ctx.runId() + (dryRun ? " (DRY RUN - no writes)" : "") + ", profile " + cfg.profile());
+
+        Http lendingHttp = http(cfg, "e2e.lending.base-url", "e2e.lending.username", "e2e.lending.password");
+        Http batchHttp = http(cfg, "e2e.batch.base-url", "e2e.batch.username", "e2e.batch.password");
+        Http adminHttp = http(cfg, "e2e.admin.base-url", "e2e.admin.username", "e2e.admin.password");
+        if (lendingHttp == null || batchHttp == null || adminHttp == null) {
+            throw new IllegalStateException("e2e.lending.base-url, e2e.batch.base-url and e2e.admin.base-url must all be set");
+        }
+        LendingClient lending = new LendingClient(lendingHttp);
+        BatchClient batch = new BatchClient(batchHttp, cfg.getSeconds("e2e.batch.poll-timeout-seconds"),
+                Duration.ofMillis(cfg.getLong("e2e.batch.poll-interval-ms")));
+        AdminReadClient admin = new AdminReadClient(adminHttp);
+
+        List<Scenario> matrix = ScenarioLoader.load(cfg.require("e2e.scenario-file"));
+        List<Scenario> expanded = ScenarioLoader.expand(matrix, cfg.getInt("e2e.accounts"), cfg.getInt("e2e.cohort-a-percent"));
+        List<AccountSim> sims = new ArrayList<>();
+        for (int i = 0; i < expanded.size(); i++) {
+            sims.add(new AccountSim(i + 1, expanded.get(i), ctx.customerId(i + 1), ctx.sanctionRefId(i + 1)));
+        }
+
+        Preflight.Report pre = Preflight.run(cfg, lending, batch, admin, expanded);
+        log.accept("Preflight: " + pre.ok().size() + " ok, " + pre.problems().size() + " problem(s)");
+        pre.ok().forEach(m -> log.accept("  ok    " + m));
+        pre.problems().forEach(m -> log.accept("  FIX   " + m));
+
+        if (dryRun) {
+            printPlan(sims, ctx);
+            return new Outcome(ctx.runId(), pre.passed() ? 0 : 2, "Dry run " + (pre.passed() ? "passed" : "found problems"), ctx.outputDir());
+        }
+        if (!pre.passed()) {
+            return new Outcome(ctx.runId(), 2, "Preflight failed - nothing was created. Fix the items above or run dry-run.", ctx.outputDir());
+        }
+
+        Instant started = Instant.now();
+        Findings findings = new Findings();
+        Map<String, String> caps = CapabilityProbes.run(cfg, findings, lendingHttp, adminHttp, batchHttp, cfg.getDate("e2e.start-date"));
+        List<String> deviations = new ArrayList<>();
+        if ("API".equalsIgnoreCase(cfg.get("e2e.accrual.path"))) {
+            deviations.add("e2e.accrual.path=API: accrual was triggered through lending-service directly, NOT through the batch service.");
+        }
+        if ("API".equalsIgnoreCase(cfg.get("e2e.dpd.path"))) {
+            deviations.add("e2e.dpd.path=API: delinquency classification was triggered through lending-service directly, NOT through the batch service.");
+        }
+
+        Simulation sim = new Simulation(cfg, ctx, findings, lending, batch, admin, sims, log);
+        Reporter.RunFacts partial = new Reporter.RunFacts("RUN", started, null, 0, cfg.getDate("e2e.start-date"), null, 0, caps, pre.ok(), deviations);
+        Reporter.write(cfg, ctx, findings, sims, partial); // manifest exists even if the run crashes
+        try {
+            sim.run();
+        } finally {
+            if (!sim.truncated().isEmpty()) {
+                deviations.add("Run stopped by e2e.max-sim-days before " + sim.truncated().size() + " account(s) finished their lifecycle ("
+                        + String.join(", ", sim.truncated()) + "); their closure was not asserted. Raise e2e.max-sim-days.");
+            }
+            Reporter.RunFacts facts = new Reporter.RunFacts("RUN", started, Instant.now(), sim.daysRun(), cfg.getDate("e2e.start-date"),
+                    sim.lastDay(), sim.batchTriggers(), caps, pre.ok(), deviations);
+            Reporter.write(cfg, ctx, findings, sims, facts);
+        }
+        Findings.Severity threshold = Findings.Severity.valueOf(cfg.get("e2e.fail-on-severity", "HIGH").toUpperCase());
+        boolean fail = findings.anyAtOrAbove(threshold, cfg.getBool("e2e.fail-on-not-found"));
+        String summary = "Finished " + sim.daysRun() + " simulated days; results in " + ctx.outputDir().toAbsolutePath()
+                + (fail ? " - FAILED at severity >= " + threshold : " - no check at severity >= " + threshold + " failed");
+        return new Outcome(ctx.runId(), fail ? 1 : 0, summary, ctx.outputDir());
+    }
+
+    private void printPlan(List<AccountSim> sims, RunContext ctx) {
+        log.accept("Plan: " + sims.size() + " accounts, simulated start " + cfg.get("e2e.start-date") + ", ids " + ctx.rangeLow() + ".." + ctx.rangeHigh());
+        int longest = 0;
+        for (AccountSim s : sims) {
+            Scenario sc = s.scenario;
+            log.accept(String.format("  #%-3d %-4s cohort %s %-5s %,12.0f x %2dm  %-22s %s", s.index, sc.scenarioId(), sc.cohort(), sc.productCode(),
+                    sc.amount(), sc.tenureMonths(), sc.behaviour(), sc.behaviourParams()));
+            longest = Math.max(longest, sc.tenureMonths() * 31 + sc.observeDaysAfterLastDue());
+        }
+        int days = Math.min(longest, cfg.getInt("e2e.max-sim-days"));
+        int jobs = cfg.getList("e2e.batch.daily-jobs").size();
+        log.accept("Estimate: up to ~" + days + " simulated days, ~" + (days * jobs) + " batch triggers (+polls), ~"
+                + ((long) days * sims.size() * 2) + " read calls. Raise e2e.verify.every-n-days to cut verification calls.");
+    }
+}

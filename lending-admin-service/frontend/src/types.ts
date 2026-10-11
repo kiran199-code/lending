@@ -90,3 +90,26 @@ export interface BatchExecution { executionId: number; jobName: string; status: 
 export interface BatchOverview { jobs: BatchJob[]; recentExecutions: BatchExecution[]; note: string | null }
 
 export interface Me { username: string; statementEnabled: boolean; timezone: string }
+
+export interface BatchJobConfig {
+  configId: number; jobName: string; category: string; type: string; cron: string | null;
+  enabled: boolean; restartable: boolean; chunkSize: number | null; concurrency: number | null;
+  throttleLimit: number | null; retryLimit: number; skipLimit: number; priority: number;
+  timeoutMinutes: number | null; version: number; retryableExceptions: string | null;
+  skippableExceptions: string | null; jobParams: string | null; updatedAt: string | null;
+}
+export interface BatchJobUpdate {
+  enabled?: boolean; cronExpression?: string; restartable?: boolean; chunkSize?: number; concurrency?: number;
+  throttleLimit?: number; retryLimit?: number; skipLimit?: number; priority?: number; timeoutMinutes?: number;
+  expectedVersion?: number;
+}
+export interface BatchConfigResponse { jobs: BatchJobConfig[]; editable: boolean; note: string | null }
+export interface ApplyResult { job: BatchJobConfig; applied: boolean; message: string }
+export interface SettingRow {
+  name: string; envVar: string; value: string | null; defaultValue: string; sandboxValue: string;
+  description: string; secret: boolean; restartRequired: boolean;
+}
+export interface SettingGroup { title: string; settings: SettingRow[] }
+export interface ServiceSettings { service: string; description: string; changeVia: string; liveValues: boolean; groups: SettingGroup[] }
+export interface FixedRule { area: string; rule: string; value: string }
+export interface ConfigOverview { services: ServiceSettings[]; fixedRules: FixedRule[]; batchEditable: boolean }

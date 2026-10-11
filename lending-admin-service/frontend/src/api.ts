@@ -37,9 +37,15 @@ function qs(params?: Params): string {
   return s ? `?${s}` : '';
 }
 
-async function request(path: string, params?: Params): Promise<Response> {
+async function request(path: string, params?: Params, init?: { method: string; body?: unknown }): Promise<Response> {
   const t = token();
-  const res = await fetch(`/api/admin${path}${qs(params)}`, { headers: t ? { Authorization: `Basic ${t}` } : {} });
+  const headers: Record<string, string> = t ? { Authorization: `Basic ${t}` } : {};
+  if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await fetch(`/api/admin${path}${qs(params)}`, {
+    method: init?.method ?? 'GET',
+    headers,
+    body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+  });
   if (res.status === 401) {
     onUnauthorized();
     throw new ApiError(401, 'Please sign in');
@@ -54,6 +60,11 @@ async function request(path: string, params?: Params): Promise<Response> {
 
 export async function get<T>(path: string, params?: Params): Promise<T> {
   return (await request(path, params)).json() as Promise<T>;
+}
+
+/** The few write calls (saving batch job settings); everything else in the console is read-only. */
+export async function send<T>(method: 'PUT' | 'POST', path: string, body?: unknown, params?: Params): Promise<T> {
+  return (await request(path, params, { method, body })).json() as Promise<T>;
 }
 
 export async function download(path: string, fallbackName: string) {

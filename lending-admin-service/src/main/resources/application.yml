@@ -36,6 +36,13 @@ lending:
   service:
     base-url: ${LENDING_SERVICE_URL:}
 
+# Only used to edit batch job settings: they are saved through lending-batch-service's own admin API.
+batch:
+  service:
+    base-url: ${BATCH_SERVICE_URL:}
+    username: ${BATCH_ADMIN_USERNAME:batch-admin}
+    password: ${BATCH_ADMIN_PASSWORD:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

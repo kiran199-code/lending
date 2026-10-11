@@ -1,5 +1,6 @@
 package com.bank.lending.batch.web;
 
+import com.bank.lending.batch.core.BatchJobConfigService;
 import com.bank.lending.batch.core.BatchJobRegistry;
 import com.bank.lending.batch.core.launch.BatchExecutionQueryService;
 import com.bank.lending.batch.core.launch.BatchJobLauncherService;
@@ -13,6 +14,7 @@ import com.bank.lending.batch.web.dto.JobConfigResponse;
 import com.bank.lending.batch.web.dto.JobExecutionSummaryResponse;
 import com.bank.lending.batch.web.dto.JobStatusResponse;
 import com.bank.lending.batch.web.dto.TriggerJobRequest;
+import com.bank.lending.batch.web.dto.UpdateJobConfigRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.quartz.JobKey;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,6 +55,7 @@ public class BatchAdminController {
     private static final String QUARTZ_JOB_GROUP = "lending-batch";
 
     private final BatchJobConfigRepository batchJobConfigRepository;
+    private final BatchJobConfigService batchJobConfigService;
     private final BatchJobErrorRecordRepository batchJobErrorRecordRepository;
     private final BatchJobRegistry batchJobRegistry;
     private final BatchJobLauncherService batchJobLauncherService;
@@ -72,6 +76,18 @@ public class BatchAdminController {
         BatchJobConfig config = batchJobConfigRepository.findByJobName(jobName)
                 .orElseThrow(() -> new IllegalArgumentException("No such job: " + jobName));
         return JobConfigResponse.from(config, batchJobRegistry.registeredJobNames().contains(jobName));
+    }
+
+    /**
+     * Edit a job's settings (enabled, cron, chunk size, concurrency, retry/skip limits, priority,
+     * timeout). Validated with the same rules as startup; send expectedVersion to detect concurrent
+     * edits. The change is saved immediately but only takes effect on the scheduler after
+     * POST /config/reload.
+     */
+    @PutMapping("/jobs/{jobName}")
+    public JobConfigResponse updateJob(@PathVariable String jobName, @RequestBody UpdateJobConfigRequest request) {
+        BatchJobConfig updated = batchJobConfigService.update(jobName, request);
+        return JobConfigResponse.from(updated, batchJobRegistry.registeredJobNames().contains(jobName));
     }
 
     /**

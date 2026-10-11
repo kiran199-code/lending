@@ -17,10 +17,11 @@ change `lending-service` or `lending-batch-service`.
 | Accruals | Daily accrual totals, drill into any business date |
 | Ledger outbox | Posting status (PENDING / POSTED / FAILED) and retry counts |
 | Batch | Job registry and recent executions from the batch schema (empty until the batch service has run) |
+| Configuration | **Batch jobs (editable):** enable/disable, cron, chunk size, concurrency, thread limit, retry/skip limits, timeout, order, restartable - saved through the batch service, then applied with a scheduler reload. **Service settings:** every environment setting of the three services (live values for this service, defaults and Render values for the others; secrets never shown). **Fixed business rules:** behaviour coded into the services |
 
 ## How it gets data
 
-It connects **directly to the Lending PostgreSQL database, read-only**:
+It connects **directly to the Lending PostgreSQL database, read-only**. The single exception to read-only is the Configuration screen, which does not write to the database itself: it asks `lending-batch-service` to save a job's settings (`PUT /api/v1/batch-admin/jobs/{name}`, validated there) and then to reload (`POST /config/reload`).
 
 * the Hikari pool is `read-only` and every session runs `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`;
 * all queries are `SELECT`s (the current amortization schedule is the highest `schedule_version` per account);
@@ -36,6 +37,8 @@ The only call to another service is the statement PDF, proxied from `lending-ser
 | `DB_USER`, `DB_PASSWORD` | `lending_app` / `changeme` | DB credentials |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `admin` / `changeme` | **Console login (HTTP Basic) - change in every real environment** |
 | `LENDING_SERVICE_URL` | empty | e.g. `https://lending-service-5tqm.onrender.com`; enables the statement download |
+| `BATCH_SERVICE_URL` | empty | Public URL of lending-batch-service; with the password below it enables editing batch job settings (without them the Configuration screen is view-only) |
+| `BATCH_ADMIN_USERNAME`, `BATCH_ADMIN_PASSWORD` | `batch-admin` / empty | The batch service's own admin login (same values as on that service) |
 | `ADMIN_TIMEZONE` | `Asia/Kolkata` | What "today" means for due / overdue |
 | `SERVER_PORT` | `8082` | HTTP port |
 
@@ -60,7 +63,7 @@ Or the whole thing: `docker compose up --build lending-admin-service` from the r
 `GET /me` · `/dashboard` · `/accounts` · `/accounts/{id}` · `/accounts/by-number/{n}` · `/accounts/{id}/schedule?version=` ·
 `/accounts/{id}/accruals?from=&to=` · `/accounts/{id}/payments` · `/accounts/{id}/mortgage` · `/accounts/{id}/statement` ·
 `/upcoming-payments` · `/overdue` · `/overdue/buckets` · `/payments` · `/accruals/summary` · `/accruals?date=` ·
-`/ledger-outbox` · `/batch`. `/actuator/health` is open for health checks.
+`/ledger-outbox` · `/batch` · `/config` · `/config/batch-jobs` (GET, `PUT /{job}?apply=`, `POST /apply`). `/actuator/health` is open for health checks.
 
 ## Notes
 

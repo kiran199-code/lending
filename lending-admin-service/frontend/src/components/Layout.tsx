@@ -10,6 +10,7 @@ const NAV = [
   ['/accruals', 'Interest accruals'],
   ['/ledger', 'Ledger outbox'],
   ['/batch', 'Batch jobs'],
+  ['/config', 'Configuration'],
 ] as const;
 
 export default function Layout() {

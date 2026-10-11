@@ -1,6 +1,7 @@
 package com.bank.lending.admin.repository;
 
 import com.bank.lending.admin.dto.AdminDtos.BatchExecutionRow;
+import com.bank.lending.admin.dto.AdminDtos.BatchJobConfigRow;
 import com.bank.lending.admin.dto.AdminDtos.BatchJobRow;
 import com.bank.lending.admin.dto.AdminDtos.OutboxRow;
 import com.bank.lending.admin.dto.AdminDtos.PageResponse;
@@ -76,5 +77,35 @@ public class OpsRepository {
                 (rs, i) -> new BatchExecutionRow(rs.getLong("job_execution_id"), rs.getString("job_name"),
                         rs.getString("status"), rs.getString("exit_code"),
                         rs.getObject("start_time", LocalDateTime.class), rs.getObject("end_time", LocalDateTime.class)));
+    }
+
+    private static final String JOB_CONFIG_SELECT = """
+            SELECT config_id, job_name, job_category, job_type, cron_expression, enabled, restartable, chunk_size,
+                   concurrency, throttle_limit, retry_limit, skip_limit, priority, timeout_minutes, version,
+                   CAST(retryable_exceptions AS text) AS retryable_exceptions,
+                   CAST(skippable_exceptions AS text) AS skippable_exceptions,
+                   CAST(job_params_json AS text) AS job_params_json, updated_at
+            FROM batch.batch_job_config
+            """;
+
+    private static BatchJobConfigRow jobConfig(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
+        return new BatchJobConfigRow(rs.getLong("config_id"), rs.getString("job_name"), rs.getString("job_category"),
+                rs.getString("job_type"), rs.getString("cron_expression"), rs.getBoolean("enabled"),
+                rs.getBoolean("restartable"), Sql.intOrNull(rs, "chunk_size"), Sql.intOrNull(rs, "concurrency"),
+                Sql.intOrNull(rs, "throttle_limit"), rs.getInt("retry_limit"), rs.getInt("skip_limit"),
+                rs.getInt("priority"), Sql.intOrNull(rs, "timeout_minutes"), rs.getInt("version"),
+                rs.getString("retryable_exceptions"), rs.getString("skippable_exceptions"),
+                rs.getString("job_params_json"), Sql.ts(rs, "updated_at"));
+    }
+
+    /** Every batch job's full configuration (all 36 rows), in run order. */
+    public List<BatchJobConfigRow> batchJobConfigs() {
+        return jdbc.query(JOB_CONFIG_SELECT + " ORDER BY priority, job_name", new MapSqlParameterSource(),
+                OpsRepository::jobConfig);
+    }
+
+    public java.util.Optional<BatchJobConfigRow> batchJobConfig(String jobName) {
+        return jdbc.query(JOB_CONFIG_SELECT + " WHERE job_name = :n", new MapSqlParameterSource("n", jobName),
+                OpsRepository::jobConfig).stream().findFirst();
     }
 }

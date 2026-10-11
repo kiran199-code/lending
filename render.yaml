@@ -116,5 +116,16 @@ services:
       # Enables "Download statement" on the account page.
       - key: LENDING_SERVICE_URL
         value: https://lending-service-5tqm.onrender.com
+      # Enables editing batch job settings on the Configuration screen. Set BATCH_SERVICE_URL to
+      # lending-batch-service's public URL (Render dashboard > lending-batch-service); until then the screen is view-only.
+      - key: BATCH_SERVICE_URL
+        sync: false
+      - key: BATCH_ADMIN_USERNAME
+        value: batch-admin
+      - key: BATCH_ADMIN_PASSWORD
+        fromService:
+          type: web
+          name: lending-batch-service
+          envVarKey: BATCH_ADMIN_PASSWORD
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"

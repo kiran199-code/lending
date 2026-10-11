@@ -30,6 +30,19 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(FeatureDisabledException.class)
+    public ResponseEntity<Map<String, Object>> disabled(FeatureDisabledException ex) {
+        return body(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    /** 4xx from the other service (validation, edit conflict) is shown as-is; anything else is a bad gateway. */
+    @ExceptionHandler(UpstreamException.class)
+    public ResponseEntity<Map<String, Object>> upstream(UpstreamException ex) {
+        int s = ex.getStatus();
+        HttpStatus status = (s == 400 || s == 404 || s == 409 || s == 422) ? HttpStatus.valueOf(s) : HttpStatus.BAD_GATEWAY;
+        return body(status, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> other(Exception ex) {
         log.error("Unhandled error", ex);

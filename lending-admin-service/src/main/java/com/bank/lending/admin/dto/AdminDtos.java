@@ -154,4 +154,44 @@ public final class AdminDtos {
 
     public record BatchOverview(List<BatchJobRow> jobs, List<BatchExecutionRow> recentExecutions, String note) {
     }
+
+    // ---------------------------------------------------------------- configuration
+
+    /** One row of batch.batch_job_config (all editable settings plus the read-only descriptors). */
+    public record BatchJobConfigRow(long configId, String jobName, String category, String type, String cron,
+                                    boolean enabled, boolean restartable, Integer chunkSize, Integer concurrency,
+                                    Integer throttleLimit, int retryLimit, int skipLimit, int priority,
+                                    Integer timeoutMinutes, int version, String retryableExceptions,
+                                    String skippableExceptions, String jobParams, OffsetDateTime updatedAt) {
+    }
+
+    /** Partial edit; a null field is left unchanged. Same shape as lending-batch-service's request. */
+    public record BatchJobConfigUpdate(Boolean enabled, String cronExpression, Boolean restartable,
+                                       Integer chunkSize, Integer concurrency, Integer throttleLimit,
+                                       Integer retryLimit, Integer skipLimit, Integer priority,
+                                       Integer timeoutMinutes, Integer expectedVersion) {
+    }
+
+    public record BatchConfigResponse(List<BatchJobConfigRow> jobs, boolean editable, String note) {
+    }
+
+    public record ApplyResult(BatchJobConfigRow job, boolean applied, String message) {
+    }
+
+    public record SettingRow(String name, String envVar, String value, String defaultValue, String sandboxValue,
+                             String description, boolean secret, boolean restartRequired) {
+    }
+
+    public record SettingGroup(String title, List<SettingRow> settings) {
+    }
+
+    public record ServiceSettings(String service, String description, String changeVia, boolean liveValues,
+                                  List<SettingGroup> groups) {
+    }
+
+    public record FixedRule(String area, String rule, String value) {
+    }
+
+    public record ConfigOverview(List<ServiceSettings> services, List<FixedRule> fixedRules, boolean batchEditable) {
+    }
 }

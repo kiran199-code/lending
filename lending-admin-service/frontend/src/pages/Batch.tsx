@@ -28,7 +28,7 @@ export default function Batch() {
 
   return (
     <>
-      <PageHeader title="Batch jobs" sub="Read-only view of the batch service's job configuration and recent runs" />
+      <PageHeader title="Batch jobs" sub="Job list and recent runs; edit job settings under Configuration" />
       {loading && !data && <Loading />}
       {error && <ErrorBox message={error} onRetry={reload} />}
       {data && (

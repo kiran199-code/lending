@@ -164,3 +164,25 @@ input:focus, select:focus, .btn:focus-visible, .kpi-button:focus-visible, .tab:f
 .login { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; margin: 0; }
 .login label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
 .login input { color: var(--ink); }
+
+/* ---- configuration screen ---- */
+.banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--line); background: var(--info-bg); color: var(--ink); }
+.banner-good { background: var(--good-bg); }
+.banner-warn { background: var(--warn-bg); }
+.banner-bad { background: var(--bad-bg); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(8, 20, 24, .55); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; overflow-y: auto; z-index: 50; }
+.modal { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); width: min(720px, 100%); padding: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+.modal h2 { margin: 0 0 4px; font-size: 18px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 16px; margin: 16px 0; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.field > span { color: var(--muted); }
+.field input, .field select { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.field input:disabled { opacity: .55; }
+.field.wide { grid-column: 1 / -1; }
+.field .hint { font-size: 12px; color: var(--muted); }
+.modal-foot { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+.check { flex-direction: row; align-items: center; gap: 8px; }
+.check input { width: auto; }
+.setting-desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.secret { letter-spacing: 1px; }
+.changed { background: var(--warn-bg); }

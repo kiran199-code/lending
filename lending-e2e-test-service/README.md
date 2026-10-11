@@ -144,6 +144,43 @@ without touching the platform; say if you want it.
   non-production database. Batch execution history is not tagged per run and stays.
 * **Read-only.** `AdminReadClient` has no method that issues anything but `GET`; there is no JDBC dependency at all.
 
+## Hosting the suite on Render (no local machine)
+
+The repo's `render.yaml` defines a free web service `lending-e2e-test` that runs this suite in `serve` mode next to the
+three platform services. You start runs and read results from a browser.
+
+1. **Push the repo and sync the blueprint.** Render dashboard -> Blueprints -> your blueprint -> *Sync*. It builds the
+   Dockerfile in this folder and starts the service. It reads the batch and admin passwords from those services'
+   environment variables, and generates its own `E2E_SERVER_TOKEN`.
+2. **Set two URLs** (they are public URLs, not secrets) on `lending-e2e-test` -> Environment:
+   `E2E_BATCH_BASE_URL` = the lending-batch-service URL, `E2E_ADMIN_BASE_URL` = the lending-admin-service URL.
+   `E2E_LENDING_BASE_URL` is pre-filled. Save; Render redeploys.
+3. **Open the service URL**, paste the token (copy `E2E_SERVER_TOKEN` from the service's Environment tab) and press
+   *Dry run*. Fix anything it reports, then *Run*. Start small: accounts `10`, max simulated days `120`.
+4. **Watch** with *Refresh status* (the log tail is shown) or Render -> Logs. When it finishes, *List runs*, put the run id in
+   the box and open *Report*, *Defects*, *Audit trail*, *Checks*. *Teardown* forecloses the run's open accounts and returns
+   the cleanup SQL (`/runs/<runId>/cleanup`).
+
+Things that are different on Render's free plan:
+
+* **Sleep.** A free web service sleeps after about 15 minutes with no *inbound* request, and the suite's calls out to
+  the other services do not count. While a run is active, and for 30 minutes afterwards (`e2e.server.keepalive-minutes`),
+  the server pings its own `/health` through `RENDER_EXTERNAL_URL`, so it stays up. If you leave the console open that is
+  enough as well.
+* **Results are temporary.** The disk is wiped on restart or redeploy. Download what you need after a run. A redeploy
+  during a run kills the run.
+* **Guard.** The blueprint sets profile `dev` and `E2E_GUARD_ALLOWED_HOST_PATTERNS=\.onrender\.com$`, so the service can
+  only ever talk to Render hosts. The trigger cannot change URLs, credentials, profile or guard settings.
+* **Memory.** 512 MB; the heap is capped at 256 MB. A run of 20 accounts keeps well under that.
+* **Concurrency.** One run at a time (a second start returns 409).
+* **Time.** At free-tier latency the full 770-day default run can take hours. Use `max-sim-days` to shorten it.
+* **Who can call it.** Everything except `/health` and the empty console page needs the `X-E2E-Token` header. Treat the
+  token like a password and rotate it in the dashboard if it leaks.
+
+API (same token header): `POST /runs[?dryRun=true]` with optional JSON such as `{"accounts":"10","max-sim-days":"120"}`,
+`GET /runs`, `GET /runs/current`, `GET /runs/<id>/{report|defects|audit|checks|batch|manifest|cleanup}`,
+`POST /runs/<id>/teardown`.
+
 ## Open questions (each has a labelled, configurable default)
 
 | # | Question | Default used | Setting |

@@ -21,4 +21,4 @@ ENV E2E_OUTPUT_DIR=/results
 VOLUME /results
 EXPOSE 8090
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=60.0", "-jar", "app.jar"]
-CMD ["help"]
+CMD ["serve"]

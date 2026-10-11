@@ -136,3 +136,53 @@ services:
           envVarKey: BATCH_ADMIN_PASSWORD
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  # End-to-end lifecycle test suite (lending-e2e-test-service), hosted so runs need no local machine.
+  # Open its URL, paste E2E_SERVER_TOKEN (Environment tab), press Dry run, then Run. See
+  # lending-e2e-test-service/README.md "Hosting the suite on Render". It only ever talks to *.onrender.com hosts
+  # and refuses production-looking names. After the first sync set the two URLs marked sync:false.
+  - type: web
+    name: lending-e2e-test
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-e2e-test-service/Dockerfile
+    dockerContext: ./lending-e2e-test-service
+    healthCheckPath: /health
+    envVars:
+      - key: E2E_PROFILE
+        value: dev
+      - key: E2E_ENV_NAME
+        value: render-sandbox
+      - key: E2E_GUARD_ALLOWED_HOST_PATTERNS
+        value: '\.onrender\.com$'
+      - key: E2E_LENDING_BASE_URL
+        value: https://lending-service-5tqm.onrender.com
+      - key: E2E_BATCH_BASE_URL
+        sync: false   # public URL of lending-batch-service
+      - key: E2E_ADMIN_BASE_URL
+        sync: false   # public URL of lending-admin-service
+      - key: E2E_BATCH_USERNAME
+        value: batch-admin
+      - key: E2E_BATCH_PASSWORD
+        fromService:
+          type: web
+          name: lending-batch-service
+          envVarKey: BATCH_ADMIN_PASSWORD
+      - key: E2E_ADMIN_USERNAME
+        value: admin
+      - key: E2E_ADMIN_PASSWORD
+        fromService:
+          type: web
+          name: lending-admin-service
+          envVarKey: ADMIN_PASSWORD
+      - key: E2E_SERVER_BIND
+        value: 0.0.0.0
+      - key: E2E_SERVER_TOKEN
+        generateValue: true   # read it in the Render dashboard -> Environment; paste it into the console page
+      - key: E2E_HTTP_REQUEST_TIMEOUT_SECONDS
+        value: "120"
+      - key: E2E_HTTP_RETRIES
+        value: "5"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"

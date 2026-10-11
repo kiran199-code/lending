@@ -203,6 +203,21 @@ public final class AdminDtos {
                              BigDecimal minSpread, BigDecimal maxSpread,
                              BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
                              Integer minTenureMonths, Integer maxTenureMonths,
-                             String status, long accountCount) {
+                             String status, long accountCount, int version) {
+    }
+
+    /** Product list plus whether editing is switched on (needs LENDING_SERVICE_URL). */
+    public record ProductsResponse(List<ProductRow> products, boolean editable, String note) {
+    }
+
+    /** Create / replace body for a product; sent on to lending-service, which validates it. */
+    public record ProductInput(String productCode, String productName, String description,
+                               String accountType, String rateType, String scheduleType, String dayCountConvention,
+                               String benchmarkRateRef, BigDecimal defaultInterestRate, BigDecimal defaultSpread,
+                               BigDecimal minInterestRate, BigDecimal maxInterestRate,
+                               BigDecimal minSpread, BigDecimal maxSpread,
+                               BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
+                               Integer minTenureMonths, Integer maxTenureMonths,
+                               String status, Integer expectedVersion) {
     }
 }

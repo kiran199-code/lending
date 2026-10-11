@@ -48,7 +48,7 @@ public class ConfigCatalog {
                 live("Business timezone", "ADMIN_TIMEZONE", "admin.timezone", "Asia/Kolkata", NO, "Defines 'today' for due, overdue and month-to-date figures.", false, true),
                 live("HTTP port", "SERVER_PORT", "server.port", "8082", "10000", "Port the console listens on.", false, true))));
         g.add(new SettingGroup("Links to other services", List.of(
-                live("Lending service URL", "LENDING_SERVICE_URL", "lending.service.base-url", "(empty)", "https://lending-service-5tqm.onrender.com", "Enables the statement PDF download.", false, true),
+                live("Lending service URL", "LENDING_SERVICE_URL", "lending.service.base-url", "(empty)", "https://lending-service-5tqm.onrender.com", "Enables the statement PDF download and editing of loan products.", false, true),
                 live("Batch service URL", "BATCH_SERVICE_URL", "batch.service.base-url", "(empty)", "set by you", "Enables editing batch job settings.", false, true),
                 live("Batch service user", "BATCH_ADMIN_USERNAME", "batch.service.username", "batch-admin", "batch-admin", "Login used to call the batch service.", false, true),
                 live("Batch service password", "BATCH_ADMIN_PASSWORD", "batch.service.password", "(empty)", "copied from lending-batch-service", "Must equal the batch service's own BATCH_ADMIN_PASSWORD. Never shown.", true, true))));

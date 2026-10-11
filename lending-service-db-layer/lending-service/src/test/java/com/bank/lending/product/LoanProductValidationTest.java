@@ -17,7 +17,7 @@ class LoanProductValidationTest {
         return new LoanProductRequest("T1", "Test", null, LoanAccount.AccountType.UNSECURED, type, null, null,
                 benchmark, new BigDecimal(defRate), defSpread == null ? null : new BigDecimal(defSpread),
                 minRate == null ? null : new BigDecimal(minRate), maxRate == null ? null : new BigDecimal(maxRate),
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private static void validate(LoanProductRequest r) {

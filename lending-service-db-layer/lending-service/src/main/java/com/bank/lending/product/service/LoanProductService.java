@@ -15,8 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Product master maintenance. Editing a product only affects accounts created afterwards: product
- * terms are copied onto the account when it is created and are not re-applied to existing accounts.
+ * Product master maintenance. Editing a product never rewrites existing accounts: its terms are
+ * copied onto an account when it is created, and the product is consulted again only when that
+ * individual account is rescheduled by a floating rate reset (rate band floor / cap). There is
+ * deliberately no "reprice all accounts of this product" event.
  */
 @Service
 @RequiredArgsConstructor
@@ -53,6 +55,11 @@ public class LoanProductService {
     @Transactional
     public LoanProduct update(String productCode, LoanProductRequest request) {
         LoanProduct product = getByCode(productCode);
+        if (request.expectedVersion() != null && !request.expectedVersion().equals(product.getVersion())) {
+            throw new InvalidAccountStateException("Loan product " + productCode
+                    + " was changed by someone else (now version " + product.getVersion()
+                    + "); reload it and apply your change again");
+        }
         validate(request);
         apply(product, request);
         return productRepository.saveAndFlush(product);

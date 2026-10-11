@@ -41,6 +41,8 @@ public record LoanProductRequest(
         Integer minTenureMonths,
         Integer maxTenureMonths,
         @Schema(description = "Defaults to ACTIVE. An INACTIVE product cannot be used for new accounts.")
-        LoanProduct.Status status
+        LoanProduct.Status status,
+        @Schema(description = "Update only: the version you loaded. If the product has changed since, the update is refused (409).")
+        Integer expectedVersion
 ) {
 }

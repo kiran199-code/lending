@@ -120,5 +120,15 @@ export interface Product {
   benchmarkRateRef: string | null; defaultInterestRate: number; defaultSpread: number | null;
   minInterestRate: number | null; maxInterestRate: number | null; minSpread: number | null; maxSpread: number | null;
   minSanctionedAmount: number | null; maxSanctionedAmount: number | null;
-  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; accountCount: number;
+  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; accountCount: number; version: number;
+}
+
+export interface ProductsResponse { products: Product[]; editable: boolean; note: string | null }
+export interface ProductInput {
+  productCode: string; productName: string; description: string | null;
+  accountType: string; rateType: string; scheduleType: string; dayCountConvention: string;
+  benchmarkRateRef: string | null; defaultInterestRate: number | null; defaultSpread: number | null;
+  minInterestRate: number | null; maxInterestRate: number | null; minSpread: number | null; maxSpread: number | null;
+  minSanctionedAmount: number | null; maxSanctionedAmount: number | null;
+  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; expectedVersion: number | null;
 }

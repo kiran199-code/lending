@@ -2,6 +2,7 @@ package com.bank.lending.schedule.web;
 
 import com.bank.lending.common.dto.BatchOperationResponse;
 import com.bank.lending.common.exception.ResourceNotFoundException;
+import com.bank.lending.schedule.dto.AccrualResultResponse;
 import com.bank.lending.schedule.dto.InterestAccrualResponse;
 import com.bank.lending.schedule.service.InterestAccrualService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,14 @@ public class InterestAccrualController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDate) {
         interestAccrualService.runDailyAccrual(businessDate);
         return BatchOperationResponse.completed("Daily accrual run for " + businessDate);
+    }
+
+    @Operation(summary = "Accrue interest for one account as of a business date (idempotent; used by the EOD batch, one call per account)")
+    @PostMapping("/api/v1/loan-accounts/{accountId}/interest-accruals")
+    public AccrualResultResponse accrueAccount(
+            @PathVariable Long accountId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDate) {
+        return interestAccrualService.accrueAccount(accountId, businessDate);
     }
 
     @Operation(summary = "Get the accrual posted for an account on a given business date, if any")

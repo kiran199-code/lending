@@ -38,3 +38,9 @@ logging:
   level:
     com.bank.lending.batch: INFO
     org.springframework.batch: WARN
+
+# No default in prod: the service refuses to start without a lending-service URL rather than
+# silently pointing batch jobs at localhost.
+lending:
+  service:
+    base-url: ${LENDING_SERVICE_URL}

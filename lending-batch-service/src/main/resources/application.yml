@@ -56,6 +56,21 @@ batch:
     username: ${BATCH_ADMIN_USERNAME:batch-admin}
     password: ${BATCH_ADMIN_PASSWORD:changeme}
 
+# lending-service is the only writer of loan data: batch jobs call its REST API (the batch DB
+# role is read-only on the lending tables). base-url comes from LENDING_SERVICE_URL — required in
+# the prod profile, defaulted to localhost:8080 elsewhere. lending-service has no auth today, so
+# the credentials are optional and only sent when a username is configured.
+lending:
+  service:
+    base-url: ${LENDING_SERVICE_URL:http://localhost:8080}
+    username: ${LENDING_SERVICE_USERNAME:}
+    password: ${LENDING_SERVICE_PASSWORD:}
+    connect-timeout-seconds: ${LENDING_SERVICE_CONNECT_TIMEOUT_SECONDS:5}
+    # Render free tier cold-starts in ~50 s, so the default is generous.
+    request-timeout-seconds: ${LENDING_SERVICE_REQUEST_TIMEOUT_SECONDS:90}
+    max-attempts: ${LENDING_SERVICE_MAX_ATTEMPTS:4}
+    retry-backoff-millis: ${LENDING_SERVICE_RETRY_BACKOFF_MILLIS:500}
+
 management:
   endpoints:
     web:

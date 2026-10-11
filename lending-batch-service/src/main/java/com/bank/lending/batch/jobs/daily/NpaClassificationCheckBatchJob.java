@@ -2,27 +2,29 @@ package com.bank.lending.batch.jobs.daily;
 
 import com.bank.lending.batch.core.AbstractAccountRangeChunkJob;
 import com.bank.lending.batch.core.BatchJobContext;
+import com.bank.lending.batch.lending.LendingServiceClient;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 
 /**
- * Daily EOD: re-derives each account's RBI IRAC asset-classification bucket from its current DPD.
+ * Daily EOD: re-derives each account's SMA / NPA (IRAC) asset-classification bucket from its DPD.
  *
- * <p>TODO: business logic — batch-service-owned equivalent of lending-service's
- * LoanAccountService#classifyDelinquency: read the DPD figure DPD_UPDATE_DAILY persisted for
- * accountId, map it to a bucket (SMA-0/1/2, sub-standard, doubtful, loss) using the thresholds
- * in {@link BatchJobContext#jobParamsJson()} (e.g.
- * {@code {"smaThresholds": [30,60,90], "substandardDays": 365, "doubtfulDays": 1095}}), and
- * update loan_account.account_status when it changes. Must run after DPD_UPDATE_DAILY —
- * batch_job_config.priority should reflect that ordering.
+ * <p>Calls {@code POST /api/v1/loan-accounts/{id}/delinquency-classification}, the same idempotent
+ * endpoint DPD_UPDATE_DAILY uses (see the note there): by the time this job runs (priority after
+ * the DPD job) it normally finds nothing to change and acts as a verification pass. Items whose
+ * status did not change are filtered. Per-run thresholds in {@code job_params_json} are not used
+ * yet — lending-service applies fixed bands until its thresholds become configurable.
  */
 @Component
 public class NpaClassificationCheckBatchJob extends AbstractAccountRangeChunkJob<Long> {
 
-    public NpaClassificationCheckBatchJob(DataSource dataSource) {
+    private final LendingServiceClient lending;
+
+    public NpaClassificationCheckBatchJob(DataSource dataSource, LendingServiceClient lending) {
         super(dataSource);
+        this.lending = lending;
     }
 
     @Override
@@ -33,8 +35,9 @@ public class NpaClassificationCheckBatchJob extends AbstractAccountRangeChunkJob
     @Override
     public ItemProcessor<Long, Long> processor() {
         return accountId -> {
-            // TODO: business logic — reclassify accountId's IRAC bucket from its current DPD.
-            return accountId;
+            LendingServiceClient.DelinquencyResult result =
+                    lending.classifyDelinquency(accountId, BatchJobContext.businessDate());
+            return result.statusChanged() ? accountId : null;
         };
     }
 }

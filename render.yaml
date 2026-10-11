@@ -88,6 +88,10 @@ services:
         value: batch-admin
       - key: BATCH_ADMIN_PASSWORD
         generateValue: true   # read it in the Render dashboard -> Environment
+      # Batch jobs call lending-service's REST API for every change to loan data.
+      # Required: the prod profile refuses to start without it.
+      - key: LENDING_SERVICE_URL
+        value: https://lending-service-5tqm.onrender.com
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 

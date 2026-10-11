@@ -8,6 +8,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -72,8 +73,46 @@ class LendingBatchServiceIntegrationTest {
     @Container
     static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
 
+    /**
+     * Stand-in for lending-service: INTEREST_ACCRUAL_DAILY now calls
+     * POST /api/v1/loan-accounts/{id}/interest-accruals for every ACTIVE account, so the context
+     * needs something to answer. Records which account ids it was asked about.
+     */
+    static final java.util.Set<String> ACCRUED_ACCOUNT_IDS = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    static HttpServer lendingStub;
+
+    static {
+        try {
+            lendingStub = HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            lendingStub.createContext("/api/v1/loan-accounts/", exchange -> {
+                String[] parts = exchange.getRequestURI().getPath().split("/");
+                // /api/v1/loan-accounts/{id}/interest-accruals -> ["", "api", "v1", "loan-accounts", "{id}", "interest-accruals"]
+                byte[] body;
+                int status = 200;
+                if (parts.length == 6 && "interest-accruals".equals(parts[5])
+                        && "POST".equals(exchange.getRequestMethod())) {
+                    ACCRUED_ACCOUNT_IDS.add(parts[4]);
+                    body = ("{\"accountId\":" + parts[4] + ",\"outcome\":\"POSTED\",\"accruedAmount\":1.0000}")
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                } else {
+                    status = 404;
+                    body = "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                }
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(status, body.length);
+                try (java.io.OutputStream out = exchange.getResponseBody()) {
+                    out.write(body);
+                }
+            });
+            lendingStub.start();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not start lending-service stub", e);
+        }
+    }
+
     @DynamicPropertySource
     static void containerProperties(DynamicPropertyRegistry registry) {
+        registry.add("lending.service.base-url", () -> "http://127.0.0.1:" + lendingStub.getAddress().getPort());
         registry.add("spring.datasource.url", () -> postgres.getJdbcUrl() + "&currentSchema=batch,public");
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -144,6 +183,9 @@ class LendingBatchServiceIntegrationTest {
         if (kafkaConsumer != null) {
             kafkaConsumer.close();
         }
+        if (lendingStub != null) {
+            lendingStub.stop(0);
+        }
     }
 
     @Test
@@ -164,6 +206,9 @@ class LendingBatchServiceIntegrationTest {
         // worker StepExecution, not just a single-threaded pass with gridSize ignored.
         assertThat(distinctPartitionStepCount("INTEREST_ACCRUAL_DAILY", dailyFinal.getId())).isGreaterThan(1);
         assertThat(distinctPartitionStepCount("EMI_BILLING_GENERATION_MONTHLY", monthlyFinal.getId())).isGreaterThan(1);
+
+        // INTEREST_ACCRUAL_DAILY really called lending-service once for each of the 80 ACTIVE accounts.
+        assertThat(ACCRUED_ACCOUNT_IDS).hasSize(80);
 
         // MetricsJobExecutionListener -> KafkaJobEventBridge: a completion event for at least one
         // of the two jobs above should have reached the topic.

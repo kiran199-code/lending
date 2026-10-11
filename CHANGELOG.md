@@ -3,6 +3,26 @@
 ## [Unreleased]
 
 ### Added
+- **Batch jobs now call lending-service (Phase A).** The batch service gets a `LendingServiceClient` (JDK HTTP client; base URL
+  `LENDING_SERVICE_URL`, optional Basic auth, timeouts, retry on I/O errors and 429/502/503/504 only; failures are
+  `IllegalStateException`s so the existing skip and dead-letter handling applies). Nine jobs are wired, the other 27 are unchanged stubs:
+  - `INTEREST_ACCRUAL_DAILY` -> `POST /api/v1/loan-accounts/{id}/interest-accruals?businessDate=` (new, per account, idempotent).
+  - `DPD_UPDATE_DAILY` and `NPA_CLASSIFICATION_CHECK_DAILY` -> `POST /api/v1/loan-accounts/{id}/delinquency-classification` (new, per account).
+    Both call the same endpoint for now: lending-service does not persist DPD and its bands are fixed.
+  - `RATE_RESET_CHECK_DAILY`, `RATE_RESET_MONTHLY`, `QUARTERLY_RATE_RESET` -> `POST /api/v1/loan-accounts/{id}/rate-reset` (new, per account).
+    The rate comes from the new `benchmark_rate` table (migration V12; `PUT /api/v1/benchmark-rates/{ref}/{effectiveDate}`,
+    `GET /api/v1/benchmark-rates/{ref}?asOf=`, `GET .../history`). A run without `benchmarkRateRef` in `job_params_json` fails.
+    Batch migration V4 gives the seeded daily job `{"benchmarkRateRef": "OVERNIGHT_MIBOR"}` (only while its params are still `{}`).
+  - `GL_POSTING_RECONCILIATION_DAILY` -> `ledger-outbox/push` until `ledger-outbox/pending` is empty (fails if entries stay PENDING).
+    The GL trial-balance comparison is not done (the ledger gateway is a stub).
+  - `MONTH_END_GL_CLOSE_MONTHLY` -> fails if any ledger outbox entry is PENDING (partial: no sub-ledger reconciliation or period lock).
+  - `FORECLOSURE_PREPAYMENT_PROCESSING` -> `POST /{id}/payments/foreclosure` with key `FORECLOSURE-<accountId>-<date>`; params `accountId`, optional `foreclosureDate`, `channel`.
+  - Existing bulk endpoints (`/interest-accruals/run`, `/delinquency-classifications`, `/rate-resets`) are unchanged.
+  - Config: `lending.service.*` in `application.yml`; required in the prod profile. `render.yaml` and `docker-compose.yml` set `LENDING_SERVICE_URL`.
+  - Tests: batch `LendingServiceClientTest` and `LendingBackedJobsTest` (23 cases, run against an in-JVM HTTP server and a fake client); lending
+    `BenchmarkRateServiceTest` and `AccountLevelBatchOperationsTest`; the batch integration test now stands up a lending-service stub.
+  - Not yet compiled or run by Maven here (the build sandbox could not reach Maven Central). The batch client, `JobParams`, job bodies and their unit tests
+    were compiled with `javac` against stubs of the Spring types and pass; the lending-service changes and the integration test have only been reviewed.
 - `lending-e2e-test-service`: standalone end-to-end lifecycle test suite (Phase 1). Scenario matrix (CSV), simulated business
   calendar, real batch trigger + poll, read-only verification via admin APIs, independent day-count / schedule / DPD checks,
   per-day audit trail, run report, ranked defect list, production guard, run-ID tagging, teardown SQL, optional REST trigger,

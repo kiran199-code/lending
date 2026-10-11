@@ -76,6 +76,7 @@ services:
       DB_USERNAME: lending_batch
       DB_PASSWORD: lending_batch
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LENDING_SERVICE_URL: http://lending-service:8080
       BATCH_ADMIN_USERNAME: batch-admin
       BATCH_ADMIN_PASSWORD: changeme
     ports:

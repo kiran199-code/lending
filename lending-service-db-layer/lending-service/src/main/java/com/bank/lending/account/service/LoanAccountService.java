@@ -2,6 +2,10 @@ package com.bank.lending.account.service;
 
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.dto.CreateLoanAccountRequest;
+import com.bank.lending.account.dto.DelinquencyResultResponse;
+import com.bank.lending.account.dto.RateResetResultResponse;
+import com.bank.lending.benchmark.domain.BenchmarkRate;
+import com.bank.lending.benchmark.service.BenchmarkRateService;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.account.util.AccountNumberGenerator;
 import com.bank.lending.common.exception.InvalidAccountStateException;
@@ -51,6 +55,7 @@ public class LoanAccountService {
     private final LedgerOutboxService ledgerOutboxService;
     private final AccountTermsResolver termsResolver;
     private final LoanProductRepository productRepository;
+    private final BenchmarkRateService benchmarkRateService;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -169,13 +174,47 @@ public class LoanAccountService {
         do {
             page = loanAccountRepository.findActiveFloatingByBenchmark(benchmarkRateRef, PageRequest.of(pageNo, 200));
             for (LoanAccount account : page.getContent()) {
-                resetRateForAccount(account, newBenchmarkRate, products.get(account.getProductId()));
+                applyBenchmarkRate(account, newBenchmarkRate, products.get(account.getProductId()));
             }
             pageNo++;
         } while (page.hasNext());
     }
 
-    private void resetRateForAccount(LoanAccount account, BigDecimal newBenchmarkRate, LoanProduct product) {
+    /**
+     * Resets a single account's rate from the benchmark rate in force on {@code businessDate}
+     * (see {@link BenchmarkRateService}), regenerating its remaining schedule when the rate
+     * actually changes. Idempotent: a repeat call finds the rate already applied and reports UNCHANGED.
+     * Accounts that are not ACTIVE FLOATING (or reference a different benchmark than the caller asked
+     * for) are SKIPPED rather than rejected.
+     */
+    @Transactional
+    public RateResetResultResponse resetRateForAccount(Long accountId, LocalDate businessDate, String requiredBenchmarkRef) {
+        LoanAccount account = getById(accountId);
+        String ref = account.getBenchmarkRateRef();
+        if (account.getAccountStatus() != ACTIVE || account.getRateType() != LoanAccount.RateType.FLOATING || ref == null) {
+            return rateResetSkipped(account, businessDate, "Account is not an ACTIVE floating-rate account");
+        }
+        if (requiredBenchmarkRef != null && !requiredBenchmarkRef.equals(ref)) {
+            return rateResetSkipped(account, businessDate,
+                    "Account references benchmark " + ref + ", not " + requiredBenchmarkRef);
+        }
+        BenchmarkRate benchmark = benchmarkRateService.getRateAsOf(ref, businessDate);
+        BigDecimal previous = account.getInterestRate();
+        LoanProduct product = productRepository.findById(account.getProductId()).orElse(null);
+        boolean changed = applyBenchmarkRate(account, benchmark.getRate(), product);
+        return new RateResetResultResponse(accountId, businessDate,
+                changed ? RateResetResultResponse.Outcome.RESET : RateResetResultResponse.Outcome.UNCHANGED,
+                ref, benchmark.getRate(), previous, account.getInterestRate(), null);
+    }
+
+    private RateResetResultResponse rateResetSkipped(LoanAccount account, LocalDate businessDate, String reason) {
+        return new RateResetResultResponse(account.getAccountId(), businessDate,
+                RateResetResultResponse.Outcome.SKIPPED, account.getBenchmarkRateRef(), null,
+                account.getInterestRate(), account.getInterestRate(), reason);
+    }
+
+    /** @return true when the rate changed (and the schedule was regenerated), false when it was already current. */
+    private boolean applyBenchmarkRate(LoanAccount account, BigDecimal newBenchmarkRate, LoanProduct product) {
         BigDecimal spread = account.getSpread() != null ? account.getSpread() : BigDecimal.ZERO;
         BigDecimal newRate = newBenchmarkRate.add(spread);
         // The product's rate band acts as a floor and a cap on the reset rate.
@@ -188,7 +227,7 @@ public class LoanAccountService {
             }
         }
         if (newRate.compareTo(account.getInterestRate()) == 0) {
-            return;
+            return false;
         }
 
         account.setInterestRate(newRate);
@@ -196,7 +235,7 @@ public class LoanAccountService {
 
         int version = scheduleRepository.findCurrentVersion(account.getAccountId()).orElse(0);
         if (version == 0) {
-            return;
+            return true;
         }
 
         List<AmortizationScheduleEntry> pending = scheduleRepository
@@ -205,13 +244,14 @@ public class LoanAccountService {
                 .sorted(Comparator.comparing(AmortizationScheduleEntry::getInstallmentNumber))
                 .toList();
         if (pending.isEmpty()) {
-            return;
+            return true;
         }
 
         AmortizationScheduleEntry nextPending = pending.get(0);
         BigDecimal outstanding = nextPending.getOutstandingBalance().add(nextPending.getPrincipalComponent());
         scheduleService.regenerateSchedule(account, outstanding, newRate, pending.size(),
                 nextPending.getDueDate(), nextPending.getInstallmentNumber());
+        return true;
     }
 
     /**
@@ -235,10 +275,27 @@ public class LoanAccountService {
         } while (page.hasNext());
     }
 
-    private void classifyAccount(LoanAccount account, LocalDate asOfDate) {
+    /**
+     * Classifies a single account as of a date: days past due of its oldest unpaid instalment, the
+     * resulting SMA/NPA status, and the OVERDUE flag on that instalment. Idempotent for a given
+     * (account, date). Accounts outside the tracked statuses (closed, pending disbursement, ...) are
+     * reported as skipped and left untouched.
+     */
+    @Transactional
+    public DelinquencyResultResponse classifyOne(Long accountId, LocalDate asOfDate) {
+        LoanAccount account = getById(accountId);
+        if (!DELINQUENCY_TRACKED_STATUSES.contains(account.getAccountStatus())) {
+            return new DelinquencyResultResponse(accountId, asOfDate, 0, account.getAccountStatus(),
+                    account.getAccountStatus(), false, true);
+        }
+        return classifyAccount(account, asOfDate);
+    }
+
+    private DelinquencyResultResponse classifyAccount(LoanAccount account, LocalDate asOfDate) {
+        LoanAccount.AccountStatus previous = account.getAccountStatus();
         int version = scheduleRepository.findCurrentVersion(account.getAccountId()).orElse(0);
         if (version == 0) {
-            return;
+            return new DelinquencyResultResponse(account.getAccountId(), asOfDate, 0, previous, previous, false, false);
         }
 
         List<AmortizationScheduleEntry> entries = scheduleRepository
@@ -254,7 +311,8 @@ public class LoanAccountService {
                 account.setAccountStatus(ACTIVE);
                 loanAccountRepository.save(account);
             }
-            return;
+            return new DelinquencyResultResponse(account.getAccountId(), asOfDate, 0, previous,
+                    account.getAccountStatus(), previous != account.getAccountStatus(), false);
         }
 
         long daysPastDue = ChronoUnit.DAYS.between(oldestUnpaid.get().getDueDate(), asOfDate);
@@ -268,6 +326,8 @@ public class LoanAccountService {
             oldestUnpaid.get().setInstallmentStatus(AmortizationScheduleEntry.InstallmentStatus.OVERDUE);
             scheduleRepository.save(oldestUnpaid.get());
         }
+        return new DelinquencyResultResponse(account.getAccountId(), asOfDate, daysPastDue, previous,
+                account.getAccountStatus(), previous != account.getAccountStatus(), false);
     }
 
     private LoanAccount.AccountStatus classifyByDaysPastDue(long daysPastDue) {

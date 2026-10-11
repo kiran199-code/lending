@@ -2,8 +2,10 @@ package com.bank.lending.schedule.service;
 
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
+import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
 import com.bank.lending.schedule.domain.InterestAccrual;
+import com.bank.lending.schedule.dto.AccrualResultResponse;
 import com.bank.lending.schedule.repository.AmortizationScheduleRepository;
 import com.bank.lending.schedule.repository.InterestAccrualRepository;
 import com.bank.lending.schedule.util.DayCountCalculator;
@@ -55,14 +57,42 @@ public class InterestAccrualService {
         return interestAccrualRepository.findByAccountIdAndBusinessDate(accountId, businessDate);
     }
 
-    private void accrueForAccount(LoanAccount account, LocalDate businessDate) {
-        BigDecimal outstanding = currentOutstandingPrincipal(account.getAccountId());
+    /**
+     * Accrues interest for one account on one business date. Idempotent: if an accrual already
+     * exists for (account, date) nothing is written and ALREADY_POSTED is returned. Accounts that
+     * are not ACTIVE, or have nothing outstanding, are SKIPPED (not an error: the caller's list of
+     * accounts can be a little stale by the time it gets here).
+     */
+    @Transactional
+    public AccrualResultResponse accrueAccount(Long accountId, LocalDate businessDate) {
+        LoanAccount account = loanAccountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Loan account " + accountId + " not found"));
+        if (account.getAccountStatus() != LoanAccount.AccountStatus.ACTIVE) {
+            return new AccrualResultResponse(accountId, businessDate, AccrualResultResponse.Outcome.SKIPPED,
+                    null, null, "Account status is " + account.getAccountStatus() + ", only ACTIVE accounts accrue");
+        }
+        return accrueForAccount(account, businessDate);
+    }
+
+    private AccrualResultResponse accrueForAccount(LoanAccount account, LocalDate businessDate) {
+        Long accountId = account.getAccountId();
+        BigDecimal outstanding = currentOutstandingPrincipal(accountId);
         if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-            return;
+            return new AccrualResultResponse(accountId, businessDate, AccrualResultResponse.Outcome.SKIPPED,
+                    null, null, "No outstanding principal");
         }
         BigDecimal dailyInterest = DayCountCalculator.dailyInterest(
                 outstanding, account.getInterestRate(), account.getDayCountConvention(), businessDate);
-        interestAccrualRepository.insertIfAbsent(account.getAccountId(), businessDate, dailyInterest, outstanding);
+        int inserted = interestAccrualRepository.insertIfAbsent(accountId, businessDate, dailyInterest, outstanding);
+        if (inserted == 1) {
+            return new AccrualResultResponse(accountId, businessDate, AccrualResultResponse.Outcome.POSTED,
+                    dailyInterest, outstanding, null);
+        }
+        return interestAccrualRepository.findByAccountIdAndBusinessDate(accountId, businessDate)
+                .map(a -> new AccrualResultResponse(accountId, businessDate, AccrualResultResponse.Outcome.ALREADY_POSTED,
+                        a.getAccruedAmount(), a.getOutstandingPrincipal(), null))
+                .orElseGet(() -> new AccrualResultResponse(accountId, businessDate,
+                        AccrualResultResponse.Outcome.ALREADY_POSTED, dailyInterest, outstanding, null));
     }
 
     /**

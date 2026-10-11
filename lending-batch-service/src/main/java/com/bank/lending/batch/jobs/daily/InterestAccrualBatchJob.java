@@ -2,30 +2,29 @@ package com.bank.lending.batch.jobs.daily;
 
 import com.bank.lending.batch.core.AbstractAccountRangeChunkJob;
 import com.bank.lending.batch.core.BatchJobContext;
+import com.bank.lending.batch.lending.LendingServiceClient;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 
 /**
- * Daily EOD: computes and posts today's interest accrual for every active account.
+ * Daily EOD: accrues today's interest for every ACTIVE account, one lending-service call per account.
  *
- * <p>TODO: business logic — for each account_id in this partition, as of
- * {@link BatchJobContext#businessDate()}: determine current outstanding principal from
- * amortization_schedule (the pending/overdue installment's outstanding_balance + principal_component,
- * same derivation as lending-service's InterestAccrualService#currentOutstandingPrincipal), compute
- * daily interest using loan_account.day_count_convention (ACT/365, ACT/ACT, 30/360 — mirror
- * DayCountCalculator), and upsert the result into interest_accrual idempotently on
- * (account_id, business_date). This is the batch-service-owned equivalent of
- * lending-service's InterestAccrualService#runDailyAccrual; once this job is live, that
- * synchronous path should be considered EOD-batch-only trigger surface, not a second source of
- * accrual writes.
+ * <p>Calls {@code POST /api/v1/loan-accounts/{id}/interest-accruals?businessDate=} — lending-service
+ * owns the maths (outstanding principal, day-count convention) and writes the accrual idempotently
+ * on (account, business date), so a re-run or a retried chunk never double-accrues. Items that
+ * did not result in a new accrual (already posted, nothing outstanding) are filtered, so the step's
+ * "write count" is the number of accruals actually posted.
  */
 @Component
 public class InterestAccrualBatchJob extends AbstractAccountRangeChunkJob<Long> {
 
-    public InterestAccrualBatchJob(DataSource dataSource) {
+    private final LendingServiceClient lending;
+
+    public InterestAccrualBatchJob(DataSource dataSource, LendingServiceClient lending) {
         super(dataSource);
+        this.lending = lending;
     }
 
     @Override
@@ -41,8 +40,8 @@ public class InterestAccrualBatchJob extends AbstractAccountRangeChunkJob<Long> 
     @Override
     public ItemProcessor<Long, Long> processor() {
         return accountId -> {
-            // TODO: business logic — compute and upsert today's interest_accrual row for accountId.
-            return accountId;
+            LendingServiceClient.AccrualResult result = lending.accrueInterest(accountId, BatchJobContext.businessDate());
+            return result.posted() ? accountId : null;
         };
     }
 }

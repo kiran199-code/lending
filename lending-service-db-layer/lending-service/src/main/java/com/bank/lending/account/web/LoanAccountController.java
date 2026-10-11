@@ -1,7 +1,10 @@
 package com.bank.lending.account.web;
 
 import com.bank.lending.account.domain.LoanAccount;
+import com.bank.lending.account.dto.AccountRateResetRequest;
 import com.bank.lending.account.dto.CreateLoanAccountRequest;
+import com.bank.lending.account.dto.DelinquencyResultResponse;
+import com.bank.lending.account.dto.RateResetResultResponse;
 import com.bank.lending.account.dto.DelinquencyClassificationRequest;
 import com.bank.lending.account.dto.DisburseRequest;
 import com.bank.lending.account.dto.FloatingRateResetRequest;
@@ -114,6 +117,20 @@ public class LoanAccountController {
     public LoanAccountResponse disburse(@PathVariable Long accountId, @Valid @RequestBody DisburseRequest request) {
         return LoanAccountResponse.from(
                 loanAccountService.disburse(accountId, request.disbursedAmount(), request.firstEmiDueDate()));
+    }
+
+    @Operation(summary = "Reset one floating-rate account from the benchmark rate in force on a business date (idempotent; used by the rate-reset batch jobs)")
+    @PostMapping("/{accountId}/rate-reset")
+    public RateResetResultResponse resetRate(@PathVariable Long accountId,
+                                             @Valid @RequestBody AccountRateResetRequest request) {
+        return loanAccountService.resetRateForAccount(accountId, request.businessDate(), request.benchmarkRateRef());
+    }
+
+    @Operation(summary = "Classify one account's delinquency (days past due, SMA/NPA status) as of a date (idempotent; used by the DPD/NPA batch jobs)")
+    @PostMapping("/{accountId}/delinquency-classification")
+    public DelinquencyResultResponse classifyAccount(@PathVariable Long accountId,
+                                                     @Valid @RequestBody DelinquencyClassificationRequest request) {
+        return loanAccountService.classifyOne(accountId, request.asOfDate());
     }
 
     @Operation(summary = "Batch: apply a benchmark rate change to all active floating-rate accounts referencing it")

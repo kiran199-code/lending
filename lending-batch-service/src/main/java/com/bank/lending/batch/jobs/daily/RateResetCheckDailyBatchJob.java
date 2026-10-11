@@ -2,27 +2,33 @@ package com.bank.lending.batch.jobs.daily;
 
 import com.bank.lending.batch.core.AbstractAccountRangeChunkJob;
 import com.bank.lending.batch.core.BatchJobContext;
+import com.bank.lending.batch.core.JobParams;
+import com.bank.lending.batch.lending.LendingServiceClient;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 
 /**
- * Daily EOD: applies a benchmark rate change for floating-rate products whose benchmark resets
- * daily (e.g. an overnight/T-bill-linked product).
+ * Daily EOD: applies the published benchmark rate to ACTIVE floating-rate accounts that reference the
+ * benchmark named in {@code job_params_json.benchmarkRateRef} (e.g. {@code {"benchmarkRateRef": "OVERNIGHT_MIBOR"}}).
  *
- * <p>TODO: business logic — batch-service-owned equivalent of lending-service's
- * LoanAccountService#applyFloatingRateReset: read today's published rate for the benchmark named
- * in {@link BatchJobContext#jobParamsJson()} (e.g. {@code {"benchmarkRateRef": "OVERNIGHT_MIBOR"}})
- * from its rate-source feed (not yet modeled), and for accountId — if it is ACTIVE, FLOATING,
- * and referencing that benchmark — recompute interest_rate = newBenchmarkRate + spread and
- * regenerate the remaining amortization schedule when the rate actually changed.
+ * <p>Calls {@code POST /api/v1/loan-accounts/{id}/rate-reset}. lending-service looks up the rate in
+ * force on the business date in its {@code benchmark_rate} table (publish rates with
+ * {@code PUT /api/v1/benchmark-rates/{ref}/{effectiveDate}}), adds the account's spread, applies the
+ * product's rate floor/cap, and regenerates the remaining schedule only if the rate actually changed.
+ * Each account is reset individually; no event reprices a whole product. Items that were not reset
+ * (already current, other benchmark, not eligible) are filtered. A run without {@code benchmarkRateRef}
+ * fails rather than resetting accounts of benchmarks that reset on a different cycle.
  */
 @Component
 public class RateResetCheckDailyBatchJob extends AbstractAccountRangeChunkJob<Long> {
 
-    public RateResetCheckDailyBatchJob(DataSource dataSource) {
+    private final LendingServiceClient lending;
+
+    public RateResetCheckDailyBatchJob(DataSource dataSource, LendingServiceClient lending) {
         super(dataSource);
+        this.lending = lending;
     }
 
     @Override
@@ -32,15 +38,16 @@ public class RateResetCheckDailyBatchJob extends AbstractAccountRangeChunkJob<Lo
 
     @Override
     protected String accountFilter() {
-        return "account_status = 'ACTIVE' AND rate_type = 'FLOATING'";
+        return "account_status = 'ACTIVE' AND rate_type = 'FLOATING' AND benchmark_rate_ref IS NOT NULL";
     }
 
     @Override
     public ItemProcessor<Long, Long> processor() {
         return accountId -> {
-            // TODO: business logic — apply today's benchmark rate to accountId if it references
-            // the daily-reset benchmark configured in job_params_json.
-            return accountId;
+            String benchmark = JobParams.current().requireString("benchmarkRateRef");
+            LendingServiceClient.RateResetResult result =
+                    lending.resetRate(accountId, BatchJobContext.businessDate(), benchmark);
+            return result.reset() ? accountId : null;
         };
     }
 }

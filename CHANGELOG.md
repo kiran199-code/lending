@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-11
+
+- **Fix: batch service connection pool exhausted on Render** (`Connection is not available ... total=5, active=5`; Quartz `ClusterManager` / `MisfireHandler` errors, "Failed to schedule job", "Quartz-triggered launch failed", Spring Batch "error saving batch meta data"). `render.yaml`: batch `DB_POOL_SIZE` 5 -> 20, `DB_POOL_MIN_IDLE` 1 -> 4, new `QUARTZ_THREAD_COUNT=3`. `application.yml`: `org.quartz.threadPool.threadCount` now `${QUARTZ_THREAD_COUNT:10}` (default unchanged).
+
 ## 2026-10-10 (documents v1.1)
 
 - **Added `lending-admin-service`**: read-only admin portal (Spring Boot 3.3 API + React/Vite UI, one Docker image). Account search and inquiry, amortization versions, accruals, payments, mortgage, statement download, upcoming payments, overdue buckets, payments, accruals, ledger outbox, batch jobs. HTTP Basic login from `ADMIN_USERNAME` / `ADMIN_PASSWORD`; database sessions forced read-only. Registered in root `pom.xml`, `render.yaml`, `docker-compose.yml`.

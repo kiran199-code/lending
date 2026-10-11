@@ -68,10 +68,17 @@ services:
         fromDatabase: { name: lending-db, property: user }
       - key: DB_PASSWORD
         fromDatabase: { name: lending-db, property: password }
+      # Batch needs far more connections than the other services: Quartz (clustered JDBC store),
+      # Spring Batch metadata writes, and one connection per running job/partition thread.
+      # 5 exhausted the pool (see CHANGELOG 2026-10-11). Free Postgres allows ~97 connections in total.
       - key: DB_POOL_SIZE
-        value: "5"
+        value: "20"
       - key: DB_POOL_MIN_IDLE
-        value: "1"
+        value: "4"
+      # Fewer Quartz workers so a burst of same-minute cron triggers queues instead of
+      # all grabbing connections at once.
+      - key: QUARTZ_THREAD_COUNT
+        value: "3"
       # No broker on this setup; point at a dead address and fail sends fast.
       - key: KAFKA_BOOTSTRAP_SERVERS
         value: "localhost:9092"

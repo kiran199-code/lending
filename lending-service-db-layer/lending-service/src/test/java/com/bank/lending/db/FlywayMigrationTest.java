@@ -36,6 +36,21 @@ class FlywayMigrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void scheduleParameterColumnsExistOnProductAndAccount() {
+        List<String> columns = jdbcTemplate.queryForList(
+                """
+                SELECT table_name || '.' || column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name IN ('loan_product', 'loan_account')
+                  AND column_name IN ('repayment_frequency', 'moratorium_months', 'balloon_percent', 'step_up_percent')
+                """, String.class);
+        assertThat(columns).contains(
+                "loan_product.repayment_frequency", "loan_product.moratorium_months",
+                "loan_product.balloon_percent", "loan_product.step_up_percent",
+                "loan_account.repayment_frequency", "loan_account.moratorium_months",
+                "loan_account.balloon_percent", "loan_account.step_up_percent");
+    }
+
+    @Test
     void interestAccrualPartitionsExistForBootstrapMonths() {
         List<String> partitions = jdbcTemplate.queryForList(
                 """

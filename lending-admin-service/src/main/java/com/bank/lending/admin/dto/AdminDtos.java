@@ -203,6 +203,10 @@ public final class AdminDtos {
                              BigDecimal minSpread, BigDecimal maxSpread,
                              BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
                              Integer minTenureMonths, Integer maxTenureMonths,
+                             String repaymentFrequency, List<String> allowedRepaymentFrequencies,
+                             int moratoriumMonths, Integer maxMoratoriumMonths,
+                             BigDecimal balloonPercent, BigDecimal maxBalloonPercent,
+                             BigDecimal stepUpPercent, BigDecimal maxStepUpPercent,
                              String status, long accountCount, int version) {
     }
 
@@ -218,6 +222,10 @@ public final class AdminDtos {
                                BigDecimal minSpread, BigDecimal maxSpread,
                                BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
                                Integer minTenureMonths, Integer maxTenureMonths,
+                               String repaymentFrequency, List<String> allowedRepaymentFrequencies,
+                               Integer moratoriumMonths, Integer maxMoratoriumMonths,
+                               BigDecimal balloonPercent, BigDecimal maxBalloonPercent,
+                               BigDecimal stepUpPercent, BigDecimal maxStepUpPercent,
                                String status, Integer expectedVersion) {
     }
 }

@@ -31,6 +31,22 @@ public record CreateLoanAccountRequest(
         @Schema(description = "FLOATING only. Defaults to the product's default spread; must be inside the product's spread band.")
         BigDecimal spread,
         @Schema(description = "Optional. Defaults to the product's day-count convention.")
-        LoanAccount.DayCountConvention dayCountConvention
+        LoanAccount.DayCountConvention dayCountConvention,
+        @Schema(description = "Optional. Defaults to the product's frequency; must be one the product allows. Tenure must be a multiple of it.")
+        LoanAccount.RepaymentFrequency repaymentFrequency,
+        @Schema(description = "Optional months of interest-only repayment at the start. Defaults to the product's; cannot exceed its maximum.")
+        Integer moratoriumMonths,
+        @Schema(description = "BALLOON products only. Optional % of the principal left for the last instalment. Defaults to the product's; cannot exceed its maximum.")
+        BigDecimal balloonPercent,
+        @Schema(description = "STEP_UP_EMI products only. Optional yearly rise of the instalment in %. Defaults to the product's; cannot exceed its maximum.")
+        BigDecimal stepUpPercent
 ) {
+    /** Request that takes every schedule parameter from the product. */
+    public CreateLoanAccountRequest(Long customerId, Long sanctionRefId, String productCode,
+                                    LoanAccount.AccountType accountType, BigDecimal sanctionedAmount, Integer tenureMonths,
+                                    LoanAccount.RateType rateType, BigDecimal interestRate, String benchmarkRateRef,
+                                    BigDecimal spread, LoanAccount.DayCountConvention dayCountConvention) {
+        this(customerId, sanctionRefId, productCode, accountType, sanctionedAmount, tenureMonths, rateType,
+                interestRate, benchmarkRateRef, spread, dayCountConvention, null, null, null, null);
+    }
 }

@@ -6,6 +6,7 @@ import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.product.domain.LoanProduct;
 import com.bank.lending.product.dto.LoanProductRequest;
 import com.bank.lending.product.repository.LoanProductRepository;
+import com.bank.lending.schedule.util.ScheduleParameterRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,7 +86,26 @@ public class LoanProductService {
         p.setMaxSanctionedAmount(r.maxSanctionedAmount());
         p.setMinTenureMonths(r.minTenureMonths());
         p.setMaxTenureMonths(r.maxTenureMonths());
+        LoanAccount.RepaymentFrequency frequency = frequencyOf(r);
+        p.setRepaymentFrequency(frequency);
+        p.setAllowedRepaymentFrequencies(LoanProduct.joinFrequencies(allowedOf(r)));
+        p.setMoratoriumMonths(r.moratoriumMonths() != null ? r.moratoriumMonths() : 0);
+        p.setMaxMoratoriumMonths(r.maxMoratoriumMonths());
+        p.setBalloonPercent(r.balloonPercent() != null ? r.balloonPercent() : BigDecimal.ZERO);
+        p.setMaxBalloonPercent(r.maxBalloonPercent());
+        p.setStepUpPercent(r.stepUpPercent() != null ? r.stepUpPercent() : BigDecimal.ZERO);
+        p.setMaxStepUpPercent(r.maxStepUpPercent());
         p.setStatus(r.status() != null ? r.status() : LoanProduct.Status.ACTIVE);
+    }
+
+    private static LoanAccount.RepaymentFrequency frequencyOf(LoanProductRequest r) {
+        return r.repaymentFrequency() != null ? r.repaymentFrequency() : LoanAccount.RepaymentFrequency.MONTHLY;
+    }
+
+    private static List<LoanAccount.RepaymentFrequency> allowedOf(LoanProductRequest r) {
+        return r.allowedRepaymentFrequencies() == null || r.allowedRepaymentFrequencies().isEmpty()
+                ? List.of(frequencyOf(r))
+                : r.allowedRepaymentFrequencies().stream().distinct().toList();
     }
 
     /** Throws IllegalArgumentException (HTTP 400) listing every problem found. */
@@ -130,6 +150,13 @@ public class LoanProductService {
                 problems.add("defaultSpread must be inside the spread band");
             }
         }
+
+        problems.addAll(ScheduleParameterRules.productProblems(
+                r.scheduleType() != null ? r.scheduleType() : LoanAccount.ScheduleType.EMI,
+                frequencyOf(r), allowedOf(r),
+                r.moratoriumMonths(), r.maxMoratoriumMonths(),
+                r.balloonPercent(), r.maxBalloonPercent(),
+                r.stepUpPercent(), r.maxStepUpPercent()));
 
         if (!problems.isEmpty()) {
             throw new IllegalArgumentException("Invalid loan product: " + String.join("; ", problems));

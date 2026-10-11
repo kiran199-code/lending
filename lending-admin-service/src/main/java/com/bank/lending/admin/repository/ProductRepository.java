@@ -31,6 +31,12 @@ public class ProductRepository {
                 rs.getBigDecimal("max_interest_rate"), rs.getBigDecimal("min_spread"),
                 rs.getBigDecimal("max_spread"), rs.getBigDecimal("min_sanctioned_amount"),
                 rs.getBigDecimal("max_sanctioned_amount"), Sql.intOrNull(rs, "min_tenure_months"),
-                Sql.intOrNull(rs, "max_tenure_months"), rs.getString("status"), rs.getLong("account_count"), rs.getInt("version")));
+                Sql.intOrNull(rs, "max_tenure_months"),
+                rs.getString("repayment_frequency"),
+                List.of(rs.getString("allowed_repayment_frequencies").split(",")),
+                rs.getInt("moratorium_months"), Sql.intOrNull(rs, "max_moratorium_months"),
+                rs.getBigDecimal("balloon_percent"), rs.getBigDecimal("max_balloon_percent"),
+                rs.getBigDecimal("step_up_percent"), rs.getBigDecimal("max_step_up_percent"),
+                rs.getString("status"), rs.getLong("account_count"), rs.getInt("version")));
     }
 }

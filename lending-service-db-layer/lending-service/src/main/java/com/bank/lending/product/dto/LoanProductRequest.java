@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Create / update body for a loan product. On update, productCode in the body is ignored (the code
@@ -22,7 +23,7 @@ public record LoanProductRequest(
         @Size(max = 500) String description,
         @NotNull LoanAccount.AccountType accountType,
         @NotNull LoanAccount.RateType rateType,
-        @Schema(description = "Defaults to EMI (the only supported schedule type)")
+        @Schema(description = "EMI (default), EQUAL_PRINCIPAL, INTEREST_ONLY, BALLOON or STEP_UP_EMI")
         LoanAccount.ScheduleType scheduleType,
         @Schema(description = "Defaults to ACT_365")
         LoanAccount.DayCountConvention dayCountConvention,
@@ -40,9 +41,40 @@ public record LoanProductRequest(
         BigDecimal maxSanctionedAmount,
         Integer minTenureMonths,
         Integer maxTenureMonths,
+        @Schema(description = "Default repayment frequency: MONTHLY (default), QUARTERLY, HALF_YEARLY or YEARLY")
+        LoanAccount.RepaymentFrequency repaymentFrequency,
+        @Schema(description = "Frequencies an account may choose instead of the default. Defaults to just the default frequency.")
+        List<LoanAccount.RepaymentFrequency> allowedRepaymentFrequencies,
+        @Schema(description = "Default months of interest-only repayment at the start (0 = none). Not for INTEREST_ONLY.")
+        Integer moratoriumMonths,
+        @Schema(description = "Most moratorium months an account may choose. Empty = no limit.")
+        Integer maxMoratoriumMonths,
+        @Schema(description = "BALLOON only: default % of the principal left for the last instalment (above 0, below 100)")
+        BigDecimal balloonPercent,
+        @Schema(description = "BALLOON only: highest balloon % an account may choose. Empty = no limit.")
+        BigDecimal maxBalloonPercent,
+        @Schema(description = "STEP_UP_EMI only: default yearly rise of the instalment in % (above 0, up to 100)")
+        BigDecimal stepUpPercent,
+        @Schema(description = "STEP_UP_EMI only: highest step-up % an account may choose. Empty = no limit.")
+        BigDecimal maxStepUpPercent,
         @Schema(description = "Defaults to ACTIVE. An INACTIVE product cannot be used for new accounts.")
         LoanProduct.Status status,
         @Schema(description = "Update only: the version you loaded. If the product has changed since, the update is refused (409).")
         Integer expectedVersion
 ) {
+    /** Body without the schedule parameters (monthly, no moratorium / balloon / step-up). */
+    public LoanProductRequest(String productCode, String productName, String description,
+                              LoanAccount.AccountType accountType, LoanAccount.RateType rateType,
+                              LoanAccount.ScheduleType scheduleType, LoanAccount.DayCountConvention dayCountConvention,
+                              String benchmarkRateRef, BigDecimal defaultInterestRate, BigDecimal defaultSpread,
+                              BigDecimal minInterestRate, BigDecimal maxInterestRate,
+                              BigDecimal minSpread, BigDecimal maxSpread,
+                              BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
+                              Integer minTenureMonths, Integer maxTenureMonths,
+                              LoanProduct.Status status, Integer expectedVersion) {
+        this(productCode, productName, description, accountType, rateType, scheduleType, dayCountConvention,
+                benchmarkRateRef, defaultInterestRate, defaultSpread, minInterestRate, maxInterestRate,
+                minSpread, maxSpread, minSanctionedAmount, maxSanctionedAmount, minTenureMonths, maxTenureMonths,
+                null, null, null, null, null, null, null, null, status, expectedVersion);
+    }
 }

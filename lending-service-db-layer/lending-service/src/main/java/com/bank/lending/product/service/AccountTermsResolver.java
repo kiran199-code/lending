@@ -6,6 +6,7 @@ import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.product.domain.LoanProduct;
 import com.bank.lending.product.repository.LoanProductRepository;
+import com.bank.lending.schedule.util.ScheduleParameterRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +35,11 @@ public class AccountTermsResolver {
             LoanAccount.DayCountConvention dayCountConvention,
             BigDecimal interestRate,
             String benchmarkRateRef,
-            BigDecimal spread) {
+            BigDecimal spread,
+            LoanAccount.RepaymentFrequency repaymentFrequency,
+            int moratoriumMonths,
+            BigDecimal balloonPercent,
+            BigDecimal stepUpPercent) {
     }
 
     public AccountTerms resolve(CreateLoanAccountRequest request) {
@@ -84,6 +89,24 @@ public class AccountTermsResolver {
                 product.getMaxTenureMonths() == null ? null : BigDecimal.valueOf(product.getMaxTenureMonths()),
                 code, problems);
 
+        // Schedule parameters: default from the product, overrides must stay inside what it allows.
+        LoanAccount.RepaymentFrequency frequency = request.repaymentFrequency() != null
+                ? request.repaymentFrequency() : product.getRepaymentFrequency();
+        if (!product.allowedFrequencies().contains(frequency)) {
+            problems.add("repaymentFrequency " + frequency + " is not allowed; product " + code
+                    + " allows " + product.allowedFrequencies());
+        }
+        int moratorium = request.moratoriumMonths() != null ? request.moratoriumMonths() : product.getMoratoriumMonths();
+        if (product.getMaxMoratoriumMonths() != null && moratorium > product.getMaxMoratoriumMonths()) {
+            problems.add("moratoriumMonths " + moratorium + " is above the maximum " + product.getMaxMoratoriumMonths());
+        }
+        BigDecimal balloon = request.balloonPercent() != null ? request.balloonPercent() : product.getBalloonPercent();
+        checkBand("balloonPercent", balloon, null, product.getMaxBalloonPercent(), code, problems);
+        BigDecimal stepUp = request.stepUpPercent() != null ? request.stepUpPercent() : product.getStepUpPercent();
+        checkBand("stepUpPercent", stepUp, null, product.getMaxStepUpPercent(), code, problems);
+        problems.addAll(ScheduleParameterRules.parameterProblems(product.getScheduleType(), frequency,
+                request.tenureMonths(), moratorium, balloon, stepUp));
+
         if (!problems.isEmpty()) {
             throw new IllegalArgumentException("Account does not satisfy product " + code + ": "
                     + String.join("; ", problems));
@@ -92,7 +115,7 @@ public class AccountTermsResolver {
         LoanAccount.DayCountConvention dayCount = request.dayCountConvention() != null
                 ? request.dayCountConvention() : product.getDayCountConvention();
         return new AccountTerms(product, accountType, rateType, product.getScheduleType(), dayCount,
-                rate, benchmark, spread);
+                rate, benchmark, spread, frequency, moratorium, balloon, stepUp);
     }
 
     private static void checkBand(String field, BigDecimal value, BigDecimal min, BigDecimal max,

@@ -120,7 +120,12 @@ export interface Product {
   benchmarkRateRef: string | null; defaultInterestRate: number; defaultSpread: number | null;
   minInterestRate: number | null; maxInterestRate: number | null; minSpread: number | null; maxSpread: number | null;
   minSanctionedAmount: number | null; maxSanctionedAmount: number | null;
-  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; accountCount: number; version: number;
+  minTenureMonths: number | null; maxTenureMonths: number | null;
+  repaymentFrequency: string; allowedRepaymentFrequencies: string[];
+  moratoriumMonths: number; maxMoratoriumMonths: number | null;
+  balloonPercent: number; maxBalloonPercent: number | null;
+  stepUpPercent: number; maxStepUpPercent: number | null;
+  status: string; accountCount: number; version: number;
 }
 
 export interface ProductsResponse { products: Product[]; editable: boolean; note: string | null }
@@ -130,5 +135,10 @@ export interface ProductInput {
   benchmarkRateRef: string | null; defaultInterestRate: number | null; defaultSpread: number | null;
   minInterestRate: number | null; maxInterestRate: number | null; minSpread: number | null; maxSpread: number | null;
   minSanctionedAmount: number | null; maxSanctionedAmount: number | null;
-  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; expectedVersion: number | null;
+  minTenureMonths: number | null; maxTenureMonths: number | null;
+  repaymentFrequency: string; allowedRepaymentFrequencies: string[];
+  moratoriumMonths: number | null; maxMoratoriumMonths: number | null;
+  balloonPercent: number | null; maxBalloonPercent: number | null;
+  stepUpPercent: number | null; maxStepUpPercent: number | null;
+  status: string; expectedVersion: number | null;
 }

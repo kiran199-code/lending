@@ -52,4 +52,41 @@ class LoanProductValidationTest {
         assertThatThrownBy(() -> validate(request(LoanAccount.RateType.FIXED, null, "10", "17", "8", null)))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("must not exceed the maximum");
     }
+
+    private static LoanProductRequest withSchedule(LoanAccount.ScheduleType type, LoanAccount.RepaymentFrequency frequency,
+                                                   java.util.List<LoanAccount.RepaymentFrequency> allowed,
+                                                   Integer moratorium, String balloon, String stepUp) {
+        return new LoanProductRequest("T1", "Test", null, LoanAccount.AccountType.UNSECURED, LoanAccount.RateType.FIXED,
+                type, null, null, new BigDecimal("10"), null, null, null, null, null, null, null, null, null,
+                frequency, allowed, moratorium, null,
+                balloon == null ? null : new BigDecimal(balloon), null,
+                stepUp == null ? null : new BigDecimal(stepUp), null, null, null);
+    }
+
+    @Test
+    void balloonProductNeedsABalloonPercent() {
+        assertThatThrownBy(() -> validate(withSchedule(LoanAccount.ScheduleType.BALLOON, null, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("balloonPercent must be above 0");
+        validate(withSchedule(LoanAccount.ScheduleType.BALLOON, null, null, null, "30", null));
+    }
+
+    @Test
+    void stepUpProductNeedsAStepUpPercent() {
+        assertThatThrownBy(() -> validate(withSchedule(LoanAccount.ScheduleType.STEP_UP_EMI, null, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("stepUpPercent must be above 0");
+        validate(withSchedule(LoanAccount.ScheduleType.STEP_UP_EMI, null, null, null, null, "5"));
+    }
+
+    @Test
+    void defaultFrequencyMustBeInTheAllowedList() {
+        assertThatThrownBy(() -> validate(withSchedule(LoanAccount.ScheduleType.EMI, LoanAccount.RepaymentFrequency.MONTHLY,
+                java.util.List.of(LoanAccount.RepaymentFrequency.QUARTERLY), null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("allowed frequencies");
+    }
+
+    @Test
+    void interestOnlyProductMustNotDefaultAMoratorium() {
+        assertThatThrownBy(() -> validate(withSchedule(LoanAccount.ScheduleType.INTEREST_ONLY, null, null, 3, null, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("INTEREST_ONLY");
+    }
 }

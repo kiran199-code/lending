@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-11 (docs v1.3)
+
+- **Day-count conventions**: ACT/360, 30/360 (US) and 30E/360 added to ACT/365 and ACT/ACT (`DayCountCalculator.yearFraction`; daily accrual uses a 360 basis for the three 360-day conventions).
+- **Schedule types**: EMI, EQUAL_PRINCIPAL, INTEREST_ONLY (bullet), BALLOON and STEP_UP_EMI, built by the new pure `ScheduleCalculator`. Interest for each instalment is `outstanding x rate x year fraction` under the account's day count; instalments are sized on the average rate per period and the last instalment clears the balance. (STEP_UP_EMI was added so the step-up % parameter has a schedule to act on.)
+- **Schedule parameters** on product (default + maximum) and account: repayment frequency (MONTHLY / QUARTERLY / HALF_YEARLY / YEARLY; products also list the allowed frequencies), moratorium months (interest-only opening instalments), balloon %, step-up % a year. `ScheduleParameterRules` checks that they fit the schedule type and the tenure; `AccountTermsResolver` defaults them from the product and enforces the maximums.
+- **Migration V11** widens the day-count and schedule-type CHECKs, adds the columns (existing rows: monthly, 0, 0, 0) and seeds TL01 (equal principal), BB01 (interest only), AB01 (balloon), SU01 (step-up), EM01 (study moratorium). Do not edit V10.
+- **API**: account request gains `repaymentFrequency`, `moratoriumMonths`, `balloonPercent`, `stepUpPercent` (old 11-argument form kept in code); product request/response gain the matching defaults, maximums and `allowedRepaymentFrequencies`; account response returns the four values.
+- **Rescheduling** (part-payment, floating rate reset) now counts instalments, rebuilds with the account's own type, frequency and day count, continues a running moratorium and the current step-up year, and keeps the original balloon amount.
+- **Statement PDF** shows the repayment plan and a headline-instalment label that fits the schedule type.
+- **Admin portal**: Products screen has a Repayment column and form fields for schedule type, frequencies, moratorium, balloon and step-up (shown only where they apply); the Configuration screen lists the schedule rules.
+- **Docs v1.3**: Technical Design Document section 15.13, Functional Specification section 13.12, README, CLOUD_DEPLOYMENT, architecture deck `docs/Lending-Platform-Architecture-v1.3.pptx` (20 slides, new slide 7).
+- Not yet compiled or run by Maven (calculator classes compiled with `javac` and checked directly; V11 run on PostgreSQL 16). After a push, redeploy `lending-service` first (Flyway V11), then admin, then batch.
+
 ## 2026-10-11
 
 - **Loan product master (`loan_product`)**: product code, name, account type, rate type, schedule type (EMI), day-count convention, benchmark, default rate and spread, rate / spread / sanctioned amount / tenure bands, ACTIVE / INACTIVE. Migration V10 creates it, seeds PL01, BL01, EL01, GL01, AL01, HL01, creates an open "Legacy product" row for any other code already used by an account, and links every account (`loan_account.product_id`, NOT NULL, FK; new `schedule_type` column).

@@ -155,8 +155,9 @@ public class LoanStatementPdfRenderer {
                 a.getDisbursedAmount() != null ? fmt.money(a.getDisbursedAmount()) : "Not yet disbursed");
         detail(table, "Tenure", a.getTenureMonths() + " months");
         detail(table, "Interest rate", rateText(a, fmt));
-        detail(table, "Monthly instalment (EMI)", a.getEmiAmount() != null ? fmt.money(a.getEmiAmount()) : "N/A");
-        detail(table, "First EMI date", a.getEmiStartDate() != null ? a.getEmiStartDate().format(DATE) : "N/A");
+        detail(table, "Repayment plan", scheduleLabel(a));
+        detail(table, instalmentLabel(a), a.getEmiAmount() != null ? fmt.money(a.getEmiAmount()) : "N/A");
+        detail(table, "First instalment date", a.getEmiStartDate() != null ? a.getEmiStartDate().format(DATE) : "N/A");
         detail(table, "Interest basis", dayCountLabel(a.getDayCountConvention()));
         detail(table, "Account status", statusLabel(a.getAccountStatus()));
         detail(table, "Account opened", a.getCreatedAt() != null ? date(a.getCreatedAt()) : "N/A");
@@ -324,8 +325,55 @@ public class LoanStatementPdfRenderer {
         return switch (convention) {
             case ACT_365 -> "Actual/365";
             case ACT_ACT -> "Actual/Actual";
-            case THIRTY_360 -> "30/360";
+            case ACT_360 -> "Actual/360";
+            case THIRTY_360 -> "30/360 (US)";
+            case THIRTY_E_360 -> "30E/360";
         };
+    }
+
+    static String frequencyLabel(LoanAccount.RepaymentFrequency frequency) {
+        if (frequency == null) {
+            return "Monthly";
+        }
+        return switch (frequency) {
+            case MONTHLY -> "Monthly";
+            case QUARTERLY -> "Quarterly";
+            case HALF_YEARLY -> "Half-yearly";
+            case YEARLY -> "Yearly";
+        };
+    }
+
+    /** E.g. "Equated instalments, monthly, 12 months interest-only first". */
+    static String scheduleLabel(LoanAccount a) {
+        LoanAccount.ScheduleType type = a.getScheduleType() == null ? LoanAccount.ScheduleType.EMI : a.getScheduleType();
+        StringBuilder text = new StringBuilder(switch (type) {
+            case EMI -> "Equated instalments";
+            case EQUAL_PRINCIPAL -> "Equal principal";
+            case INTEREST_ONLY -> "Interest only, principal at the end";
+            case BALLOON -> "Balloon " + plain(a.getBalloonPercent()) + "% with the last instalment";
+            case STEP_UP_EMI -> "Step-up instalments, +" + plain(a.getStepUpPercent()) + "% a year";
+        });
+        text.append(", ").append(frequencyLabel(a.getRepaymentFrequency()).toLowerCase());
+        if (a.getMoratoriumMonths() != null && a.getMoratoriumMonths() > 0) {
+            text.append(", ").append(a.getMoratoriumMonths()).append(" months interest-only first");
+        }
+        return text.toString();
+    }
+
+    static String instalmentLabel(LoanAccount a) {
+        LoanAccount.ScheduleType type = a.getScheduleType() == null ? LoanAccount.ScheduleType.EMI : a.getScheduleType();
+        String period = frequencyLabel(a.getRepaymentFrequency());
+        return switch (type) {
+            case EMI -> period + " instalment (EMI)";
+            case EQUAL_PRINCIPAL -> "First " + period.toLowerCase() + " instalment (highest)";
+            case INTEREST_ONLY -> period + " interest instalment";
+            case BALLOON -> period + " instalment (before balloon)";
+            case STEP_UP_EMI -> "First-year " + period.toLowerCase() + " instalment";
+        };
+    }
+
+    private static String plain(java.math.BigDecimal value) {
+        return value == null ? "0" : value.stripTrailingZeros().toPlainString();
     }
 
     static String installmentLabel(AmortizationScheduleEntry.InstallmentStatus status) {

@@ -119,6 +119,87 @@ class AccountTermsResolverTest {
                 .hasMessageContaining("apply to FLOATING products only");
     }
 
+    private LoanProduct scheduleProduct(LoanAccount.ScheduleType type) {
+        LoanProduct p = fixedProduct();
+        p.setProductCode("SP01");
+        p.setScheduleType(type);
+        p.setAllowedRepaymentFrequencies("MONTHLY,QUARTERLY");
+        p.setMaxMoratoriumMonths(12);
+        return p;
+    }
+
+    private CreateLoanAccountRequest schedule(int tenure, LoanAccount.RepaymentFrequency frequency, Integer moratorium,
+                                              BigDecimal balloon, BigDecimal stepUp) {
+        return new CreateLoanAccountRequest(1L, 1L, "SP01", null, new BigDecimal("100000"), tenure, null, null, null, null,
+                null, frequency, moratorium, balloon, stepUp);
+    }
+
+    @Test
+    void scheduleParametersAreDefaultedFromTheProduct() {
+        LoanProduct p = scheduleProduct(LoanAccount.ScheduleType.BALLOON);
+        p.setBalloonPercent(new BigDecimal("30"));
+        p.setMaxBalloonPercent(new BigDecimal("50"));
+        p.setMoratoriumMonths(6);
+        Mockito.when(repository.findByProductCode("SP01")).thenReturn(Optional.of(p));
+
+        var t = resolver.resolve(schedule(36, null, null, null, null));
+
+        assertThat(t.scheduleType()).isEqualTo(LoanAccount.ScheduleType.BALLOON);
+        assertThat(t.repaymentFrequency()).isEqualTo(LoanAccount.RepaymentFrequency.MONTHLY);
+        assertThat(t.moratoriumMonths()).isEqualTo(6);
+        assertThat(t.balloonPercent()).isEqualByComparingTo("30");
+        assertThat(t.stepUpPercent()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void scheduleOverridesInsideTheProductLimitsAreAccepted() {
+        LoanProduct p = scheduleProduct(LoanAccount.ScheduleType.BALLOON);
+        p.setBalloonPercent(new BigDecimal("30"));
+        p.setMaxBalloonPercent(new BigDecimal("50"));
+        Mockito.when(repository.findByProductCode("SP01")).thenReturn(Optional.of(p));
+
+        var t = resolver.resolve(schedule(36, LoanAccount.RepaymentFrequency.QUARTERLY, 6, new BigDecimal("40"), null));
+
+        assertThat(t.repaymentFrequency()).isEqualTo(LoanAccount.RepaymentFrequency.QUARTERLY);
+        assertThat(t.moratoriumMonths()).isEqualTo(6);
+        assertThat(t.balloonPercent()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    void scheduleOverridesOutsideTheProductLimitsAreAllReported() {
+        LoanProduct p = scheduleProduct(LoanAccount.ScheduleType.BALLOON);
+        p.setBalloonPercent(new BigDecimal("30"));
+        p.setMaxBalloonPercent(new BigDecimal("50"));
+        Mockito.when(repository.findByProductCode("SP01")).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> resolver.resolve(
+                schedule(36, LoanAccount.RepaymentFrequency.YEARLY, 24, new BigDecimal("60"), null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("repaymentFrequency YEARLY is not allowed")
+                .hasMessageContaining("moratoriumMonths 24 is above the maximum 12")
+                .hasMessageContaining("balloonPercent 60 is above the maximum 50");
+    }
+
+    @Test
+    void tenureMustSuitTheRepaymentFrequency() {
+        LoanProduct p = scheduleProduct(LoanAccount.ScheduleType.EMI);
+        Mockito.when(repository.findByProductCode("SP01")).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> resolver.resolve(schedule(37, LoanAccount.RepaymentFrequency.QUARTERLY, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tenureMonths 37 must be a multiple of 3");
+    }
+
+    @Test
+    void balloonOnAnEmiProductIsRejected() {
+        LoanProduct p = scheduleProduct(LoanAccount.ScheduleType.EMI);
+        Mockito.when(repository.findByProductCode("SP01")).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> resolver.resolve(schedule(36, null, null, new BigDecimal("10"), null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("balloonPercent applies to BALLOON schedules only");
+    }
+
     @Test
     void unknownProductIsNotFound() {
         Mockito.when(repository.findByProductCode("NOPE")).thenReturn(Optional.empty());

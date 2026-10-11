@@ -23,6 +23,10 @@ public record LoanAccountResponse(
         String benchmarkRateRef,
         BigDecimal spread,
         LoanAccount.DayCountConvention dayCountConvention,
+        LoanAccount.RepaymentFrequency repaymentFrequency,
+        Integer moratoriumMonths,
+        BigDecimal balloonPercent,
+        BigDecimal stepUpPercent,
         BigDecimal emiAmount,
         LocalDate emiStartDate,
         LoanAccount.AccountStatus accountStatus,
@@ -36,7 +40,9 @@ public record LoanAccountResponse(
                 a.getAccountId(), a.getAccountNumber(), a.getCustomerId(), a.getSanctionRefId(),
                 a.getProductCode(), a.getProductId(), a.getAccountType(), a.getSanctionedAmount(), a.getDisbursedAmount(),
                 a.getTenureMonths(), a.getScheduleType(), a.getRateType(), a.getInterestRate(), a.getBenchmarkRateRef(),
-                a.getSpread(), a.getDayCountConvention(), a.getEmiAmount(), a.getEmiStartDate(),
+                a.getSpread(), a.getDayCountConvention(),
+                a.getRepaymentFrequency(), a.getMoratoriumMonths(), a.getBalloonPercent(), a.getStepUpPercent(),
+                a.getEmiAmount(), a.getEmiStartDate(),
                 a.getAccountStatus(), a.getMortgageId(), a.getVersion(), a.getCreatedAt(), a.getUpdatedAt()
         );
     }

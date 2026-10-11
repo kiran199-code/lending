@@ -77,6 +77,10 @@ public class LoanAccountService {
                 .benchmarkRateRef(terms.benchmarkRateRef())
                 .spread(terms.spread())
                 .dayCountConvention(terms.dayCountConvention())
+                .repaymentFrequency(terms.repaymentFrequency())
+                .moratoriumMonths(terms.moratoriumMonths())
+                .balloonPercent(terms.balloonPercent())
+                .stepUpPercent(terms.stepUpPercent())
                 .accountStatus(PENDING_DISBURSEMENT)
                 .version(0)
                 .build();

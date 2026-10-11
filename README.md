@@ -4,7 +4,7 @@ A retail lending platform: loan accounts, mortgage collateral, amortization, int
 
 | Module | What it is | Port (local / Render) |
 |---|---|---|
-| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V10) | 8080 / 10000 |
+| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V11) | 8080 / 10000 |
 | `lending-batch-service` | Spring Batch + Quartz platform, 36 job slots (bodies still stubs), Kafka producer | 8081 / 10000 |
 | `lending-admin-service` | Read-only admin console: Spring Boot API + React UI in one container | 8082 / 10000 |
 | PostgreSQL 16 | One shared `lending` database (`public` and `batch` schemas) | 5432 |
@@ -43,7 +43,7 @@ Search accounts and inquire on amortization (every schedule version, CSV export)
 
 ## Loan products
 
-Every account is opened from a **loan product** (`loan_product`, API `/api/v1/loan-products`, screen **Products** in the admin portal). A product defines account type, rate type, schedule type (EMI), day-count convention, benchmark, default rate and spread, and bands for rate, spread, sanctioned amount and tenure. When an account is created, anything left out is defaulted from the product; anything supplied must stay inside the bands (one 400 listing every problem). Standard products: PL01, BL01, EL01, GL01 (fixed) and AL01, HL01 (floating on REPO). A product change applies to accounts opened afterwards and to a floating rate reset of an individual account (the rate band floors and caps the new rate); existing accounts keep their own terms, and nothing reschedules all accounts of a product.
+Every account is opened from a **loan product** (`loan_product`, API `/api/v1/loan-products`, screen **Products** in the admin portal). A product defines account type, rate type, schedule type (EMI, equal principal, interest only, balloon or step-up EMI), day-count convention (ACT/365, ACT/ACT, ACT/360, 30/360, 30E/360), repayment frequency (monthly to yearly, with the frequencies an account may choose), moratorium, balloon % and step-up %, benchmark, default rate and spread, and bands for rate, spread, sanctioned amount and tenure. When an account is created, anything left out is defaulted from the product; anything supplied must stay inside the bands (one 400 listing every problem). Standard products: PL01, BL01, EL01, GL01 (fixed) and AL01, HL01 (floating on REPO); sample schedule products TL01 (equal principal), BB01 (interest only), AB01 (balloon), SU01 (step-up), EM01 (study moratorium). Interest per instalment follows the account's day count and the last instalment clears the balance; a part-payment or rate reset rebuilds the remaining instalments with the same type. A product change applies to accounts opened afterwards and to a floating rate reset of an individual account (the rate band floors and caps the new rate); existing accounts keep their own terms, and nothing reschedules all accounts of a product.
 
 ## Scripts and samples
 
@@ -57,9 +57,9 @@ Every account is opened from a **loan product** (`loan_product`, API `/api/v1/lo
 
 | Document | Content |
 |---|---|
-| `docs/Lending_Platform_Functional_Specification.docx` | Business rules and API contracts; Chapter 13 covers the admin portal, loan products (13.11) and later changes |
-| `docs/Lending_Platform_Technical_Design_Document.docx` | Architecture and design; Chapter 15 covers the admin portal, configuration, loan products (15.12) and later changes; 15.11 lists every setting |
-| `docs/Lending-Platform-Architecture-v1.2.pptx` | 19-slide deck (loan products slide added): architecture, data model, flows, status model, admin portal, API catalogue |
+| `docs/Lending_Platform_Functional_Specification.docx` | Business rules and API contracts; Chapter 13 covers the admin portal, loan products (13.11), day counts and repayment schedules (13.12) and later changes |
+| `docs/Lending_Platform_Technical_Design_Document.docx` | Architecture and design; Chapter 15 covers the admin portal, configuration, loan products (15.12), day counts and schedule types (15.13) and later changes; 15.11 lists every setting |
+| `docs/Lending-Platform-Architecture-v1.3.pptx` | 20-slide deck (loan products and day counts / repayment schedules slides added): architecture, data model, flows, status model, admin portal, API catalogue. `-v1.2.pptx` is the previous version |
 | `docs/CLOUD_DEPLOYMENT.md` | AWS target deployment plan; section 13 summarises the Render sandbox |
 | `CHANGELOG.md` | What changed and when |
 

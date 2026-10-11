@@ -21,6 +21,7 @@ class LoanProductIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired private LoanProductRepository productRepository;
     @Autowired private LoanAccountService accountService;
+    @Autowired private com.bank.lending.schedule.service.AmortizationScheduleService scheduleService;
 
     @Test
     void standardProductsAreSeeded() {
@@ -51,6 +52,49 @@ class LoanProductIntegrationTest extends AbstractIntegrationTest {
         assertThat(a.getInterestRate()).isEqualByComparingTo("8.75");
         assertThat(a.getDayCountConvention()).isEqualTo(LoanAccount.DayCountConvention.ACT_365);
         assertThat(a.getScheduleType()).isEqualTo(LoanAccount.ScheduleType.EMI);
+    }
+
+    @Test
+    void newScheduleProductsAreSeeded() {
+        assertThat(productRepository.findAllByOrderByProductCode())
+                .extracting(LoanProduct::getProductCode)
+                .contains("TL01", "BB01", "AB01", "SU01", "EM01");
+        LoanProduct balloon = productRepository.findByProductCode("AB01").orElseThrow();
+        assertThat(balloon.getScheduleType()).isEqualTo(LoanAccount.ScheduleType.BALLOON);
+        assertThat(balloon.getBalloonPercent()).isEqualByComparingTo("30");
+        LoanProduct equalPrincipal = productRepository.findByProductCode("TL01").orElseThrow();
+        assertThat(equalPrincipal.getDayCountConvention()).isEqualTo(LoanAccount.DayCountConvention.THIRTY_E_360);
+        assertThat(equalPrincipal.allowedFrequencies()).contains(LoanAccount.RepaymentFrequency.QUARTERLY);
+    }
+
+    @Test
+    void moratoriumProductGivesInterestOnlyInstalmentsFirst() {
+        LoanAccount created = accountService.createAccount(new CreateLoanAccountRequest(
+                7003L, 7003L, "EM01", null, new BigDecimal("1200000"), 60, null, null, null, null, null));
+        assertThat(created.getMoratoriumMonths()).isEqualTo(12);
+        assertThat(created.getDayCountConvention()).isEqualTo(LoanAccount.DayCountConvention.THIRTY_360);
+
+        accountService.disburse(created.getAccountId(), new BigDecimal("1200000"), java.time.LocalDate.of(2026, 11, 5));
+        var schedule = scheduleService.getCurrentSchedule(created.getAccountId());
+
+        assertThat(schedule).hasSize(60);
+        assertThat(schedule.subList(0, 12)).allSatisfy(e -> assertThat(e.getPrincipalComponent()).isEqualByComparingTo("0"));
+        assertThat(schedule.get(12).getPrincipalComponent()).isGreaterThan(BigDecimal.ZERO);
+        assertThat(schedule.get(59).getOutstandingBalance()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void balloonScheduleEndsWithTheBalloon() {
+        LoanAccount created = accountService.createAccount(new CreateLoanAccountRequest(
+                7004L, 7004L, "AB01", null, new BigDecimal("900000"), 48, null, null, null, null, null,
+                null, null, new BigDecimal("40"), null));
+        accountService.disburse(created.getAccountId(), new BigDecimal("900000"), java.time.LocalDate.of(2026, 11, 5));
+        var schedule = scheduleService.getCurrentSchedule(created.getAccountId());
+
+        assertThat(schedule).hasSize(48);
+        var last = schedule.get(47);
+        assertThat(last.getPrincipalComponent().add(last.getInterestComponent()))
+                .isGreaterThan(new BigDecimal("360000"));      // 40% of 900,000 plus a normal instalment
     }
 
     @Test

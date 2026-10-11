@@ -41,7 +41,18 @@ public class LoanProductController {
             description = "Leave a min/max empty for no limit. Floating products need a benchmarkRateRef.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(
             mediaType = "application/json",
-            examples = @ExampleObject(name = "Floating personal loan", value = """
+            examples = {
+                    @ExampleObject(name = "Step-up personal loan, quarterly allowed", value = """
+                    {
+                      "productCode": "SU02", "productName": "Step-up Personal Loan 2",
+                      "accountType": "UNSECURED", "rateType": "FIXED", "scheduleType": "STEP_UP_EMI",
+                      "dayCountConvention": "THIRTY_E_360",
+                      "defaultInterestRate": 12.0, "stepUpPercent": 5, "maxStepUpPercent": 15,
+                      "repaymentFrequency": "MONTHLY", "allowedRepaymentFrequencies": ["MONTHLY", "QUARTERLY"],
+                      "minTenureMonths": 12, "maxTenureMonths": 84
+                    }
+                    """),
+                    @ExampleObject(name = "Floating personal loan", value = """
                     {
                       "productCode": "PL02", "productName": "Floating Personal Loan",
                       "accountType": "UNSECURED", "rateType": "FLOATING", "dayCountConvention": "ACT_365",
@@ -50,7 +61,7 @@ public class LoanProductController {
                       "minSanctionedAmount": 50000, "maxSanctionedAmount": 3000000,
                       "minTenureMonths": 6, "maxTenureMonths": 84
                     }
-                    """)))
+                    """)}))
     @PostMapping
     public ResponseEntity<LoanProductResponse> create(@Valid @RequestBody LoanProductRequest request,
                                                       UriComponentsBuilder uriBuilder) {

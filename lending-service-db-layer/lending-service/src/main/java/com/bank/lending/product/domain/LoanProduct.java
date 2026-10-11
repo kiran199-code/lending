@@ -13,6 +13,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Product master. The terms here are copied onto a new loan account when the product is selected;
@@ -94,6 +97,37 @@ public class LoanProduct {
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
+    @Column(name = "repayment_frequency", nullable = false, length = 15)
+    private LoanAccount.RepaymentFrequency repaymentFrequency = LoanAccount.RepaymentFrequency.MONTHLY;
+
+    /** Comma-separated {@link LoanAccount.RepaymentFrequency} names an account may choose from. */
+    @Builder.Default
+    @Column(name = "allowed_repayment_frequencies", nullable = false, length = 60)
+    private String allowedRepaymentFrequencies = "MONTHLY";
+
+    @Builder.Default
+    @Column(name = "moratorium_months", nullable = false)
+    private Integer moratoriumMonths = 0;
+
+    @Column(name = "max_moratorium_months")
+    private Integer maxMoratoriumMonths;
+
+    @Builder.Default
+    @Column(name = "balloon_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal balloonPercent = BigDecimal.ZERO;
+
+    @Column(name = "max_balloon_percent", precision = 5, scale = 2)
+    private BigDecimal maxBalloonPercent;
+
+    @Builder.Default
+    @Column(name = "step_up_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal stepUpPercent = BigDecimal.ZERO;
+
+    @Column(name = "max_step_up_percent", precision = 5, scale = 2)
+    private BigDecimal maxStepUpPercent;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     private Status status = Status.ACTIVE;
 
@@ -110,4 +144,24 @@ public class LoanProduct {
     private OffsetDateTime updatedAt;
 
     public enum Status { ACTIVE, INACTIVE }
+
+    /** The allowed repayment frequencies as a list (never empty: falls back to the default frequency). */
+    public List<LoanAccount.RepaymentFrequency> allowedFrequencies() {
+        List<LoanAccount.RepaymentFrequency> list = new ArrayList<>();
+        if (allowedRepaymentFrequencies != null) {
+            for (String name : allowedRepaymentFrequencies.split(",")) {
+                if (!name.isBlank()) {
+                    list.add(LoanAccount.RepaymentFrequency.valueOf(name.trim()));
+                }
+            }
+        }
+        if (list.isEmpty()) {
+            list.add(repaymentFrequency);
+        }
+        return list;
+    }
+
+    public static String joinFrequencies(List<LoanAccount.RepaymentFrequency> frequencies) {
+        return frequencies.stream().map(Enum::name).collect(Collectors.joining(","));
+    }
 }

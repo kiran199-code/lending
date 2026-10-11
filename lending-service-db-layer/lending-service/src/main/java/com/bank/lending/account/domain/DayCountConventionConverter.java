@@ -5,8 +5,8 @@ import jakarta.persistence.Converter;
 
 /**
  * Maps LoanAccount.DayCountConvention enum constants (which cannot contain '/')
- * to the DB's stored string values ('ACT/365', 'ACT/ACT', '30/360'), which are
- * constrained by the CHECK clause in V1__create_loan_account.sql.
+ * to the DB's stored string values ('ACT/365', 'ACT/ACT', 'ACT/360', '30/360', '30E/360'),
+ * constrained by the CHECK clauses (V1, widened in V11).
  */
 @Converter(autoApply = false)
 public class DayCountConventionConverter
@@ -18,7 +18,9 @@ public class DayCountConventionConverter
         return switch (attribute) {
             case ACT_365 -> "ACT/365";
             case ACT_ACT -> "ACT/ACT";
+            case ACT_360 -> "ACT/360";
             case THIRTY_360 -> "30/360";
+            case THIRTY_E_360 -> "30E/360";
         };
     }
 
@@ -28,7 +30,9 @@ public class DayCountConventionConverter
         return switch (dbData) {
             case "ACT/365" -> LoanAccount.DayCountConvention.ACT_365;
             case "ACT/ACT" -> LoanAccount.DayCountConvention.ACT_ACT;
+            case "ACT/360" -> LoanAccount.DayCountConvention.ACT_360;
             case "30/360" -> LoanAccount.DayCountConvention.THIRTY_360;
+            case "30E/360" -> LoanAccount.DayCountConvention.THIRTY_E_360;
             default -> throw new IllegalArgumentException("Unknown day count convention: " + dbData);
         };
     }

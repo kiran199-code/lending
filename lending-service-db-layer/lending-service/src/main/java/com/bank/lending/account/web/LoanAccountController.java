@@ -54,6 +54,19 @@ public class LoanAccountController {
                               "interestRate": 11.25, "dayCountConvention": "ACT_365"
                             }
                             """),
+                    @ExampleObject(name = "Quarterly repayment with a 12-month moratorium", value = """
+                            {
+                              "customerId": 1004, "sanctionRefId": 900004, "productCode": "EM01",
+                              "sanctionedAmount": 1200000.00, "tenureMonths": 84,
+                              "repaymentFrequency": "QUARTERLY", "moratoriumMonths": 12
+                            }
+                            """),
+                    @ExampleObject(name = "Balloon auto loan (40% balloon)", value = """
+                            {
+                              "customerId": 1005, "sanctionRefId": 900005, "productCode": "AB01",
+                              "sanctionedAmount": 900000.00, "tenureMonths": 48, "balloonPercent": 40
+                            }
+                            """),
                     @ExampleObject(name = "Floating home loan, own spread", value = """
                             {
                               "customerId": 1003, "sanctionRefId": 900003, "productCode": "HL01",

@@ -113,3 +113,12 @@ export interface SettingGroup { title: string; settings: SettingRow[] }
 export interface ServiceSettings { service: string; description: string; changeVia: string; liveValues: boolean; groups: SettingGroup[] }
 export interface FixedRule { area: string; rule: string; value: string }
 export interface ConfigOverview { services: ServiceSettings[]; fixedRules: FixedRule[]; batchEditable: boolean }
+
+export interface Product {
+  productId: number; productCode: string; productName: string; description: string | null;
+  accountType: string; rateType: string; scheduleType: string; dayCountConvention: string;
+  benchmarkRateRef: string | null; defaultInterestRate: number; defaultSpread: number | null;
+  minInterestRate: number | null; maxInterestRate: number | null; minSpread: number | null; maxSpread: number | null;
+  minSanctionedAmount: number | null; maxSanctionedAmount: number | null;
+  minTenureMonths: number | null; maxTenureMonths: number | null; status: string; accountCount: number;
+}

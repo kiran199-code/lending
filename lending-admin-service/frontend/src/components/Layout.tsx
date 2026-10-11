@@ -3,6 +3,7 @@ import { useAuth } from '../auth';
 
 const NAV = [
   ['/', 'Dashboard'],
+  ['/products', 'Products'],
   ['/accounts', 'Accounts'],
   ['/upcoming', 'Upcoming payments'],
   ['/overdue', 'Overdue'],

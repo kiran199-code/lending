@@ -5,6 +5,7 @@ import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.mortgage.domain.Mortgage;
 import com.bank.lending.mortgage.repository.MortgageRepository;
 import com.bank.lending.payment.domain.EmiTransaction;
+import com.bank.lending.product.repository.LoanProductRepository;
 import com.bank.lending.payment.repository.EmiTransactionRepository;
 import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
 import com.bank.lending.schedule.repository.AmortizationScheduleRepository;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LoanAccountRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired private LoanAccountRepository loanAccountRepository;
+    @Autowired private LoanProductRepository loanProductRepository;
     @Autowired private MortgageRepository mortgageRepository;
     @Autowired private AmortizationScheduleRepository scheduleRepository;
     @Autowired private InterestAccrualRepository accrualRepository;
@@ -60,7 +62,8 @@ class LoanAccountRepositoryIntegrationTest extends AbstractIntegrationTest {
                         .accountNumber("HL-000001")
                         .customerId(3001L)
                         .sanctionRefId(3001L)
-                        .productCode("HL")
+                        .productCode("HL01")
+                        .productId(productId("HL01"))
                         .accountType(LoanAccount.AccountType.MORTGAGE)
                         .sanctionedAmount(new BigDecimal("5000000.00"))
                         .tenureMonths(240)
@@ -182,12 +185,18 @@ class LoanAccountRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     // ---- fixtures ----
 
+    /** Products PL01 / HL01 are seeded by migration V10. */
+    private Long productId(String productCode) {
+        return loanProductRepository.findByProductCode(productCode).orElseThrow().getProductId();
+    }
+
     private LoanAccount unsecuredAccount(String accountNumber, long sanctionRefId) {
         return LoanAccount.builder()
                 .accountNumber(accountNumber)
                 .customerId(1L)
                 .sanctionRefId(sanctionRefId)
-                .productCode("PL")
+                .productCode("PL01")
+                .productId(productId("PL01"))
                 .accountType(LoanAccount.AccountType.UNSECURED)
                 .sanctionedAmount(new BigDecimal("500000.00"))
                 .tenureMonths(36)

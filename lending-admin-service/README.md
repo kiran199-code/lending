@@ -9,6 +9,7 @@ change `lending-service` or `lending-batch-service`.
 | Page | Shows |
 |---|---|
 | Dashboard | Portfolio KPIs (accounts, outstanding principal, overdue, due in 7 days, month-to-date collections), status mix, accrual and collections trend |
+| Products | Loan product master: default terms, rate / spread / amount / tenure bands, status and number of accounts (view only; maintained through lending-service) |
 | Accounts | Search and filter (account no. / customer id, status, type, product), sortable, paged |
 | Account detail | Overview with derived figures; **Amortization** (every schedule version, CSV export); **Accruals** (date range, chart); **Payments** (EMI history, CSV export); **Mortgage** (property, valuation history); **Statement** PDF download |
 | Upcoming payments | Instalments falling due in the next 7 / 15 / 30 / 60 / 90 days, by product |

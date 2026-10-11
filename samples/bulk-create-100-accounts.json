@@ -4,1171 +4,735 @@
       "customerId": 3029,
       "sanctionRefId": 920001,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1155000.0,
       "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 15.72,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 15.72
     },
     {
       "customerId": 3068,
       "sanctionRefId": 920002,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 515000.0,
-      "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 10.05,
-      "benchmarkRateRef": "TBILL",
-      "spread": 3.25,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 12
     },
     {
       "customerId": 3029,
       "sanctionRefId": 920003,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 4850000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 11.93,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3004,
       "sanctionRefId": 920004,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1240000.0,
       "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 16.44,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 16.44
     },
     {
       "customerId": 3052,
       "sanctionRefId": 920005,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1040000.0,
-      "tenureMonths": 48,
-      "rateType": "FIXED",
-      "interestRate": 10.7,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 48
     },
     {
       "customerId": 3021,
       "sanctionRefId": 920006,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 4845000.0,
-      "tenureMonths": 360,
-      "rateType": "FLOATING",
-      "interestRate": 10.8,
-      "benchmarkRateRef": "TBILL",
-      "spread": 4.0,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 360
     },
     {
       "customerId": 3062,
       "sanctionRefId": 920007,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2800000.0,
       "tenureMonths": 120,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 9.25
     },
     {
       "customerId": 3015,
       "sanctionRefId": 920008,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 990000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 10.94,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3063,
       "sanctionRefId": 920009,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 390000.0,
-      "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 9.74,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 24
     },
     {
       "customerId": 3052,
       "sanctionRefId": 920010,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 7495000.0,
       "tenureMonths": 300,
-      "rateType": "FIXED",
-      "interestRate": 8.43,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 8.43
     },
     {
       "customerId": 3053,
       "sanctionRefId": 920011,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 14730000.0,
-      "tenureMonths": 360,
-      "rateType": "FIXED",
-      "interestRate": 9.45,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 360
     },
     {
       "customerId": 3002,
       "sanctionRefId": 920012,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1945000.0,
-      "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 10.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 2.25,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3057,
       "sanctionRefId": 920013,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 550000.0,
       "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 15.69,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 15.69
     },
     {
       "customerId": 3069,
       "sanctionRefId": 920014,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 230000.0,
-      "tenureMonths": 48,
-      "rateType": "FLOATING",
-      "interestRate": 8.75,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.25,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 48
     },
     {
       "customerId": 3007,
       "sanctionRefId": 920015,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 480000.0,
-      "tenureMonths": 18,
-      "rateType": "FIXED",
-      "interestRate": 8.24,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 18
     },
     {
       "customerId": 3066,
       "sanctionRefId": 920016,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 760000.0,
       "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 11.11,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 11.11
     },
     {
       "customerId": 3059,
       "sanctionRefId": 920017,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1260000.0,
-      "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 8.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 1.75,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 12
     },
     {
       "customerId": 3049,
       "sanctionRefId": 920018,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 500000.0,
-      "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 15.58,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3015,
       "sanctionRefId": 920019,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2195000.0,
       "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 10.42,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 10.42
     },
     {
       "customerId": 3002,
       "sanctionRefId": 920020,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 425000.0,
-      "tenureMonths": 120,
-      "rateType": "FIXED",
-      "interestRate": 11.38,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 120
     },
     {
       "customerId": 3012,
       "sanctionRefId": 920021,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1750000.0,
-      "tenureMonths": 72,
-      "rateType": "FLOATING",
-      "interestRate": 8.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 1.75,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 72
     },
     {
       "customerId": 3020,
       "sanctionRefId": 920022,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 3165000.0,
       "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 11.52,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 11.52
     },
     {
       "customerId": 3069,
       "sanctionRefId": 920023,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 500000.0,
-      "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 10.5,
-      "benchmarkRateRef": "REPO",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3038,
       "sanctionRefId": 920024,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 960000.0,
-      "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 12.37,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3050,
       "sanctionRefId": 920025,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 10840000.0,
       "tenureMonths": 180,
-      "rateType": "FIXED",
-      "interestRate": 8.39,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 8.39
     },
     {
       "customerId": 3032,
       "sanctionRefId": 920026,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 3285000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 16.34,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 36
     },
     {
       "customerId": 3047,
       "sanctionRefId": 920027,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 6490000.0,
-      "tenureMonths": 120,
-      "rateType": "FIXED",
-      "interestRate": 9.15,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 120
     },
     {
       "customerId": 3054,
       "sanctionRefId": 920028,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 4950000.0,
       "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 15.47,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 15.47
     },
     {
       "customerId": 3027,
       "sanctionRefId": 920029,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2055000.0,
-      "tenureMonths": 48,
-      "rateType": "FIXED",
-      "interestRate": 11.87,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 48
     },
     {
       "customerId": 3022,
       "sanctionRefId": 920030,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1045000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 11.2,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 36
     },
     {
       "customerId": 3057,
       "sanctionRefId": 920031,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 875000.0,
       "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 15.47,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 15.47
     },
     {
       "customerId": 3024,
       "sanctionRefId": 920032,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 300000.0,
-      "tenureMonths": 18,
-      "rateType": "FLOATING",
-      "interestRate": 11.15,
-      "benchmarkRateRef": "MCLR",
-      "spread": 2.75,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 18
     },
     {
       "customerId": 3020,
       "sanctionRefId": 920033,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2365000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 9.2,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 60
     },
     {
       "customerId": 3001,
       "sanctionRefId": 920034,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 415000.0,
       "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 9.25
     },
     {
       "customerId": 3067,
       "sanctionRefId": 920035,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1450000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 12.09,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 36
     },
     {
       "customerId": 3049,
       "sanctionRefId": 920036,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 575000.0,
-      "tenureMonths": 48,
-      "rateType": "FLOATING",
-      "interestRate": 9.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 1.25,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 48
     },
     {
       "customerId": 3034,
       "sanctionRefId": 920037,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1050000.0,
       "tenureMonths": 72,
-      "rateType": "FLOATING",
-      "interestRate": 10.5,
-      "benchmarkRateRef": "REPO",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 10.5
     },
     {
       "customerId": 3021,
       "sanctionRefId": 920038,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 545000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 12.17,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 36
     },
     {
       "customerId": 3061,
       "sanctionRefId": 920039,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1960000.0,
-      "tenureMonths": 96,
-      "rateType": "FIXED",
-      "interestRate": 9.45,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 96
     },
     {
       "customerId": 3016,
       "sanctionRefId": 920040,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1155000.0,
       "tenureMonths": 84,
-      "rateType": "FLOATING",
-      "interestRate": 12.4,
-      "benchmarkRateRef": "MCLR",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 12.4
     },
     {
       "customerId": 3038,
       "sanctionRefId": 920041,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2050000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 8.9,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 36
     },
     {
       "customerId": 3047,
       "sanctionRefId": 920042,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 745000.0,
-      "tenureMonths": 84,
-      "rateType": "FLOATING",
-      "interestRate": 8.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 1.75,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3057,
       "sanctionRefId": 920043,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 480000.0,
       "tenureMonths": 24,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 9.25
     },
     {
       "customerId": 3048,
       "sanctionRefId": 920044,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 4390000.0,
-      "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 12.4,
-      "benchmarkRateRef": "MCLR",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3063,
       "sanctionRefId": 920045,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 95000.0,
-      "tenureMonths": 18,
-      "rateType": "FIXED",
-      "interestRate": 10.18,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 18
     },
     {
       "customerId": 3003,
       "sanctionRefId": 920046,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1295000.0,
       "tenureMonths": 18,
-      "rateType": "FIXED",
-      "interestRate": 11.51,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 11.51
     },
     {
       "customerId": 3014,
       "sanctionRefId": 920047,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 290000.0,
-      "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 9.06,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 12
     },
     {
       "customerId": 3002,
       "sanctionRefId": 920048,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 175000.0,
-      "tenureMonths": 18,
-      "rateType": "FLOATING",
-      "interestRate": 10.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 2.25,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 18
     },
     {
       "customerId": 3044,
       "sanctionRefId": 920049,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 620000.0,
       "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 16.35,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 16.35
     },
     {
       "customerId": 3014,
       "sanctionRefId": 920050,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2475000.0,
-      "tenureMonths": 36,
-      "rateType": "FLOATING",
-      "interestRate": 12.4,
-      "benchmarkRateRef": "MCLR",
-      "spread": 4.0,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 36
     },
     {
       "customerId": 3056,
       "sanctionRefId": 920051,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 375000.0,
-      "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 9.55,
-      "benchmarkRateRef": "TBILL",
-      "spread": 2.75,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 12
     },
     {
       "customerId": 3067,
       "sanctionRefId": 920052,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1010000.0,
       "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 11.85,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 11.85
     },
     {
       "customerId": 3026,
       "sanctionRefId": 920053,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 775000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 10.74,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3038,
       "sanctionRefId": 920054,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1280000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 11.13,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3048,
       "sanctionRefId": 920055,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 910000.0,
       "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 10.61,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 10.61
     },
     {
       "customerId": 3030,
       "sanctionRefId": 920056,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 3380000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 12.64,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 60
     },
     {
       "customerId": 3019,
       "sanctionRefId": 920057,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1075000.0,
-      "tenureMonths": 72,
-      "rateType": "FIXED",
-      "interestRate": 9.55,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 72
     },
     {
       "customerId": 3064,
       "sanctionRefId": 920058,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 690000.0,
       "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 9.75,
-      "benchmarkRateRef": "REPO",
-      "spread": 3.25,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 9.75
     },
     {
       "customerId": 3049,
       "sanctionRefId": 920059,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1460000.0,
-      "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 10.65,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 84
     },
     {
       "customerId": 3059,
       "sanctionRefId": 920060,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 3705000.0,
-      "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 11.3,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 36
     },
     {
       "customerId": 3002,
       "sanctionRefId": 920061,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 455000.0,
       "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 9.75,
-      "benchmarkRateRef": "REPO",
-      "spread": 3.25,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 9.75
     },
     {
       "customerId": 3023,
       "sanctionRefId": 920062,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 95000.0,
-      "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 8.61,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 24
     },
     {
       "customerId": 3039,
       "sanctionRefId": 920063,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 11830000.0,
-      "tenureMonths": 180,
-      "rateType": "FLOATING",
-      "interestRate": 9.75,
-      "benchmarkRateRef": "REPO",
-      "spread": 3.25,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 180
     },
     {
       "customerId": 3023,
       "sanctionRefId": 920064,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1700000.0,
       "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 16.66,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 16.66
     },
     {
       "customerId": 3053,
       "sanctionRefId": 920065,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 450000.0,
-      "tenureMonths": 18,
-      "rateType": "FIXED",
-      "interestRate": 9.02,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 18
     },
     {
       "customerId": 3028,
       "sanctionRefId": 920066,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 95000.0,
-      "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 8.31,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 24
     },
     {
       "customerId": 3050,
       "sanctionRefId": 920067,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1790000.0,
       "tenureMonths": 120,
-      "rateType": "FIXED",
-      "interestRate": 10.21,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 10.21
     },
     {
       "customerId": 3018,
       "sanctionRefId": 920068,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2085000.0,
-      "tenureMonths": 84,
-      "rateType": "FLOATING",
-      "interestRate": 8.75,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.25,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3031,
       "sanctionRefId": 920069,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1500000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 14.87,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 60
     },
     {
       "customerId": 3062,
       "sanctionRefId": 920070,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1430000.0,
       "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 12.19,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 12.19
     },
     {
       "customerId": 3028,
       "sanctionRefId": 920071,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 965000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 14.76,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 60
     },
     {
       "customerId": 3046,
       "sanctionRefId": 920072,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1225000.0,
-      "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 8.05,
-      "benchmarkRateRef": "TBILL",
-      "spread": 1.25,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 60
     },
     {
       "customerId": 3065,
       "sanctionRefId": 920073,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 485000.0,
       "tenureMonths": 48,
-      "rateType": "FIXED",
-      "interestRate": 11.06,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 11.06
     },
     {
       "customerId": 3050,
       "sanctionRefId": 920074,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 495000.0,
-      "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 7.93,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 24
     },
     {
       "customerId": 3001,
       "sanctionRefId": 920075,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 8690000.0,
-      "tenureMonths": 360,
-      "rateType": "FLOATING",
-      "interestRate": 11.15,
-      "benchmarkRateRef": "MCLR",
-      "spread": 2.75,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 360
     },
     {
       "customerId": 3009,
       "sanctionRefId": 920076,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1915000.0,
       "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 9.47,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 9.47
     },
     {
       "customerId": 3023,
       "sanctionRefId": 920077,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 240000.0,
-      "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 10.36,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 12
     },
     {
       "customerId": 3010,
       "sanctionRefId": 920078,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 35000.0,
-      "tenureMonths": 24,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 24
     },
     {
       "customerId": 3012,
       "sanctionRefId": 920079,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1125000.0,
       "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 13.6,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 13.6
     },
     {
       "customerId": 3015,
       "sanctionRefId": 920080,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 12530000.0,
-      "tenureMonths": 300,
-      "rateType": "FLOATING",
-      "interestRate": 12.4,
-      "benchmarkRateRef": "MCLR",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 300
     },
     {
       "customerId": 3027,
       "sanctionRefId": 920081,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1740000.0,
-      "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 10.1,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3023,
       "sanctionRefId": 920082,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 3340000.0,
       "tenureMonths": 60,
-      "rateType": "FLOATING",
-      "interestRate": 9.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 1.25,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 9.65
     },
     {
       "customerId": 3024,
       "sanctionRefId": 920083,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 300000.0,
-      "tenureMonths": 18,
-      "rateType": "FLOATING",
-      "interestRate": 12.4,
-      "benchmarkRateRef": "MCLR",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 18
     },
     {
       "customerId": 3021,
       "sanctionRefId": 920084,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 760000.0,
-      "tenureMonths": 12,
-      "rateType": "FLOATING",
-      "interestRate": 10.8,
-      "benchmarkRateRef": "TBILL",
-      "spread": 4.0,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 12
     },
     {
       "customerId": 3006,
       "sanctionRefId": 920085,
       "productCode": "BL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1115000.0,
       "tenureMonths": 36,
-      "rateType": "FLOATING",
-      "interestRate": 10.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 2.25,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 10.65
     },
     {
       "customerId": 3052,
       "sanctionRefId": 920086,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2155000.0,
-      "tenureMonths": 96,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 96
     },
     {
       "customerId": 3032,
       "sanctionRefId": 920087,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 235000.0,
-      "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 13.41,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 24
     },
     {
       "customerId": 3064,
       "sanctionRefId": 920088,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1090000.0,
       "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 14.38,
-      "dayCountConvention": "THIRTY_360"
+      "interestRate": 14.38
     },
     {
       "customerId": 3069,
       "sanctionRefId": 920089,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 440000.0,
-      "tenureMonths": 6,
-      "rateType": "FIXED",
-      "interestRate": 9.4,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 6
     },
     {
       "customerId": 3024,
       "sanctionRefId": 920090,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 7915000.0,
-      "tenureMonths": 120,
-      "rateType": "FLOATING",
-      "interestRate": 9.25,
-      "benchmarkRateRef": "REPO",
-      "spread": 2.75,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 120
     },
     {
       "customerId": 3044,
       "sanctionRefId": 920091,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1235000.0,
       "tenureMonths": 36,
-      "rateType": "FIXED",
-      "interestRate": 8.85,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 8.85
     },
     {
       "customerId": 3037,
       "sanctionRefId": 920092,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2325000.0,
-      "tenureMonths": 96,
-      "rateType": "FIXED",
-      "interestRate": 11.27,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 96
     },
     {
       "customerId": 3033,
       "sanctionRefId": 920093,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 395000.0,
-      "tenureMonths": 84,
-      "rateType": "FIXED",
-      "interestRate": 11.39,
-      "dayCountConvention": "ACT_ACT"
+      "tenureMonths": 84
     },
     {
       "customerId": 3070,
       "sanctionRefId": 920094,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 760000.0,
       "tenureMonths": 96,
-      "rateType": "FIXED",
-      "interestRate": 8.34,
-      "dayCountConvention": "ACT_365"
+      "interestRate": 8.34
     },
     {
       "customerId": 3058,
       "sanctionRefId": 920095,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 655000.0,
-      "tenureMonths": 60,
-      "rateType": "FIXED",
-      "interestRate": 10.31,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 60
     },
     {
       "customerId": 3021,
       "sanctionRefId": 920096,
       "productCode": "HL01",
-      "accountType": "MORTGAGE",
       "sanctionedAmount": 12085000.0,
-      "tenureMonths": 360,
-      "rateType": "FIXED",
-      "interestRate": 8.88,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 360
     },
     {
       "customerId": 3029,
       "sanctionRefId": 920097,
       "productCode": "PL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 1030000.0,
       "tenureMonths": 24,
-      "rateType": "FIXED",
-      "interestRate": 10.43,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 10.43
     },
     {
       "customerId": 3041,
       "sanctionRefId": 920098,
       "productCode": "GL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 55000.0,
-      "tenureMonths": 12,
-      "rateType": "FIXED",
-      "interestRate": 7.73,
-      "dayCountConvention": "THIRTY_360"
+      "tenureMonths": 12
     },
     {
       "customerId": 3036,
       "sanctionRefId": 920099,
       "productCode": "AL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 340000.0,
-      "tenureMonths": 84,
-      "rateType": "FLOATING",
-      "interestRate": 10.8,
-      "benchmarkRateRef": "TBILL",
-      "spread": 4.0,
-      "dayCountConvention": "ACT_365"
+      "tenureMonths": 84
     },
     {
       "customerId": 3068,
       "sanctionRefId": 920100,
       "productCode": "EL01",
-      "accountType": "UNSECURED",
       "sanctionedAmount": 2880000.0,
       "tenureMonths": 96,
-      "rateType": "FLOATING",
-      "interestRate": 9.65,
-      "benchmarkRateRef": "MCLR",
-      "spread": 1.25,
-      "dayCountConvention": "ACT_ACT"
+      "interestRate": 9.65
     }
   ]
 }

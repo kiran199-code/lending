@@ -2,6 +2,12 @@
 
 ## 2026-10-11
 
+- **Loan product master (`loan_product`)**: product code, name, account type, rate type, schedule type (EMI), day-count convention, benchmark, default rate and spread, rate / spread / sanctioned amount / tenure bands, ACTIVE / INACTIVE. Migration V10 creates it, seeds PL01, BL01, EL01, GL01, AL01, HL01, creates an open "Legacy product" row for any other code already used by an account, and links every account (`loan_account.product_id`, NOT NULL, FK; new `schedule_type` column).
+- **Account creation uses the product**: `POST /api/v1/loan-accounts` (and bulk) look up `productCode` (must exist and be ACTIVE). `accountType`, `rateType`, `interestRate`, `benchmarkRateRef`, `spread` and `dayCountConvention` are now optional and defaulted from the product; supplied values override but must be inside the bands (400 listing every problem); account type and rate type must equal the product's. Unknown product 404, inactive product 409. Existing accounts are not changed when a product is edited.
+- **Floating rate reset** is floored and capped at the product's rate band.
+- **New API** `/api/v1/loan-products` (list, get, create, replace). Admin portal: new **Products** screen (read-only).
+- `samples/bulk-create-100-accounts.json` rewritten to take defaults from the products.
+
 - **Fix: batch service connection pool exhausted on Render** (`Connection is not available ... total=5, active=5`; Quartz `ClusterManager` / `MisfireHandler` errors, "Failed to schedule job", "Quartz-triggered launch failed", Spring Batch "error saving batch meta data"). `render.yaml`: batch `DB_POOL_SIZE` 5 -> 20, `DB_POOL_MIN_IDLE` 1 -> 4, new `QUARTZ_THREAD_COUNT=3`. `application.yml`: `org.quartz.threadPool.threadCount` now `${QUARTZ_THREAD_COUNT:10}` (default unchanged).
 
 ## 2026-10-10 (documents v1.1)

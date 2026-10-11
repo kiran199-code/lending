@@ -12,10 +12,12 @@ public record LoanAccountResponse(
         Long customerId,
         Long sanctionRefId,
         String productCode,
+        Long productId,
         LoanAccount.AccountType accountType,
         BigDecimal sanctionedAmount,
         BigDecimal disbursedAmount,
         Integer tenureMonths,
+        LoanAccount.ScheduleType scheduleType,
         LoanAccount.RateType rateType,
         BigDecimal interestRate,
         String benchmarkRateRef,
@@ -32,8 +34,8 @@ public record LoanAccountResponse(
     public static LoanAccountResponse from(LoanAccount a) {
         return new LoanAccountResponse(
                 a.getAccountId(), a.getAccountNumber(), a.getCustomerId(), a.getSanctionRefId(),
-                a.getProductCode(), a.getAccountType(), a.getSanctionedAmount(), a.getDisbursedAmount(),
-                a.getTenureMonths(), a.getRateType(), a.getInterestRate(), a.getBenchmarkRateRef(),
+                a.getProductCode(), a.getProductId(), a.getAccountType(), a.getSanctionedAmount(), a.getDisbursedAmount(),
+                a.getTenureMonths(), a.getScheduleType(), a.getRateType(), a.getInterestRate(), a.getBenchmarkRateRef(),
                 a.getSpread(), a.getDayCountConvention(), a.getEmiAmount(), a.getEmiStartDate(),
                 a.getAccountStatus(), a.getMortgageId(), a.getVersion(), a.getCreatedAt(), a.getUpdatedAt()
         );

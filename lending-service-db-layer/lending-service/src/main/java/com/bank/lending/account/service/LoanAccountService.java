@@ -8,6 +8,9 @@ import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.ledger.domain.LedgerOutboxEntry;
 import com.bank.lending.ledger.service.LedgerOutboxService;
+import com.bank.lending.product.domain.LoanProduct;
+import com.bank.lending.product.repository.LoanProductRepository;
+import com.bank.lending.product.service.AccountTermsResolver;
 import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
 import com.bank.lending.schedule.repository.AmortizationScheduleRepository;
 import com.bank.lending.schedule.service.AmortizationScheduleService;
@@ -46,6 +49,8 @@ public class LoanAccountService {
     private final AmortizationScheduleService scheduleService;
     private final AccountNumberGenerator accountNumberGenerator;
     private final LedgerOutboxService ledgerOutboxService;
+    private final AccountTermsResolver termsResolver;
+    private final LoanProductRepository productRepository;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -55,19 +60,23 @@ public class LoanAccountService {
             return existing.get();
         }
 
+        // Product terms are defaulted / validated here; the account keeps its own copy of them.
+        AccountTermsResolver.AccountTerms terms = termsResolver.resolve(request);
+
         LoanAccount account = LoanAccount.builder()
                 .customerId(request.customerId())
                 .sanctionRefId(request.sanctionRefId())
-                .productCode(request.productCode())
-                .accountType(request.accountType())
+                .productCode(terms.product().getProductCode())
+                .productId(terms.product().getProductId())
+                .accountType(terms.accountType())
+                .scheduleType(terms.scheduleType())
                 .sanctionedAmount(request.sanctionedAmount())
                 .tenureMonths(request.tenureMonths())
-                .rateType(request.rateType())
-                .interestRate(request.interestRate())
-                .benchmarkRateRef(request.benchmarkRateRef())
-                .spread(request.spread())
-                .dayCountConvention(request.dayCountConvention() != null
-                        ? request.dayCountConvention() : LoanAccount.DayCountConvention.ACT_365)
+                .rateType(terms.rateType())
+                .interestRate(terms.interestRate())
+                .benchmarkRateRef(terms.benchmarkRateRef())
+                .spread(terms.spread())
+                .dayCountConvention(terms.dayCountConvention())
                 .accountStatus(PENDING_DISBURSEMENT)
                 .version(0)
                 .build();
@@ -149,20 +158,31 @@ public class LoanAccountService {
      */
     @Transactional
     public void applyFloatingRateReset(String benchmarkRateRef, BigDecimal newBenchmarkRate) {
+        Map<Long, LoanProduct> products = new java.util.HashMap<>();
+        productRepository.findAll().forEach(p -> products.put(p.getProductId(), p));
         int pageNo = 0;
         Page<LoanAccount> page;
         do {
             page = loanAccountRepository.findActiveFloatingByBenchmark(benchmarkRateRef, PageRequest.of(pageNo, 200));
             for (LoanAccount account : page.getContent()) {
-                resetRateForAccount(account, newBenchmarkRate);
+                resetRateForAccount(account, newBenchmarkRate, products.get(account.getProductId()));
             }
             pageNo++;
         } while (page.hasNext());
     }
 
-    private void resetRateForAccount(LoanAccount account, BigDecimal newBenchmarkRate) {
+    private void resetRateForAccount(LoanAccount account, BigDecimal newBenchmarkRate, LoanProduct product) {
         BigDecimal spread = account.getSpread() != null ? account.getSpread() : BigDecimal.ZERO;
         BigDecimal newRate = newBenchmarkRate.add(spread);
+        // The product's rate band acts as a floor and a cap on the reset rate.
+        if (product != null) {
+            if (product.getMinInterestRate() != null && newRate.compareTo(product.getMinInterestRate()) < 0) {
+                newRate = product.getMinInterestRate();
+            }
+            if (product.getMaxInterestRate() != null && newRate.compareTo(product.getMaxInterestRate()) > 0) {
+                newRate = product.getMaxInterestRate();
+            }
+        }
         if (newRate.compareTo(account.getInterestRate()) == 0) {
             return;
         }

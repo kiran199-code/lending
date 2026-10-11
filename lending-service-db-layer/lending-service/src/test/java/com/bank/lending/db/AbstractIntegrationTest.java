@@ -10,7 +10,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Boots a real Postgres 16 container, points Spring's datasource at it, and
- * lets Flyway run all migrations (V1-V8) against it before each test class.
+ * lets Flyway run all migrations (V1-V10) against it before each test class.
  * This is deliberately NOT H2 — day-count arithmetic, JSONB columns, and
  * declarative partitioning behave differently enough on H2 that it would
  * hide real bugs.

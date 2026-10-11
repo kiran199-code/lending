@@ -12,6 +12,7 @@ import Ledger from './pages/Ledger';
 import Login from './pages/Login';
 import Overdue from './pages/Overdue';
 import Payments from './pages/Payments';
+import Products from './pages/Products';
 import Upcoming from './pages/Upcoming';
 
 function Gate() {
@@ -22,6 +23,7 @@ function Gate() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="products" element={<Products />} />
         <Route path="accounts" element={<Accounts />} />
         <Route path="accounts/:id" element={<AccountDetail />} />
         <Route path="upcoming" element={<Upcoming />} />

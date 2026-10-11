@@ -39,6 +39,15 @@ public class LoanAccount {
     @Column(name = "product_code", nullable = false, length = 10)
     private String productCode;
 
+    /** The loan_product this account was created from (its terms were defaulted from it). */
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "schedule_type", nullable = false, length = 20)
+    private ScheduleType scheduleType = ScheduleType.EMI;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "account_type", nullable = false, length = 15)
     private AccountType accountType;
@@ -97,6 +106,9 @@ public class LoanAccount {
     public enum AccountType { UNSECURED, MORTGAGE }
 
     public enum RateType { FIXED, FLOATING }
+
+    /** How instalments are computed. Only EMI (reducing-balance equated instalments) is implemented. */
+    public enum ScheduleType { EMI }
 
     /**
      * DB stores these as 'ACT/365', 'ACT/ACT', '30/360' (see V1 migration CHECK constraint).

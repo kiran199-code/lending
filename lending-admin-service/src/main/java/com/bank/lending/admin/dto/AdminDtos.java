@@ -194,4 +194,15 @@ public final class AdminDtos {
 
     public record ConfigOverview(List<ServiceSettings> services, List<FixedRule> fixedRules, boolean batchEditable) {
     }
+
+    /** One loan product with the number of accounts opened on it. Null min/max means "no limit". */
+    public record ProductRow(Long productId, String productCode, String productName, String description,
+                             String accountType, String rateType, String scheduleType, String dayCountConvention,
+                             String benchmarkRateRef, BigDecimal defaultInterestRate, BigDecimal defaultSpread,
+                             BigDecimal minInterestRate, BigDecimal maxInterestRate,
+                             BigDecimal minSpread, BigDecimal maxSpread,
+                             BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
+                             Integer minTenureMonths, Integer maxTenureMonths,
+                             String status, long accountCount) {
+    }
 }

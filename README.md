@@ -17,7 +17,7 @@ Free services sleep when idle: the first request after a pause takes about a min
 |---|---|
 | Lending API | https://lending-service-5tqm.onrender.com |
 | Lending Swagger UI | https://lending-service-5tqm.onrender.com/swagger-ui.html |
-| Admin portal | `https://lending-admin-service-<suffix>.onrender.com` (Render assigns the suffix; copy it from the dashboard) |
+| Admin portal | `https://lending-admin-service-<suffix>.onrender.com` (Render assigns the suffix; copy it from the dashboard). To enable editing on the Configuration screen set `BATCH_SERVICE_URL` (the batch service's public URL) on this service |
 | Admin Swagger UI | `https://lending-admin-service-<suffix>.onrender.com/swagger-ui.html` (click Authorize, then use the admin login) |
 
 **Admin login:** user `admin`; password is the generated `ADMIN_PASSWORD` (Render dashboard > lending-admin-service > Environment). Local default: `changeme`.
@@ -39,7 +39,7 @@ Deploy to Render: **New > Blueprint** on this repo uses `render.yaml` (one free 
 
 ## Admin portal in one paragraph
 
-Search accounts and inquire on amortization (every schedule version, CSV export), daily accruals, payments, mortgage and the customer statement PDF; see upcoming payments (7-90 days), overdue instalments with days-past-due buckets, book-wide payments and accruals, ledger-outbox status and batch jobs. It reads the Lending database through read-only connections and never writes. Details: [`lending-admin-service/README.md`](lending-admin-service/README.md).
+Search accounts and inquire on amortization (every schedule version, CSV export), daily accruals, payments, mortgage and the customer statement PDF; see upcoming payments (7-90 days), overdue instalments with days-past-due buckets, book-wide payments and accruals, ledger-outbox status and batch jobs. A **Configuration** screen lists every setting of the three services and lets you edit batch job settings (enabled, schedule, chunk size, concurrency, retry/skip limits, timeout, order), saved through the batch service. Lending data is read through read-only connections and never written. Details: [`lending-admin-service/README.md`](lending-admin-service/README.md).
 
 ## Scripts and samples
 
@@ -54,8 +54,8 @@ Search accounts and inquire on amortization (every schedule version, CSV export)
 | Document | Content |
 |---|---|
 | `docs/Lending_Platform_Functional_Specification.docx` | Business rules and API contracts; Chapter 13 covers the admin portal and later changes |
-| `docs/Lending_Platform_Technical_Design_Document.docx` | Architecture and design; Chapter 15 covers the admin portal and later changes |
-| `docs/Lending-Platform-Architecture.pptx` | 17-slide deck: architecture, data model, flows, status model, admin portal, API catalogue |
+| `docs/Lending_Platform_Technical_Design_Document.docx` | Architecture and design; Chapter 15 covers the admin portal, configuration and later changes; 15.11 lists every setting |
+| `docs/Lending-Platform-Architecture.pptx` | 18-slide deck: architecture, data model, flows, status model, admin portal, API catalogue |
 | `docs/CLOUD_DEPLOYMENT.md` | AWS target deployment plan; section 13 summarises the Render sandbox |
 | `CHANGELOG.md` | What changed and when |
 

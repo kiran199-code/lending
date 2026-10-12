@@ -83,6 +83,8 @@ All under `/api/v1/batch-admin`, secured with HTTP Basic (`batch.admin.username`
 | `GET /executions/{jobExecutionId}/errors?limit=` | Dead-letter records for one specific run. |
 | `POST /config/reload` | Re-read `batch_job_config` and rebuild + reschedule every job — use after editing config rows. |
 | `GET /status/today` | Per-job status: last execution outcome + next Quartz fire time. |
+| `POST /eod/run` | Run end of day for the current business date (or resume a failed one): 202 started, 409 if already running. |
+| `GET /eod/status` | `{running, businessDate, lastRun}` - `lastRun` lists each job's result and whether the date advanced. |
 
 ---
 
@@ -140,7 +142,7 @@ or on that endpoint call, deliberately, so a config change doesn't affect an in-
 { "businessDate": "2026-08-20" }
 ```
 
-Omit `businessDate` to run for today. This is the path for:
+Omit `businessDate` to run for the platform's current **business date** (see below), not the calendar date. This is the path for:
 
 - **Backdated EOD catch-up**: if a scheduled run was missed or needs to be redone for a prior
   date, trigger with that `businessDate` explicitly — every business job reads its operating
@@ -178,9 +180,45 @@ fails the whole step).
   is a natural next increment once a job's real business logic (replacing the current `// TODO`
   stubs) makes "replay one record" well-defined for that job.
 
+## Business date and end of day
+
+lending-service owns the business date; this service reads it (`BusinessDateProvider`, `batch.business-date.source=LENDING`; `SYSTEM` = wall clock, standalone
+use only). `BatchJobContext.businessDate()` throws if no date was set - there is no silent fallback to the system clock. A cron or manual launch without a date uses the business date.
+
+**End of day** (`core/eod`): `EndOfDayService` asks lending-service to start end of day (`OPEN` -> `EOD_RUNNING`; if it is already `EOD_RUNNING` this is a resume), runs every
+enabled `DAILY` job for that date in priority order, skipping any that already completed for it, stops at the first job that does not complete, and only if all did
+calls `advance` so the date moves to the next day. It runs nightly (`batch.eod.cron`, default `0 0 1 * * ?`, zone `batch.eod.zone`) from `EndOfDayScheduler`, and on demand
+via `POST /api/v1/batch-admin/eod/run` (background thread; poll `GET /eod/status`). One run at a time per instance; across instances lending-service refuses a second start and Spring Batch refuses
+a second concurrent run of the same job. With `batch.eod.enabled=true` (default) the `DAILY` jobs' own crons are ignored (`launchScheduled` returns without launching); with `false` they run on their own
+crons as before. `MONTHLY`/`PERIODIC` jobs are not part of the chain and still take the business date at the moment their cron fires. Manual triggers (`/jobs/{job}/trigger`) still work for any job; calls that carry a date after the business date are rejected by lending-service.
+
+| Setting (env) | Default | |
+|---|---|---|
+| `batch.business-date.source` (`BATCH_BUSINESS_DATE_SOURCE`) | `LENDING` | `LENDING` or `SYSTEM` |
+| `batch.eod.enabled` (`BATCH_EOD_ENABLED`) | `true` | nightly end of day replaces the DAILY jobs' own crons |
+| `batch.eod.cron` (`BATCH_EOD_CRON`) | `0 0 1 * * ?` | when the nightly run starts |
+| `batch.eod.zone` (`BATCH_EOD_ZONE`) | `Asia/Kolkata` | zone for the cron |
+
+If a night fails the business date stays on that day in `EOD_RUNNING`; payments for that day can still be inspected, nothing is posted for the next day. Fix the cause (see `GET /jobs/{job}/errors`)
+and run `POST /eod/run` again. On the Render free tier the service sleeps, so the nightly cron may be missed - run it on demand.
+
+## Calling lending-service
+
+Batch jobs do not write loan data. The batch database role is read-only on lending's tables and `lending/LendingServiceClient` (JDK `HttpClient` + Jackson) calls lending-service's REST API:
+`lending.service.base-url` (`LENDING_SERVICE_URL`, required in the `prod` profile, default `http://localhost:8080` elsewhere), optional Basic auth (`LENDING_SERVICE_USERNAME`/`PASSWORD`,
+sent only when a username is set - lending-service has no auth today), connect and request timeouts. It retries only on I/O errors and HTTP 429/502/503/504. Any other failure throws
+`LendingServiceException` (an `IllegalStateException`), so the existing skip, retry and dead-letter handling applies per account.
+
 ## Business logic status
 
-All 36 job classes are structurally complete (correct `job_name`, category, type, partitioning,
-and framework wiring) but their actual business logic is stubbed with `// TODO: business logic`
-markers and Javadoc describing what each one needs to do against the real schema — this pass
-delivers the framework and scaffolding, not the loan-servicing rules themselves.
+Nine of the 36 jobs call lending-service; the other 27 are structurally complete (correct `job_name`, category, type, partitioning and framework wiring) but still stubs with
+`// TODO: business logic` markers and Javadoc describing what each needs to do.
+
+| Job | Calls |
+|---|---|
+| `INTEREST_ACCRUAL_DAILY` | `POST /api/v1/loan-accounts/{id}/interest-accruals?businessDate=` (idempotent) |
+| `DPD_UPDATE_DAILY`, `NPA_CLASSIFICATION_CHECK_DAILY` | `POST /api/v1/loan-accounts/{id}/delinquency-classification` (both use the same endpoint: DPD is not stored and the bands are fixed) |
+| `RATE_RESET_CHECK_DAILY`, `RATE_RESET_MONTHLY`, `QUARTERLY_RATE_RESET` | `POST /api/v1/loan-accounts/{id}/rate-reset`; rate from the `benchmark_rate` table. `job_params_json` must contain `benchmarkRateRef` (migration V4 seeds `OVERNIGHT_MIBOR` for the daily job) |
+| `GL_POSTING_RECONCILIATION_DAILY` | `ledger-outbox/push` until `ledger-outbox/pending` is empty; fails if entries stay PENDING (no trial-balance comparison - the ledger gateway is a stub) |
+| `MONTH_END_GL_CLOSE_MONTHLY` | fails if any outbox entry is PENDING (partial: no sub-ledger reconciliation or period lock) |
+| `FORECLOSURE_PREPAYMENT_PROCESSING` | `POST /{id}/payments/foreclosure`, key `FORECLOSURE-<accountId>-<date>`; params `accountId`, optional `foreclosureDate`, `channel` |

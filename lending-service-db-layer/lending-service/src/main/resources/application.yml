@@ -32,6 +32,18 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
 
+# The platform business date (see BusinessDateService). Transactions are dated by it, not the clock.
+business-date:
+  # Days that are never working days; bank holidays are kept in the non_working_day table.
+  weekend-days: ${BUSINESS_DATE_WEEKEND_DAYS:SATURDAY,SUNDAY}
+  # Reject value dates / as-of dates after the business date. Leave on except for throwaway local work.
+  enforce-no-future-dates: ${BUSINESS_DATE_ENFORCE_NO_FUTURE:true}
+  # Allow PUT /api/v1/business-date to move the date backwards (testing only; accruals already
+  # posted for later dates are NOT undone).
+  allow-backward-set: ${BUSINESS_DATE_ALLOW_BACKWARD_SET:false}
+  # Only used to report systemDate next to the business date.
+  system-timezone: ${BUSINESS_DATE_SYSTEM_TIMEZONE:Asia/Kolkata}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

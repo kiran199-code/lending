@@ -20,6 +20,11 @@ public final class AdminReadClient {
         return http.get("/api/admin/me");
     }
 
+    /** The business date the portal is using for every "today" (lending-service's, read from the shared database). */
+    public ApiResult businessDate() {
+        return http.get("/api/admin/business-date");
+    }
+
     public ApiResult account(long accountId) {
         return http.get("/api/admin/accounts/" + accountId);
     }

@@ -72,6 +72,32 @@ public final class LendingClient {
         return http.post("/api/v1/loan-accounts/delinquency-classifications", b);
     }
 
+    // ---- business date (owned by lending-service) ----
+
+    public ApiResult businessDate() {
+        return http.get("/api/v1/business-date");
+    }
+
+    /** Sets the business date (forward-only unless lending-service allows backward moves). */
+    public ApiResult setBusinessDate(LocalDate date, String reason) {
+        ObjectNode b = Http.MAPPER.createObjectNode();
+        b.put("date", date.toString());
+        b.put("reason", reason);
+        return http.put("/api/v1/business-date", b);
+    }
+
+    /** OPEN to EOD_RUNNING. Only used by e2e.eod.mode=JOBS_THEN_ADVANCE; EOD_RUN lets the batch service do it. */
+    public ApiResult startEndOfDay() {
+        return http.post("/api/v1/business-date/eod/start", null, Map.of("X-Actor", "e2e-suite"));
+    }
+
+    /** Closes {@code expected} and opens the next day. Idempotent on the expected date. */
+    public ApiResult advanceBusinessDate(LocalDate expected) {
+        ObjectNode b = Http.MAPPER.createObjectNode();
+        b.put("expectedBusinessDate", expected.toString());
+        return http.post("/api/v1/business-date/advance", b, Map.of("X-Actor", "e2e-suite"));
+    }
+
     public Http http() {
         return http;
     }

@@ -89,6 +89,9 @@ public final class E2eRunner {
         if ("API".equalsIgnoreCase(cfg.get("e2e.accrual.path"))) {
             deviations.add("e2e.accrual.path=API: accrual was triggered through lending-service directly, NOT through the batch service.");
         }
+        if ("OFF".equalsIgnoreCase(cfg.get("e2e.business-date.mode", "MANAGED"))) {
+            deviations.add("e2e.business-date.mode=OFF: the platform business date was NOT driven by the suite; dates were only passed in requests.");
+        }
         if ("API".equalsIgnoreCase(cfg.get("e2e.dpd.path"))) {
             deviations.add("e2e.dpd.path=API: delinquency classification was triggered through lending-service directly, NOT through the batch service.");
         }
@@ -99,6 +102,9 @@ public final class E2eRunner {
         try {
             sim.run();
         } finally {
+            if (sim.haltReason() != null) {
+                deviations.add("Run HALTED early: " + sim.haltReason() + ". Accounts still mid-lifecycle were not carried to closure.");
+            }
             if (!sim.truncated().isEmpty()) {
                 deviations.add("Run stopped by e2e.max-sim-days before " + sim.truncated().size() + " account(s) finished their lifecycle ("
                         + String.join(", ", sim.truncated()) + "); their closure was not asserted. Raise e2e.max-sim-days.");

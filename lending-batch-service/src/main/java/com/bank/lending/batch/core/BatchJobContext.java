@@ -24,9 +24,17 @@ public final class BatchJobContext {
         JOB_PARAMS_JSON.set(jobParamsJson);
     }
 
+    /**
+     * The business date of the run executing on this thread. There is deliberately no fallback to the
+     * system clock: a job must run for the platform's business date (see BusinessDateProvider), and
+     * silently using "today" would post to the wrong day.
+     */
     public static LocalDate businessDate() {
         LocalDate date = BUSINESS_DATE.get();
-        return date != null ? date : LocalDate.now();
+        if (date == null) {
+            throw new IllegalStateException("No business date in the job context — the run was not launched with a businessDate parameter");
+        }
+        return date;
     }
 
     public static String jobParamsJson() {

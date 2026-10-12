@@ -12,7 +12,6 @@ import com.bank.lending.admin.repository.PortfolioRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -26,17 +25,17 @@ public class PortfolioService {
     private final PortfolioRepository portfolio;
     private final PaymentRepository payments;
     private final OpsRepository ops;
-    private final Clock clock;
+    private final BusinessDateSource businessDate;
 
-    public PortfolioService(PortfolioRepository portfolio, PaymentRepository payments, OpsRepository ops, Clock clock) {
+    public PortfolioService(PortfolioRepository portfolio, PaymentRepository payments, OpsRepository ops, BusinessDateSource businessDate) {
         this.portfolio = portfolio;
         this.payments = payments;
         this.ops = ops;
-        this.clock = clock;
+        this.businessDate = businessDate;
     }
 
     public Dashboard dashboard() {
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = businessDate.today();
         LocalDate monthStart = today.withDayOfMonth(1);
 
         List<StatusCount> byStatus = portfolio.statusCounts();
@@ -60,7 +59,7 @@ public class PortfolioService {
 
     public UpcomingResponse upcoming(LocalDate from, LocalDate to, Integer days, String product, String status,
                                      int page, int size) {
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = businessDate.today();
         LocalDate start = from != null ? from : today;
         LocalDate end = to != null ? to : start.plusDays(days == null ? 30 : Math.max(1, Math.min(days, 366)));
         if (end.isBefore(start)) {
@@ -71,10 +70,10 @@ public class PortfolioService {
     }
 
     public PageResponse<OverdueRow> overdue(Integer minDpd, Integer maxDpd, String product, int page, int size) {
-        return portfolio.overdue(LocalDate.now(clock), minDpd, maxDpd, product, page, size);
+        return portfolio.overdue(businessDate.today(), minDpd, maxDpd, product, page, size);
     }
 
     public List<BucketSummary> overdueBuckets() {
-        return portfolio.overdueBuckets(LocalDate.now(clock));
+        return portfolio.overdueBuckets(businessDate.today());
     }
 }

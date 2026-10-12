@@ -10,9 +10,10 @@ What one run does, in plain words:
 1. Opens N test loan accounts (default **20**), half "good" borrowers (cohort A, must end CLOSED) and half "stress"
    borrowers (cohort B: missed payments, NPA paths, cures, foreclosure), spread over every product / schedule type /
    day-count in a data-driven scenario matrix.
-2. Walks a **simulated calendar one business day at a time**. Each day the borrowers pay (through the lending API with the
-   simulated day as value date), then the **real batch jobs are triggered for that business date** through the batch
-   service's operator API and **polled until they reach a terminal state** (no fixed sleeps).
+2. Walks a **simulated calendar one business day at a time** on the platform's own **business date**. It sets the business date to
+   the start date, then each day the borrowers pay (through the lending API with the business date as value date) and the suite runs
+   the **real end of day** through the batch service (`POST /batch-admin/eod/run`: the daily jobs for that date, then the date moves
+   to the next day), **polled until it finishes** (no fixed sleeps).
 3. After every day, checks each live account **read-only** (admin portal read APIs) against the suite's **own independent
    ledger and calculators**: accrual, balance, status/DPD bucket, arrears marking, allocation, closure.
 4. Writes a per-day, per-account **audit trail**, a **run report** and a **ranked defect list**.
@@ -91,27 +92,43 @@ excluded because they need a mortgage record; dry-run flags any scenario outside
 
 ```
 for each business day D from e2e.start-date:
+    check the platform is on D and OPEN (BDT-01); if it is behind, move it forward
     e2e.day.order = PAY_THEN_EOD (default)          or  EOD_THEN_PAY
       payments   : oldest-unpaid-first, exact instalment amount, value date D, Idempotency-Key <runId>-A<n>-...
-      batch EOD  : e2e.batch.daily-jobs for businessDate D (+ e2e.batch.monthly-jobs on month end)
-                   POST /api/v1/batch-admin/jobs/{job}/trigger {businessDate: D}  ->  poll /jobs/{job}/executions
+      end of day : e2e.eod.mode = EOD_RUN (default)
+                     month-end only: e2e.batch.monthly-jobs, triggered one by one for D (they are not in the EOD chain)
+                     POST /api/v1/batch-admin/eod/run -> poll GET /eod/status until the run for D has finished
+                       (batch service: start EOD in lending-service, run every enabled DAILY job for D, advance to D+1)
+                     BAT-05 run ADVANCED; BAT-02 per job; BDT-02 platform is now D+1 and OPEN; BDT-03 admin shows the same date
+                   e2e.eod.mode = JOBS_THEN_ADVANCE
+                     e2e.batch.daily-jobs (+ monthly on month end) triggered one by one for D as before,
+                     then lending-service POST /business-date/eod/start and /advance
     verify each live account (read-only)
 ```
 
-The date is passed everywhere the platform accepts one (`businessDate` job parameter, `valueDate`, `foreclosureDate`);
-the platform has no business-date service, so the suite owns the calendar. `e2e.accrual.path=API` and `e2e.dpd.path=API`
-(default `BATCH`) call the lending-service endpoints directly instead; that is a deviation from the agreed batch-only path
-and is printed under **Deviations** in the report.
+**Business date.** lending-service owns the date; the suite drives it through the public APIs and never fakes it
+(`e2e.business-date.mode=MANAGED`, the default). Before anything is created the suite sets the date to `e2e.start-date`
+(`PUT /api/v1/business-date`). The date only moves forward, so the start date must not be earlier than the platform's current
+business date; preflight says so (use the current date, a later date, or run lending-service with
+`BUSINESS_DATE_ALLOW_BACKWARD_SET=true` and set it back). Value dates after the business date are rejected by lending-service, which
+is why payments, accruals and foreclosures are always dated on the business date. The admin portal's days-past-due is measured at the
+business date, so after end of day (when the date is D+1) the suite expects the DPD at D+1 (DPD-04).
+
+`e2e.business-date.mode=OFF` restores the old behaviour (the suite only passes dates); it needs lending-service to run with
+`BUSINESS_DATE_ENFORCE_NO_FUTURE=false` and is printed under **Deviations**. `e2e.accrual.path=API` and `e2e.dpd.path=API`
+(default `BATCH`) call the lending-service endpoints directly instead of the batch jobs; they need `e2e.eod.mode=JOBS_THEN_ADVANCE`
+(the EOD run would execute those jobs itself) and are printed under **Deviations**.
 
 ### What is checked (catalogue: `src/main/resources/checks-catalogue.csv`, severity per check)
 
 | Area | Checks |
 |---|---|
 | Setup / schedule | accepted creation and disbursal; schedule invariants for the account's terms (count, due dates, interest per day count, balance roll, closing zero, schedule-type rules, moratorium); account EMI = first instalment |
-| Batch | trigger accepted; execution reaches COMPLETED; accrual/DPD/NPA jobs read > 0 records when eligible accounts exist; re-run for the same date does not duplicate accruals |
+| Batch | trigger accepted; execution reaches COMPLETED; accrual/DPD/NPA jobs read > 0 records when eligible accounts exist; re-run for the same date does not duplicate accruals; end-of-day run completes and advances the date (BAT-05) |
+| Business date | platform is on the simulated day and OPEN before each day (BDT-01); end of day moves it to the next day (BDT-02); the admin portal shows the same date (BDT-03) |
 | Accrual (daily) | row exists per active account; amount = principal x rate / basis (independent day-count maths); principal used = test ledger; none after closure; accrued vs interest paid at closure |
 | Payment | accepted at the exact amount and applied to the oldest unpaid instalment; principal/interest split = schedule; idempotent replay; short payment rejected without state change; history = what the test posted; part-payment reschedules; foreclosure closes |
-| Balance / status | outstanding principal = test ledger every day; zero at closure; fully-paid -> CLOSED; legal transitions; status = bucket of independently computed DPD; ladder without skipped buckets; cured -> ACTIVE; NPA family from the threshold; OVERDUE marking; admin DPD follows the simulated date |
+| Balance / status | outstanding principal = test ledger every day; zero at closure; fully-paid -> CLOSED; legal transitions; status = bucket of independently computed DPD; ladder without skipped buckets; cured -> ACTIVE; NPA family from the threshold; OVERDUE marking; admin DPD follows the platform business date |
 | Capabilities | evidence from the services' OpenAPI documents: penal interest, provisioning, NPA interest suspension, ledger, restructure, write-off, cure rule, configurable thresholds, business date -> `NOT FOUND` (or `SKIPPED` when no OpenAPI is readable) |
 
 Schedule correctness is asserted as **properties** (and with day-count maths written independently of lending-service), not
@@ -190,6 +207,7 @@ API (same token header): `POST /runs[?dryRun=true]` with optional JSON such as `
 | 3 | Payments by API or by a file/batch channel? | API (a file channel needs `AUTO_DEBIT_PROCESSING_DAILY` implemented) | - |
 | 4 | Provisioning %, NPA interest suspension, penal interest | no rules exist; reported NOT FOUND | - |
 | 5 | Number of accounts, start date, simulation length | 20, 2026-11-01, 800 days | `e2e.accounts`, `e2e.start-date`, `e2e.max-sim-days` |
+| 7 | Who drives the calendar, and how a day ends | suite sets and advances the platform business date; end of day through the batch service | `e2e.business-date.mode`, `e2e.eod.mode` |
 | 6 | Money tolerances | 0.05 money, 0.01 daily accrual, 2 % accrued-vs-paid | `e2e.tolerance.*` |
 
 ## Practical notes
@@ -202,15 +220,25 @@ API (same token header): `POST /runs[?dryRun=true]` with optional JSON such as `
   extend the partitions.
 * **Free-tier hosts (Render).** Cold starts are absorbed by `e2e.http.retries` / backoff; raise
   `e2e.http.request-timeout-seconds` if the first call times out.
-* **Admin DPD.** The admin portal derives days-past-due from the wall clock, so under a simulated date it disagrees with the
-  suite's DPD; reported as DPD-04 (switch off with `e2e.check.admin-dpd-wallclock=false`).
+* **Admin DPD.** The admin portal measures days past due at the platform business date, so DPD-04 and BDT-03 need an admin
+  service with `/api/admin/business-date` and a database where lending-service has applied V13 (preflight checks both). Switch both
+  off with `e2e.check.admin-dpd-wallclock=false`.
+* **Use a dedicated environment.** The run moves the shared business date forward by hundreds of days. Nothing else should use that
+  environment while it runs, and the batch service's nightly end of day (`batch.eod.cron`, default 01:00 India) would add a day behind
+  the suite's back; the run notices (BDT-01) and stops. Point `BATCH_EOD_CRON` at a time that never fires for the run if the environment is left up
+  overnight (do not use `BATCH_EOD_ENABLED=false`: that hands the daily jobs back to their own crons). The date is not reset afterwards; `teardown` forecloses at the
+  business date.
+* **Month-end jobs.** `EMI_BILLING_GENERATION_MONTHLY` and the other monthly jobs are not part of the end-of-day chain, so the suite
+  still triggers them one by one on month end, before that day's end of day.
 * **Optional hermetic run.** `mvn -f lending-e2e-test-service/pom.xml -Ptestcontainers verify` starts the repo's
   docker-compose stack with Testcontainers and runs a short slice (`FullStackIT`).
 
 ## Testing the suite itself
 
-* `mvn test`: 33 unit tests (day counts, DPD model, schedule invariants, production guard, scenario loader, teardown SQL).
-* `mock/mock_platform.py`: a stand-in for the three services used to test the tests. `--mode impl` is a healthy platform,
+* `mvn test`: 36 unit tests (day counts, DPD model, schedule invariants, production guard, scenario loader, teardown SQL, end-of-day result mapping).
+* `mock/mock_platform.py`: a stand-in for the three services used to test the tests (it keeps a business date, refuses value dates
+  after it, and serves the EOD API like the real services; `MOCK_ENFORCE_NO_FUTURE=0` makes it behave like
+  `BUSINESS_DATE_ENFORCE_NO_FUTURE=false`). `--mode impl` is a healthy platform,
   `--mode stubs` mirrors today's batch behaviour, `--mode bugs` seeds defects the suite must catch. It is a development aid and
   is not part of any deliverable image.
 

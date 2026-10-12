@@ -44,7 +44,7 @@ public final class Teardown {
         LendingClient lending = new LendingClient(lh);
         AdminReadClient admin = new AdminReadClient(ah);
         Set<String> terminal = Set.copyOf(cfg.getList("e2e.status.terminal"));
-        LocalDate date = cfg.has("e2e.teardown.date") ? cfg.getDate("e2e.teardown.date") : LocalDate.now();
+        LocalDate date = cfg.has("e2e.teardown.date") ? cfg.getDate("e2e.teardown.date") : defaultDate(lending);
         int closed = 0;
         int already = 0;
         int failed = 0;
@@ -80,6 +80,19 @@ public final class Teardown {
         log.accept("Teardown " + runId + ": foreclosed " + closed + ", already terminal " + already + ", failed " + failed);
         log.accept("Physical cleanup script (review, then run on a NON-PRODUCTION database): " + sql.toAbsolutePath());
         return failed == 0 ? 0 : 1;
+    }
+
+    /** Foreclosure value date: the platform's business date (a later date would be rejected), else today. */
+    private static LocalDate defaultDate(LendingClient lending) {
+        ApiResult r = lending.businessDate();
+        if (r.ok()) {
+            try {
+                return LocalDate.parse(r.body().path("businessDate").asText());
+            } catch (RuntimeException ignored) {
+                // fall through to the wall clock
+            }
+        }
+        return LocalDate.now();
     }
 
     public static String cleanupSql(RunContext ctx) {

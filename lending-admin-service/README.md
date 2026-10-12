@@ -40,7 +40,7 @@ The only call to another service is the statement PDF, proxied from `lending-ser
 | `LENDING_SERVICE_URL` | empty | e.g. `https://lending-service-5tqm.onrender.com`; enables the statement download |
 | `BATCH_SERVICE_URL` | empty | Public URL of lending-batch-service; with the password below it enables editing batch job settings (without them the Configuration screen is view-only) |
 | `BATCH_ADMIN_USERNAME`, `BATCH_ADMIN_PASSWORD` | `batch-admin` / empty | The batch service's own admin login (same values as on that service) |
-| `ADMIN_TIMEZONE` | `Asia/Kolkata` | What "today" means for due / overdue |
+| `ADMIN_TIMEZONE` | `Asia/Kolkata` | Only a fallback: "today" is the platform business date (below); this zone is used for the wall-clock date if the business date cannot be read |
 | `SERVER_PORT` | `8082` | HTTP port |
 
 ## Run locally
@@ -71,3 +71,13 @@ Or the whole thing: `docker compose up --build lending-admin-service` from the r
 * Free-tier hosts sleep when idle; the first request after a pause is slow.
 * The Batch page needs the batch service to have run at least once (its Spring Batch tables are created then).
 * Read-only by design: no create / edit / disburse / waive actions. Those would need the Lending REST API behind a proper role model.
+
+## Business date
+
+Every "today" in the portal (days past due, overdue and upcoming lists, dashboard, account figures, the default end of the accrual
+summary) is the platform **business date** owned by lending-service, not the wall clock. The portal reads it straight from
+`business_date_state` over its read-only connection (`BusinessDateSource`), so it stays read-only and agrees with the batch and
+the payment rules. `GET /api/admin/business-date` returns `{businessDate, status, fromLending}` and the sidebar shows it. If the
+table cannot be read (lending-service has not applied migration V13 yet) the wall-clock date is used, `fromLending` is `false`, the
+sidebar says so, and a warning is logged at most once a minute. The `lending_admin` role needs no new grant: it already has SELECT on
+every table in `public`.

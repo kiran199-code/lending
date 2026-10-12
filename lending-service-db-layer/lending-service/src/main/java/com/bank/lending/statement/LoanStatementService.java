@@ -1,5 +1,6 @@
 package com.bank.lending.statement;
 
+import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.service.LoanAccountService;
 import com.bank.lending.payment.domain.EmiTransaction;
@@ -8,11 +9,9 @@ import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
 import com.bank.lending.schedule.repository.AmortizationScheduleRepository;
 import com.bank.lending.schedule.service.AmortizationScheduleService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,9 +33,7 @@ public class LoanStatementService {
     private final AmortizationScheduleRepository scheduleRepository;
     private final EmiPaymentService emiPaymentService;
     private final LoanStatementPdfRenderer pdfRenderer;
-
-    @Value("${lending.statement.timezone:Asia/Kolkata}")
-    private String timezone;
+    private final BusinessDateService businessDateService;
 
     public GeneratedStatement pdfByAccountId(Long accountId) {
         return pdf(loanAccountService.getById(accountId));
@@ -81,6 +78,6 @@ public class LoanStatementService {
                         .thenComparing(EmiTransaction::getTransactionId))
                 .toList();
 
-        return new LoanStatementData(account, schedule, payments, LocalDate.now(ZoneId.of(timezone)));
+        return new LoanStatementData(account, schedule, payments, businessDateService.currentDate());
     }
 }

@@ -31,6 +31,12 @@ import java.util.function.Consumer;
  * date), the REAL batch jobs are triggered for that business date and polled to a terminal state, and then every
  * live account is verified through read-only calls against the test's own ledger. Nothing here re-implements batch
  * logic and nothing writes a business table.
+ *
+ * <p>Business date (e2e.business-date.mode=MANAGED, the default): lending-service owns the date. Before the first day
+ * the suite sets it to e2e.start-date through the public API; each simulated day it checks the platform is on that day,
+ * posts the day's payments (value date = the business date), runs end of day (the batch service's
+ * {@code POST /batch-admin/eod/run}, which runs the daily jobs and advances the date), and checks the date moved by
+ * exactly one day. The admin portal's figures are then compared with the business date, not with the wall clock.
  */
 public final class Simulation {
 
@@ -53,6 +59,13 @@ public final class Simulation {
     private final boolean accrualViaApi;
     private final boolean dpdViaApi;
     private final int npaFrom;
+    private final boolean managed;
+    private final boolean eodRun;
+    private final java.time.Duration eodTimeout;
+
+    /** The platform business date as last observed (MANAGED mode only). */
+    private LocalDate currentBd;
+    private String haltReason;
 
     private AuditWriter audit;
     private AuditWriter batchLog;
@@ -82,6 +95,14 @@ public final class Simulation {
         this.accrualViaApi = "API".equalsIgnoreCase(cfg.require("e2e.accrual.path"));
         this.dpdViaApi = "API".equalsIgnoreCase(cfg.require("e2e.dpd.path"));
         this.npaFrom = cfg.getInt("e2e.dpd.npa-from-days");
+        this.managed = "MANAGED".equalsIgnoreCase(cfg.get("e2e.business-date.mode", "MANAGED"));
+        this.eodRun = "EOD_RUN".equalsIgnoreCase(cfg.get("e2e.eod.mode", "EOD_RUN"));
+        this.eodTimeout = java.time.Duration.ofSeconds(Long.parseLong(cfg.get("e2e.eod.poll-timeout-seconds", "900")));
+    }
+
+    /** Why the run stopped early (business date out of step, end of day failed...), or null. */
+    public String haltReason() {
+        return haltReason;
     }
 
     public int daysRun() {
@@ -112,7 +133,9 @@ public final class Simulation {
                 "exitCode", "executionId", "read", "write", "skip", "elapsedMs", "timedOut"));
         try {
             setup();
-            loop();
+            if (haltReason == null) {
+                loop();
+            }
             finish();
         } finally {
             audit.close();
@@ -125,6 +148,9 @@ public final class Simulation {
     private void setup() {
         LocalDate start = cfg.getDate("e2e.start-date");
         log.accept("Setup: creating and disbursing " + sims.size() + " accounts, simulated start " + start);
+        if (managed && !establishBusinessDate(start)) {
+            return;
+        }
         for (AccountSim s : sims) {
             Scenario sc = s.scenario;
             ObjectNode body = Http.MAPPER.createObjectNode();
@@ -232,6 +258,9 @@ public final class Simulation {
             if (live.isEmpty()) {
                 break;
             }
+            if (managed && !syncBusinessDate(today)) {
+                break;
+            }
             daysRun = n;
             lastDay = today;
             Set<AccountSim> events = new java.util.LinkedHashSet<>();
@@ -248,7 +277,13 @@ public final class Simulation {
                     s.dpdAtEod = s.closed ? 0 : DpdModel.dpd(today, s.unpaidDueDates());
                 }
                 eod(today, live);
-                payments(today, live, ev);
+                if (haltReason == null) {
+                    payments(today, live, ev);
+                }
+            }
+            if (haltReason != null) {
+                log.accept("  HALTED on " + today + ": " + haltReason);
+                break;
             }
             boolean verifyDay = n % stride == 0;
             for (AccountSim s : live) {
@@ -497,17 +532,38 @@ public final class Simulation {
     // ===================================================================================================== batch
 
     private void eod(LocalDate day, List<AccountSim> live) {
+        if (!managed) {
+            runJobs(day, live, true);
+            return;
+        }
+        if (eodRun) {
+            runJobs(day, live, false);               // month-end jobs are not part of the end-of-day chain
+            endOfDayViaBatch(day, live);
+        } else {
+            runJobs(day, live, true);
+            advanceViaLending(day);
+        }
+        if (haltReason == null) {
+            checkAdminBusinessDate(day);
+        }
+    }
+
+    /** Triggers jobs one by one for {@code day}: the daily set when {@code includeDaily}, plus the monthly set on month end. */
+    private void runJobs(LocalDate day, List<AccountSim> live, boolean includeDaily) {
         long eligible = live.stream().filter(AccountSim::active).count();
-        List<String> jobs = new ArrayList<>(cfg.getList("e2e.batch.daily-jobs"));
+        List<String> jobs = new ArrayList<>();
+        if (includeDaily) {
+            jobs.addAll(cfg.getList("e2e.batch.daily-jobs"));
+        }
         if (day.equals(YearMonth.from(day).atEndOfMonth())) {
             jobs.addAll(cfg.getList("e2e.batch.monthly-jobs"));
         }
-        if (accrualViaApi) {
+        if (accrualViaApi && includeDaily) {
             jobs.remove("INTEREST_ACCRUAL_DAILY");
             ApiResult r = lending.runAccrualDirect(day);
             findings.check(r.ok(), "BAT-01", "-", "-", day, "2xx", r.brief(), "direct accrual run (e2e.accrual.path=API) failed");
         }
-        if (dpdViaApi) {
+        if (dpdViaApi && includeDaily) {
             jobs.remove("DPD_UPDATE_DAILY");
             jobs.remove("NPA_CLASSIFICATION_CHECK_DAILY");
             ApiResult r = lending.classifyDirect(day);
@@ -530,10 +586,164 @@ public final class Simulation {
                         "job completed but processed no records");
             }
         }
-        if (!rerunChecked && cfg.getBool("e2e.check.batch-rerun-idempotency") && !accrualViaApi && jobs.contains("INTEREST_ACCRUAL_DAILY")
-                && daysRun >= 3) {
+        if (includeDaily) {
+            maybeRerun(day, live, jobs.contains("INTEREST_ACCRUAL_DAILY"));
+        }
+    }
+
+    private void maybeRerun(LocalDate day, List<AccountSim> live, boolean accrualRanThroughBatch) {
+        if (!rerunChecked && cfg.getBool("e2e.check.batch-rerun-idempotency") && !accrualViaApi && accrualRanThroughBatch && daysRun >= 3) {
             rerunChecked = true;
             batchRerun(day, live);
+        }
+    }
+
+    // ===================================================================================================== business date
+
+    /** Puts the platform on the simulated start date before anything is created. */
+    private boolean establishBusinessDate(LocalDate start) {
+        ApiResult cur = lending.businessDate();
+        LocalDate now = cur.ok() ? parseDate(cur.body().path("businessDate").asText()) : null;
+        if (start.equals(now) && "OPEN".equals(cur.body().path("status").asText())) {
+            currentBd = start;
+            return true;
+        }
+        ApiResult set = lending.setBusinessDate(start, "e2e run " + ctx.runId() + " start");
+        boolean ok = findings.check(set.ok(), "BDT-01", "-", "-", start, "business date set to " + start, set.brief(),
+                "cannot set the platform business date to the simulated start date");
+        if (!ok) {
+            haltReason = "could not set the platform business date to " + start + " (" + set.brief() + ")";
+            return false;
+        }
+        currentBd = start;
+        return true;
+    }
+
+    /**
+     * Before each simulated day: the platform must be OPEN on that very day. If it is behind, move it forward; if it is
+     * ahead (something else ran end of day, e.g. the nightly schedule) the run cannot continue meaningfully.
+     */
+    private boolean syncBusinessDate(LocalDate day) {
+        ApiResult r = lending.businessDate();
+        LocalDate actual = r.ok() ? parseDate(r.body().path("businessDate").asText()) : null;
+        String status = r.body().path("status").asText("?");
+        boolean inStep = day.equals(actual) && "OPEN".equals(status);
+        findings.check(inStep, "BDT-01", "-", "-", day, day + " OPEN", (actual == null ? r.brief() : actual + " " + status),
+                "platform business date is not the simulated day");
+        if (inStep) {
+            currentBd = day;
+            return true;
+        }
+        if (actual != null && actual.isBefore(day) && "OPEN".equals(status)) {
+            ApiResult set = lending.setBusinessDate(day, "e2e run " + ctx.runId() + " re-sync");
+            if (set.ok()) {
+                currentBd = day;
+                return true;
+            }
+        }
+        haltReason = "platform business date is " + (actual == null ? "unreadable" : actual + " " + status) + " but the simulated day is "
+                + day + " (is the batch service's nightly end of day running against this environment?)";
+        return false;
+    }
+
+    /** e2e.eod.mode=EOD_RUN: the production path - the batch service runs the daily chain and advances the date. */
+    private void endOfDayViaBatch(LocalDate day, List<AccountSim> live) {
+        long eligible = live.stream().filter(AccountSim::active).count();
+        BatchClient.EodRun run = batch.runEndOfDay(day, eodTimeout);
+        batchTriggers++;
+        findings.check(run.advanced(), "BAT-05", "EOD", "-", day, "ADVANCED",
+                run.outcome() + (run.error().isEmpty() ? "" : ": " + run.error()), "end-of-day run did not complete and advance the business date");
+        List<String> recordJobs = cfg.getList("e2e.batch.record-jobs");
+        for (JsonNode j : run.jobs()) {
+            String job = j.path("jobName").asText();
+            String status = j.path("status").asText();
+            JsonNode exec = "SKIPPED".equals(status) ? null : executionFor(job, day);
+            boolean done = "COMPLETED".equals(status) || "SKIPPED".equals(status);
+            findings.check(done, "BAT-02", job, "-", day, "COMPLETED", status + (j.hasNonNull("message") && !done ? " " + j.get("message").asText() : ""),
+                    "job did not complete in the end-of-day run");
+            long read = exec == null ? -1 : exec.path("readCount").asLong(-1);
+            long write = exec == null ? -1 : exec.path("writeCount").asLong(-1);
+            batchLog.row(List.of(ctx.runId(), day, job, "EOD", status, exec == null ? "" : exec.path("exitCode").asText(""),
+                    exec == null || !exec.hasNonNull("jobExecutionId") ? "" : exec.get("jobExecutionId").asText(), read, write,
+                    exec == null ? -1 : exec.path("skipCount").asLong(-1), "", run.timedOut()));
+            if (recordJobs.contains(job) && eligible > 0 && "COMPLETED".equals(status) && exec != null) {
+                findings.check(read > 0 || write > 0, "BAT-03", job, "-", day, "read>0 for " + eligible + " eligible accounts",
+                        "read=" + read + " write=" + write, "job completed but processed no records");
+            }
+        }
+        if (!run.advanced()) {
+            haltReason = "end of day for " + day + " ended " + run.outcome() + (run.error().isEmpty() ? "" : " (" + run.error() + ")")
+                    + "; the platform stays on " + day + " in EOD_RUNNING";
+            return;
+        }
+        if (!confirmAdvanced(day)) {
+            return;
+        }
+        maybeRerun(day, live, cfg.getList("e2e.batch.daily-jobs").contains("INTEREST_ACCRUAL_DAILY"));
+    }
+
+    /** e2e.eod.mode=JOBS_THEN_ADVANCE: the suite ran the jobs itself, so it closes the day through lending-service directly. */
+    private void advanceViaLending(LocalDate day) {
+        ApiResult start = lending.startEndOfDay();
+        if (!findings.check(start.ok(), "BDT-02", "-", "-", day, "end of day started", start.brief(), "cannot start end of day")) {
+            haltReason = "lending-service refused to start end of day for " + day + " (" + start.brief() + ")";
+            return;
+        }
+        ApiResult adv = lending.advanceBusinessDate(day);
+        if (!adv.ok()) {
+            findings.fail("BDT-02", "-", "-", day, "advance accepted", adv.brief(), "business date could not be advanced");
+            haltReason = "lending-service refused to advance the business date from " + day + " (" + adv.brief() + ")";
+            return;
+        }
+        confirmAdvanced(day);
+    }
+
+    /** BDT-02: the date is now day+1 and OPEN. */
+    private boolean confirmAdvanced(LocalDate day) {
+        ApiResult r = lending.businessDate();
+        LocalDate next = r.ok() ? parseDate(r.body().path("businessDate").asText()) : null;
+        String status = r.body().path("status").asText("?");
+        boolean ok = day.plusDays(1).equals(next) && "OPEN".equals(status);
+        findings.check(ok, "BDT-02", "-", "-", day, day.plusDays(1) + " OPEN", next == null ? r.brief() : next + " " + status,
+                "end of day did not move the business date to the next day");
+        if (!ok) {
+            haltReason = "after end of day for " + day + " the platform business date is " + (next == null ? "unreadable" : next + " " + status)
+                    + ", expected " + day.plusDays(1) + " OPEN";
+            return false;
+        }
+        currentBd = next;
+        return true;
+    }
+
+    /** BDT-03: the admin portal shows the same business date as lending-service. */
+    private void checkAdminBusinessDate(LocalDate day) {
+        if (!cfg.getBool("e2e.check.admin-dpd-wallclock") || currentBd == null) {
+            return;
+        }
+        ApiResult a = admin.businessDate();
+        String shown = a.ok() ? a.body().path("businessDate").asText("?") : a.brief();
+        findings.check(a.ok() && currentBd.toString().equals(shown) && a.body().path("fromLending").asBoolean(false), "BDT-03", "-", "-", day,
+                currentBd.toString(), shown + (a.ok() && !a.body().path("fromLending").asBoolean(false) ? " (wall-clock fallback)" : ""),
+                "admin portal business date differs from lending-service's");
+    }
+
+    private JsonNode executionFor(String job, LocalDate day) {
+        ApiResult list = batch.executions(job, 10);
+        if (list.ok() && list.body().isArray()) {
+            for (JsonNode e : list.body()) {
+                if (day.toString().equals(e.path("businessDate").asText())) {
+                    return e;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static LocalDate parseDate(String v) {
+        try {
+            return LocalDate.parse(v);
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
@@ -603,10 +813,15 @@ public final class Simulation {
             if (dpd == 1 || (dpd > 0 && dpd % 30 == 0)) {
                 arrearsMarked(s, day, sid);
             }
-            if (cfg.getBool("e2e.check.admin-dpd-wallclock") && acc.path("figures").has("daysPastDue") && (dpd > 0 || s.maxDpdSeen > 0)) {
+            // the portal measures days past due at the platform business date; once end of day has run that is the NEXT day
+            LocalDate adminDay = managed && currentBd != null ? currentBd : day;
+            int adminExpected = adminDay.equals(day) ? dpd : DpdModel.dpd(adminDay, s.unpaidDueDates());
+            if (cfg.getBool("e2e.check.admin-dpd-wallclock") && acc.path("figures").has("daysPastDue")
+                    && (adminExpected > 0 || dpd > 0 || s.maxDpdSeen > 0)) {
                 int adminDpd = acc.path("figures").path("daysPastDue").asInt();
-                findings.check(adminDpd == dpd, "DPD-04", sid, s.accountNumber, day, "dpd " + dpd + " at " + day, "admin shows " + adminDpd,
-                        "admin portal days-past-due is not derived from the business date");
+                findings.check(adminDpd == adminExpected, "DPD-04", sid, s.accountNumber, day,
+                        "dpd " + adminExpected + " at business date " + adminDay, "admin shows " + adminDpd,
+                        "admin portal days-past-due is not derived from the platform business date");
             }
         }
         // ladder

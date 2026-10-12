@@ -9,6 +9,10 @@ BAT-01,Batch,HIGH,Batch job trigger accepted,POST /batch-admin/jobs/{job}/trigge
 BAT-02,Batch,HIGH,Batch job reaches COMPLETED,execution reaches terminal COMPLETED within the poll timeout
 BAT-03,Batch,HIGH,Batch job processes eligible records,a job that owns accrual / DPD / NPA work reads > 0 records while eligible accounts exist
 BAT-04,Batch,MEDIUM,Batch re-run for the same business date is idempotent,second run for same date neither duplicates accruals nor corrupts state
+BAT-05,Batch,HIGH,End-of-day run completes and advances the date,POST /batch-admin/eod/run runs every daily job for the business date and ends ADVANCED
+BDT-01,Business date,HIGH,Platform business date is in step with the simulated day,lending-service reports the simulated day as its OPEN business date before the day's work starts
+BDT-02,Business date,HIGH,End of day moves the business date to the next day,after end of day the business date is the simulated day + 1 and OPEN
+BDT-03,Business date,MEDIUM,Admin portal shows the platform business date,the admin portal's business date equals lending-service's
 ACC-01,Accrual,HIGH,Daily accrual row exists for every active account,one accrual row per active account per business date
 ACC-02,Accrual,CRITICAL,Accrued amount equals principal x rate / day-count basis,independent calculation on the principal recorded in the row
 ACC-03,Accrual,CRITICAL,Accrual uses the correct outstanding principal,recorded principal equals opening or closing principal of the test ledger (per e2e.day.order)
@@ -28,7 +32,7 @@ STA-02,Status,HIGH,Status transitions are legal,terminal states never revert; no
 DPD-01,Delinquency,HIGH,Status equals the bucket for the independently computed DPD,after the DPD/NPA jobs run for a business date
 DPD-02,Delinquency,MEDIUM,Status ladder is walked without skipping buckets,rising DPD passes through each lower bucket
 DPD-03,Delinquency,HIGH,Cured account returns to ACTIVE once arrears are cleared,status ACTIVE after the last overdue instalment is paid
-DPD-04,Delinquency,MEDIUM,Admin portal days-past-due follows the simulated business date,admin DPD equals test DPD (it uses the wall clock today)
+DPD-04,Delinquency,MEDIUM,Admin portal days-past-due follows the platform business date,admin DPD equals the test's DPD measured at the current business date
 ARR-01,Arrears,HIGH,Past-due unpaid instalments are marked OVERDUE,schedule row status OVERDUE after the DPD job for that date
 NPA-01,NPA,HIGH,Account at or beyond the NPA threshold carries an NPA status,status in NPA family from e2e.dpd.npa-from-days
 CAP-PENAL,Capability,HIGH,Penal interest on overdue amounts,API surface exposes penal interest handling
@@ -40,6 +44,6 @@ CAP-WRITEOFF,Capability,MEDIUM,Write-off of loss assets,API surface exposes writ
 CAP-CURE-RULE,Capability,MEDIUM,Configurable cure / upgrade rule,upgrade rule is configurable rather than immediate
 CAP-PARTIAL-ALLOC,Capability,MEDIUM,Partial payment allocation against an instalment,partial instalment payments accepted and allocated by a documented waterfall
 CAP-THRESHOLDS,Capability,MEDIUM,DPD / NPA thresholds are configurable,thresholds are configuration not constants
-CAP-BIZDATE,Capability,MEDIUM,Business-date / EOD rollover service,a platform business date exists (the suite passes the date as a job parameter)
+CAP-BIZDATE,Capability,MEDIUM,Business-date / EOD rollover service,a platform business date and an end-of-day rollover exist in the OpenAPI documents
 LED-01,Ledger,MEDIUM,Ledger outbox event exists for disbursal and payments,at least one outbox row per account and per payment event
 ENV-01,Environment,HIGH,Partition / data-window problems,calls for the simulated dates succeed (interest_accrual and emi_transaction partitions exist for them)

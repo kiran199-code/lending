@@ -8,6 +8,7 @@ import com.bank.lending.e2e.http.ApiResult;
 import com.bank.lending.e2e.scenario.Scenario;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -102,6 +103,8 @@ public final class Preflight {
             }
         }
 
+        businessDate(cfg, lending, batch, admin, ok, bad);
+
         ApiResult me = admin.me();
         if (!me.ok()) {
             bad.add("admin portal not reachable / credentials rejected: " + me.brief());
@@ -109,6 +112,70 @@ public final class Preflight {
             ok.add("admin portal reachable (read-only verification surface)");
         }
         return new Report(ok, bad);
+    }
+
+    /** Business-date readiness. Read-only: the date itself is only moved by the run, not by preflight / dry-run. */
+    private static void businessDate(E2eConfig cfg, LendingClient lending, BatchClient batch, AdminReadClient admin,
+                                     List<String> ok, List<String> bad) {
+        String mode = cfg.get("e2e.business-date.mode", "MANAGED").toUpperCase();
+        if ("OFF".equals(mode)) {
+            ok.add("business-date mode OFF: the suite only passes dates; lending-service rejects payments dated after its business date"
+                    + " unless it runs with BUSINESS_DATE_ENFORCE_NO_FUTURE=false");
+            return;
+        }
+        if (!"MANAGED".equals(mode)) {
+            bad.add("e2e.business-date.mode must be MANAGED or OFF, not " + mode);
+            return;
+        }
+        String eodMode = cfg.get("e2e.eod.mode", "EOD_RUN").toUpperCase();
+        if (!"EOD_RUN".equals(eodMode) && !"JOBS_THEN_ADVANCE".equals(eodMode)) {
+            bad.add("e2e.eod.mode must be EOD_RUN or JOBS_THEN_ADVANCE, not " + eodMode);
+            return;
+        }
+        boolean apiPaths = "API".equalsIgnoreCase(cfg.get("e2e.accrual.path")) || "API".equalsIgnoreCase(cfg.get("e2e.dpd.path"));
+        if (apiPaths && "EOD_RUN".equals(eodMode)) {
+            bad.add("e2e.accrual.path=API / e2e.dpd.path=API cannot be combined with e2e.eod.mode=EOD_RUN (the end-of-day run executes"
+                    + " those jobs itself). Use e2e.eod.mode=JOBS_THEN_ADVANCE.");
+        }
+        LocalDate start = cfg.getDate("e2e.start-date");
+        ApiResult bd = lending.businessDate();
+        if (!bd.ok()) {
+            bad.add("lending-service has no readable business date (GET /api/v1/business-date: " + bd.brief() + "). Deploy a lending-service with"
+                    + " the business-date API, or set e2e.business-date.mode=OFF and BUSINESS_DATE_ENFORCE_NO_FUTURE=false.");
+        } else {
+            LocalDate current = LocalDate.parse(bd.body().path("businessDate").asText());
+            String status = bd.body().path("status").asText("?");
+            if (!"OPEN".equals(status)) {
+                bad.add("the platform business date " + current + " is " + status + " (an end of day is unfinished). Finish it first:"
+                        + " POST /api/v1/batch-admin/eod/run on the batch service.");
+            } else if (current.isAfter(start)) {
+                bad.add("the platform business date is " + current + ", already after e2e.start-date " + start + ". The date only moves forward:"
+                        + " use a later e2e.start-date (the run begins on the current business date if you set it to " + current + "), or run"
+                        + " lending-service with BUSINESS_DATE_ALLOW_BACKWARD_SET=true and set the date back.");
+            } else {
+                ok.add("platform business date " + current + " (OPEN); the run will set it to the start date " + start
+                        + (current.equals(start) ? " (already there)" : ""));
+            }
+        }
+        ApiResult ab = admin.businessDate();
+        if (!ab.ok()) {
+            bad.add("admin portal has no /api/admin/business-date (" + ab.brief() + "): it still uses the wall clock. Deploy the current admin service.");
+        } else if (!ab.body().path("fromLending").asBoolean(false)) {
+            bad.add("admin portal cannot read business_date_state (it is falling back to the wall clock) - lending-service V13 not applied, or no grant");
+        } else {
+            ok.add("admin portal reads the platform business date " + ab.body().path("businessDate").asText());
+        }
+        if ("EOD_RUN".equals(eodMode)) {
+            ApiResult st = batch.eodStatus();
+            if (!st.ok()) {
+                bad.add("batch service has no end-of-day API (GET /api/v1/batch-admin/eod/status: " + st.brief() + "). Deploy the current batch"
+                        + " service or use e2e.eod.mode=JOBS_THEN_ADVANCE.");
+            } else if (st.body().path("running").asBoolean(false)) {
+                bad.add("an end-of-day run is already in progress on the batch service; wait for it to finish");
+            } else {
+                ok.add("batch end-of-day API reachable (mode EOD_RUN)");
+            }
+        }
     }
 
     private static JsonNode find(JsonNode array, String code) {

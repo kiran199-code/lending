@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LendingServiceClientTest {
 
     /** What the stub saw. */
-    record Seen(String method, String pathAndQuery, String body, String idempotencyKey, String authorization) {
+    record Seen(String method, String pathAndQuery, String body, String idempotencyKey, String authorization, String actor) {
     }
 
     private HttpServer server;
@@ -41,7 +41,8 @@ class LendingServiceClientTest {
             seen.add(new Seen(exchange.getRequestMethod(),
                     exchange.getRequestURI().getRawPath() + (query != null ? "?" + query : ""), body,
                     exchange.getRequestHeaders().getFirst("Idempotency-Key"),
-                    exchange.getRequestHeaders().getFirst("Authorization")));
+                    exchange.getRequestHeaders().getFirst("Authorization"),
+                    exchange.getRequestHeaders().getFirst("X-Actor")));
             Object[] r = responder.apply(counter.incrementAndGet());
             byte[] payload = ((String) r[1]).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -213,6 +214,30 @@ class LendingServiceClientTest {
         LendingServiceException e = assertThrows(LendingServiceException.class,
                 () -> c.accrueInterest(1, LocalDate.of(2026, 10, 12)));
         assertEquals(0, e.httpStatus());
+    }
+
+    @Test
+    void businessDateEndpointsUseTheActorHeaderAndParseTheState() throws Exception {
+        try {
+            LendingServiceClient c = start(n -> new Object[]{200,
+                    "{\"businessDate\":\"2026-10-12\",\"previousBusinessDate\":\"2026-10-11\",\"nextBusinessDate\":\"2026-10-13\","
+                            + "\"status\":\"EOD_RUNNING\",\"workingDay\":true,\"systemDate\":\"2026-10-12\"}"}, null, 1);
+            LendingServiceClient.BusinessDateInfo info = c.businessDate();
+            assertEquals(LocalDate.of(2026, 10, 12), info.date());
+            assertTrue(info.eodRunning());
+            assertEquals("GET", seen.get(0).method());
+            assertEquals("/api/v1/business-date", seen.get(0).pathAndQuery());
+
+            c.startEndOfDay("scheduler");
+            assertEquals("/api/v1/business-date/eod/start", seen.get(1).pathAndQuery());
+            assertEquals("scheduler", seen.get(1).actor());
+
+            c.advanceBusinessDate(LocalDate.of(2026, 10, 12), "scheduler");
+            assertEquals("/api/v1/business-date/advance", seen.get(2).pathAndQuery());
+            assertEquals("{\"expectedBusinessDate\":\"2026-10-12\"}", seen.get(2).body());
+        } finally {
+            stop();
+        }
     }
 
     @Test

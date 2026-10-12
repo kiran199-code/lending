@@ -3,6 +3,33 @@
 ## [Unreleased]
 
 ### Added
+- **Business date (task 1).** The platform now has one business date, owned by lending-service, and jobs run for it instead of the calendar date.
+  - lending-service: migration V13 (`business_date_state`, `business_date_history`, `non_working_day`); `/api/v1/business-date`
+    (`GET` state, `POST /eod/start` OPEN to EOD_RUNNING, `POST /advance` EOD_RUNNING to next day, idempotent on `expectedBusinessDate`,
+    `PUT` to set the date forward while OPEN, `GET /history`, holiday calendar `GET|PUT|DELETE /holidays`, `GET /working-day`). State changes
+    take a row lock. Weekends come from `business-date.weekend-days`. Seeded with today (India time).
+  - Value dates are checked against it: EMI, part-payment and foreclosure dates, accrual, delinquency and rate-reset dates may not be after the
+    business date (`business-date.enforce-no-future-dates`, default on). Statements are dated by it. Monthly partitions are created for the
+    business date's month when the date advances or is set, and at startup.
+  - Batch service: `BusinessDateProvider` (source `LENDING`; `SYSTEM` only for standalone use). `BatchJobContext` no longer falls back to the system
+    clock. Cron and manual launches without a date use the business date. New end-of-day run (`EndOfDayService`): starts EOD, runs the enabled
+    DAILY jobs in priority order for the business date, stops at the first job that does not complete, and only then advances the date; a re-run
+    resumes without repeating finished jobs. Nightly at `batch.eod.cron` (default 01:00 India), and on demand with
+    `POST /api/v1/batch-admin/eod/run` (202; poll `GET /api/v1/batch-admin/eod/status`). While `batch.eod.enabled=true` the DAILY jobs' own crons are ignored.
+  - Admin portal (task 1c): days past due, overdue and upcoming lists, the dashboard, account figures and the accrual-summary default now use the
+    business date, read from `business_date_state` over the existing read-only connection (`BusinessDateSource`; falls back to the wall clock with
+    a logged warning if the table is missing). New `GET /api/admin/business-date`; the sidebar shows the date and whether end of day is running.
+    No new database grant is needed. This fixes the E2E suite's DPD-04 finding.
+  - E2E suite (task 1c): `e2e.business-date.mode=MANAGED` (default) sets the business date to `e2e.start-date` and moves it one day per simulated
+    day. `e2e.eod.mode=EOD_RUN` (default) closes each day with the batch service's `POST /batch-admin/eod/run` (polled via `/eod/status`);
+    `JOBS_THEN_ADVANCE` triggers the jobs one by one and advances through lending-service (needed for `e2e.accrual.path=API` /
+    `e2e.dpd.path=API`). New checks BAT-05, BDT-01, BDT-02, BDT-03; DPD-04 now expects the DPD at the business date. Preflight checks that the start
+    date is not before the platform's business date and that the admin and batch services expose the new endpoints. `teardown` forecloses at the
+    business date. `mode=OFF` keeps the old behaviour (needs `BUSINESS_DATE_ENFORCE_NO_FUTURE=false`).
+  - Not done yet: MONTHLY and PERIODIC jobs still start from their own crons and take the business date at that moment (they are not part of
+    the EOD chain, and the date may already have moved on); due dates falling on non-working days are not adjusted.
+  - Not compiled or run with Maven here. The state-machine rules, end-of-day run, provider and client were compiled with `javac` and their tests pass (the
+    business-date service, entities, controller and the changes to the payment, accrual, account and statement services have only been reviewed).
 - **Batch jobs now call lending-service (Phase A).** The batch service gets a `LendingServiceClient` (JDK HTTP client; base URL
   `LENDING_SERVICE_URL`, optional Basic auth, timeouts, retry on I/O errors and 429/502/503/504 only; failures are
   `IllegalStateException`s so the existing skip and dead-letter handling applies). Nine jobs are wired, the other 27 are unchanged stubs:

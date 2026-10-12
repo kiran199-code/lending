@@ -27,6 +27,78 @@ public final class BatchClient {
         this.pollInterval = pollInterval;
     }
 
+    /** Outcome of one end-of-day run. {@code lastRun} is the batch service's EodRunSummary (null if none was seen). */
+    public record EodRun(ApiResult startCall, JsonNode lastRun, boolean timedOut, long elapsedMs) {
+
+        public boolean started() {
+            return startCall.ok();
+        }
+
+        /** ADVANCED, FAILED, or a REJECTED(..)/NO_RESULT/TIMED_OUT marker. */
+        public String outcome() {
+            if (!startCall.ok()) {
+                return "REJECTED(" + startCall.status() + ")";
+            }
+            if (timedOut) {
+                return "TIMED_OUT";
+            }
+            return lastRun == null ? "NO_RESULT" : lastRun.path("outcome").asText("NO_RESULT");
+        }
+
+        public boolean advanced() {
+            return "ADVANCED".equals(outcome());
+        }
+
+        public JsonNode jobs() {
+            return lastRun == null ? Http.MAPPER.createArrayNode() : lastRun.path("jobs");
+        }
+
+        public String error() {
+            return lastRun == null ? "" : lastRun.path("error").asText("");
+        }
+    }
+
+    public ApiResult eodStatus() {
+        return http.get("/api/v1/batch-admin/eod/status");
+    }
+
+    /**
+     * Starts end of day for the platform's current business date and polls /eod/status until the run is over. The
+     * run is the batch service's own: it starts EOD in lending-service, runs every enabled DAILY job, and advances
+     * the date only if all of them completed. {@code expectedDate} guards against reading a previous day's result.
+     */
+    public EodRun runEndOfDay(LocalDate expectedDate, Duration timeout) {
+        long t0 = System.nanoTime();
+        ApiResult start = http.post("/api/v1/batch-admin/eod/run", null);
+        if (!start.ok()) {
+            return new EodRun(start, null, false, (System.nanoTime() - t0) / 1_000_000);
+        }
+        long deadline = System.nanoTime() + timeout.toNanos();
+        JsonNode last = null;
+        boolean timedOut = false;
+        while (true) {
+            ApiResult st = eodStatus();
+            if (st.ok() && !st.body().path("running").asBoolean(true)) {
+                JsonNode candidate = st.body().path("lastRun");
+                if (candidate.isObject() && expectedDate.toString().equals(candidate.path("businessDate").asText())) {
+                    last = candidate;
+                    break;
+                }
+            }
+            if (System.nanoTime() > deadline) {
+                timedOut = true;
+                break;
+            }
+            try {
+                Thread.sleep(pollInterval.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return new EodRun(start, last, timedOut, (System.nanoTime() - t0) / 1_000_000);
+    }
+
     public ApiResult listJobs() {
         return http.get("/api/v1/batch-admin/jobs");
     }

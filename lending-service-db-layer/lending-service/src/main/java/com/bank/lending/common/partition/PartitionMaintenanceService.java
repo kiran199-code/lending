@@ -41,8 +41,24 @@ public class PartitionMaintenanceService {
         ensurePartitions();
     }
 
+    /** Covers the calendar month of today and of the business date (which can run ahead of the wall clock in testing). */
     public void ensurePartitions() {
-        LocalDate month = LocalDate.now(ZoneId.of("Asia/Kolkata")).withDayOfMonth(1);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        ensurePartitions(today);
+        try {
+            LocalDate businessDate = jdbcTemplate.queryForObject(
+                    "SELECT business_date FROM business_date_state WHERE id = 1", LocalDate.class);
+            if (businessDate != null && businessDate.isAfter(today)) {
+                ensurePartitions(businessDate);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not read the business date for partition maintenance: {}", e.getMessage());
+        }
+    }
+
+    /** Creates this month's (of {@code from}) and the next {@value #MONTHS_AHEAD} monthly partitions; idempotent. */
+    public void ensurePartitions(LocalDate from) {
+        LocalDate month = from.withDayOfMonth(1);
         try {
             for (int i = 0; i <= MONTHS_AHEAD; i++) {
                 LocalDate m = month.plusMonths(i);

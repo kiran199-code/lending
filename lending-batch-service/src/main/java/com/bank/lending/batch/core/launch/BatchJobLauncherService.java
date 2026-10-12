@@ -1,6 +1,7 @@
 package com.bank.lending.batch.core.launch;
 
 import com.bank.lending.batch.core.BatchJobRegistry;
+import com.bank.lending.batch.core.BusinessDateProvider;
 import com.bank.lending.batch.domain.BatchJobConfig;
 import com.bank.lending.batch.repository.BatchJobConfigRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -32,15 +34,39 @@ public class BatchJobLauncherService {
     private final JobExplorer jobExplorer;
     private final BatchJobRegistry batchJobRegistry;
     private final BatchJobConfigRepository batchJobConfigRepository;
+    private final BusinessDateProvider businessDateProvider;
 
-    /** Quartz-triggered run: businessDate defaults to today (the normal EOD case), job_params_json is the configured default. */
+    /**
+     * When true, DAILY jobs are driven by the end-of-day orchestrator (one chain, in priority order,
+     * then the business date advances) and their individual Quartz crons are ignored.
+     */
+    @Value("${batch.eod.enabled:true}")
+    private boolean eodOrchestrationEnabled;
+
+    /**
+     * Quartz-triggered run for the current business date, with the configured default job_params_json.
+     * Returns null (nothing launched) for a DAILY job while end-of-day orchestration is enabled — the
+     * orchestrator runs those in order and advances the business date.
+     */
     public JobExecution launchScheduled(String jobName) throws Exception {
-        return launch(jobName, LocalDate.now(), "SCHEDULED", null);
+        if (eodOrchestrationEnabled) {
+            BatchJobConfig config = batchJobConfigRepository.findByJobName(jobName).orElse(null);
+            if (config != null && config.getJobCategory() == BatchJobConfig.JobCategory.DAILY) {
+                log.info("Skipping cron launch of daily job {}: it is run by the end-of-day orchestrator", jobName);
+                return null;
+            }
+        }
+        return launch(jobName, businessDateProvider.current(), "SCHEDULED", null);
     }
 
-    /** Ad-hoc/backdated run from the admin API — businessDate is caller-supplied (defaults to today if null), using the configured default job_params_json. */
+    /** Launch as part of the end-of-day chain for {@code businessDate}. */
+    public JobExecution launchForEndOfDay(String jobName, LocalDate businessDate) throws Exception {
+        return launch(jobName, businessDate, "EOD", null);
+    }
+
+    /** Ad-hoc/backdated run from the admin API — businessDate is caller-supplied (defaults to the current business date if null), using the configured default job_params_json. */
     public JobExecution launchManual(String jobName, LocalDate businessDate) throws Exception {
-        return launch(jobName, businessDate != null ? businessDate : LocalDate.now(), "MANUAL", null);
+        return launch(jobName, businessDate != null ? businessDate : businessDateProvider.current(), "MANUAL", null);
     }
 
     /**
@@ -51,7 +77,7 @@ public class BatchJobLauncherService {
      * the configured default.
      */
     public JobExecution launchManual(String jobName, LocalDate businessDate, String jobParamsOverride) throws Exception {
-        return launch(jobName, businessDate != null ? businessDate : LocalDate.now(), "MANUAL", jobParamsOverride);
+        return launch(jobName, businessDate != null ? businessDate : businessDateProvider.current(), "MANUAL", jobParamsOverride);
     }
 
     private JobExecution launch(String jobName, LocalDate businessDate, String triggeredBy, String jobParamsOverride) throws Exception {

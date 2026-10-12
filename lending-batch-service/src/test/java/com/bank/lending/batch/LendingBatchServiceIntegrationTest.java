@@ -104,6 +104,17 @@ class LendingBatchServiceIntegrationTest {
                     out.write(body);
                 }
             });
+            // GET /api/v1/business-date: the batch service asks for the business date when a run has none.
+            lendingStub.createContext("/api/v1/business-date", exchange -> {
+                String today = java.time.LocalDate.now().toString();
+                byte[] body = ("{\"businessDate\":\"" + today + "\",\"status\":\"OPEN\",\"workingDay\":true}")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, body.length);
+                try (java.io.OutputStream out = exchange.getResponseBody()) {
+                    out.write(body);
+                }
+            });
             lendingStub.start();
         } catch (java.io.IOException e) {
             throw new IllegalStateException("Could not start lending-service stub", e);

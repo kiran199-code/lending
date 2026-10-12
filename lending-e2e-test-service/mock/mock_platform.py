@@ -5,11 +5,15 @@ tests). It is not part of the deliverable's runtime and is never packaged into a
 
   python3 mock/mock_platform.py --mode impl    # batch jobs do real work  -> a healthy platform
   python3 mock/mock_platform.py --mode stubs   # batch jobs complete with 0 records (today's real behaviour)
-  python3 mock/mock_platform.py --mode bugs    # impl, plus seeded defects the suite must catch
+  python3 mock/mock_platform.py --mode bugs    # impl, plus seeded defects the suite must catch (incl. an admin DPD on the wall clock)
+
+The mock keeps a platform business date like lending-service does (GET/PUT /api/v1/business-date, /eod/start, /advance),
+refuses payments and accrual runs dated after it, and serves the batch EOD API (POST /eod/run, GET /eod/status).
+Set MOCK_ENFORCE_NO_FUTURE=0 to simulate lending-service with BUSINESS_DATE_ENFORCE_NO_FUTURE=false.
 
 Ports: lending 18080, batch 18081, admin 18082. Basic auth on batch/admin: batch-admin/x and admin/x.
 """
-import argparse, base64, json, threading, datetime as dt
+import argparse, base64, json, os, threading, datetime as dt
 from decimal import Decimal as D, ROUND_HALF_UP
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -22,6 +26,10 @@ IDEM = {}
 EXECS = {}
 ACCRUALS = {}      # (id, date) -> dict
 OUTBOX = []
+BD = {"date": dt.date.today().isoformat(), "status": "OPEN"}     # the platform business date (owned by "lending-service")
+EOD = {"last": None}
+DAILY_JOBS = ["INTEREST_ACCRUAL_DAILY","PENAL_INTEREST_CALCULATION_DAILY","DPD_UPDATE_DAILY","NPA_CLASSIFICATION_CHECK_DAILY","SOD_EOD_BALANCING_DAILY",
+              "GL_POSTING_RECONCILIATION_DAILY"]
 
 PRODUCTS = {
  "PL01": dict(name="Personal Loan", sched="EMI", dc="ACT_365", rate="10.5", amin=50000, amax=5000000, tmin=6, tmax=84, freqs=["MONTHLY"], mor=0, bal=None, step=None),
@@ -157,6 +165,20 @@ def run_dpd(day):
         n += 1
     return n
 
+def run_job(job, day):
+    read = 0
+    if MODE != "stubs":
+        if job == "INTEREST_ACCRUAL_DAILY": read = run_accrual(day)
+        elif job == "DPD_UPDATE_DAILY": read = run_dpd(day)
+        elif job == "NPA_CLASSIFICATION_CHECK_DAILY": read = len([a for a in ACCOUNTS.values()])
+    e = dict(jobExecutionId=SEQ["exec"], jobName=job, status="STARTED", exitCode="EXECUTING", businessDate=day, readCount=read, writeCount=read, skipCount=0)
+    SEQ["exec"] += 1; EXECS[e["jobExecutionId"]] = e
+    return e
+
+def not_future(day):
+    """lending-service refuses value dates after the business date."""
+    return os.environ.get("MOCK_ENFORCE_NO_FUTURE", "1") == "0" or day <= BD["date"]
+
 class H(BaseHTTPRequestHandler):
     svc = "lending"
     def log_message(self, *a): pass
@@ -174,6 +196,7 @@ class H(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n) or b"{}") if n else {}
     def do_GET(self): self._route("GET")
     def do_POST(self): self._route("POST")
+    def do_PUT(self): self._route("PUT")
     def _route(self, m):
         if not self._auth(): return
         u = urlparse(self.path); p = u.path; qs = {k: v[0] for k, v in parse_qs(u.query).items()}
@@ -185,7 +208,26 @@ class H(BaseHTTPRequestHandler):
         parts = p.strip("/").split("/")
         if p == "/v3/api-docs":
             return self._send(200, {"paths": {"/api/v1/loan-accounts": {"post": {"summary": "create"}}, "/api/v1/ledger-outbox": {"get": {"summary": "outbox"}},
-                                              "/api/v1/loan-accounts/rate-resets": {"post": {"summary": "rate reset"}}}})
+                                              "/api/v1/loan-accounts/rate-resets": {"post": {"summary": "rate reset"}},
+                                              "/api/v1/business-date": {"get": {"summary": "current business date"}}}})
+        if p == "/api/v1/business-date" and m == "GET":
+            return self._send(200, dict(businessDate=BD["date"], status=BD["status"], workingDay=True))
+        if p == "/api/v1/business-date" and m == "PUT":
+            t = self._body()["date"]
+            if BD["status"] != "OPEN": return self._send(409, {"error": "end of day is running"})
+            if t < BD["date"]: return self._send(400, {"error": "business date can only move forward"})
+            BD["date"] = t; return self._send(200, dict(businessDate=BD["date"], status=BD["status"]))
+        if p == "/api/v1/business-date/eod/start" and m == "POST":
+            if BD["status"] != "OPEN": return self._send(409, {"error": "end of day already running"})
+            BD["status"] = "EOD_RUNNING"; return self._send(200, dict(businessDate=BD["date"], status=BD["status"]))
+        if p == "/api/v1/business-date/advance" and m == "POST":
+            exp = self._body()["expectedBusinessDate"]
+            if exp != BD["date"]:
+                if exp < BD["date"]: return self._send(200, dict(businessDate=BD["date"], status=BD["status"]))
+                return self._send(409, {"error": "expected date is ahead of the business date"})
+            if BD["status"] != "EOD_RUNNING": return self._send(409, {"error": "end of day not started"})
+            BD["date"] = (d(BD["date"]) + dt.timedelta(days=1)).isoformat(); BD["status"] = "OPEN"
+            return self._send(200, dict(businessDate=BD["date"], status=BD["status"]))
         if p == "/api/v1/loan-products":
             return self._send(200, [dict(productCode=c, status="ACTIVE", accountType="UNSECURED", minSanctionedAmount=v["amin"], maxSanctionedAmount=v["amax"],
                     minTenureMonths=v["tmin"], maxTenureMonths=v["tmax"], minInterestRate=5, maxInterestRate=20, repaymentFrequency="MONTHLY",
@@ -217,6 +259,8 @@ class H(BaseHTTPRequestHandler):
                 key = self.headers.get("Idempotency-Key")
                 if key in IDEM: return self._send(200, IDEM[key])
                 b = self._body(); kind = rest[1]
+                vd = b.get("valueDate") or b.get("foreclosureDate")
+                if vd and not not_future(vd): return self._send(400, {"error": "value date %s is after the business date %s" % (vd, BD["date"])})
                 if a["accountStatus"] in ("CLOSED","FORECLOSED"): return self._send(409, {"error":"account closed"})
                 if kind == "emi":
                     unpaid = [r for r in a["schedule"] if r["installmentStatus"] != "PAID"]
@@ -245,6 +289,7 @@ class H(BaseHTTPRequestHandler):
                     paid_i = sum(D(t["interestPaid"]) for t in a["txns"]); ip = max(q(acc - paid_i), D(0))
                     for r in a["schedule"]: r["installmentStatus"] = "PAID"
                     t = txn(a, "FORECLOSURE", o + ip, o, ip, None, b["foreclosureDate"], key); IDEM[key] = t; return self._send(200, t)
+        if p == "/api/v1/interest-accruals/run" and not not_future(qs["businessDate"]): return self._send(400, {"error": "future business date"})
         if p == "/api/v1/interest-accruals/run": run_accrual(qs["businessDate"]); return self._send(200, {"status":"COMPLETED"})
         if p == "/api/v1/loan-accounts/delinquency-classifications": run_dpd(self._body()["asOfDate"]); return self._send(200, {"status":"COMPLETED"})
         self._send(404, {"error":"no route " + p})
@@ -255,13 +300,19 @@ class H(BaseHTTPRequestHandler):
                 "GL_POSTING_RECONCILIATION_DAILY","EMI_BILLING_GENERATION_MONTHLY","INTEREST_CAPITALIZATION_MONTHLY","PROVISIONING_CALCULATION_MONTHLY"]
         if p == "/api/v1/batch-admin/jobs": return self._send(200, [dict(jobName=j, enabled=True) for j in jobs])
         if len(parts) == 6 and parts[4] and parts[5] == "trigger" and m == "POST":
-            job = parts[4]; day = self._body().get("businessDate"); read = 0
-            if MODE != "stubs":
-                if job == "INTEREST_ACCRUAL_DAILY": read = run_accrual(day)
-                elif job == "DPD_UPDATE_DAILY": read = run_dpd(day)
-                elif job == "NPA_CLASSIFICATION_CHECK_DAILY": read = len([a for a in ACCOUNTS.values()])
-            e = dict(jobExecutionId=SEQ["exec"], jobName=job, status="STARTED", exitCode="EXECUTING", businessDate=day, readCount=read, writeCount=read, skipCount=0)
-            SEQ["exec"] += 1; EXECS[e["jobExecutionId"]] = e; return self._send(200, e)
+            job = parts[4]; day = self._body().get("businessDate")
+            if not not_future(day): return self._send(400, {"error": "business date %s is after the platform business date %s" % (day, BD["date"])})
+            return self._send(200, run_job(job, day))
+        if p == "/api/v1/batch-admin/eod/status":
+            return self._send(200, dict(running=False, businessDate=dict(businessDate=BD["date"], status=BD["status"]), lastRun=EOD["last"]))
+        if p == "/api/v1/batch-admin/eod/run" and m == "POST":
+            day = BD["date"]; BD["status"] = "EOD_RUNNING"; results = []
+            for job in DAILY_JOBS:
+                e = run_job(job, day); e["status"] = "COMPLETED"; e["exitCode"] = "COMPLETED"
+                results.append(dict(jobName=job, status="COMPLETED", message=None))
+            BD["date"] = (d(day) + dt.timedelta(days=1)).isoformat(); BD["status"] = "OPEN"
+            EOD["last"] = dict(businessDate=day, outcome="ADVANCED", newBusinessDate=BD["date"], jobs=results, error=None)
+            return self._send(202, dict(started=True))
         if len(parts) == 6 and parts[5] == "executions":
             job = parts[4]; out = []
             for e in EXECS.values():
@@ -274,6 +325,7 @@ class H(BaseHTTPRequestHandler):
     def _admin(self, m, p, qs):
         parts = p.strip("/").split("/")
         if p == "/api/admin/me": return self._send(200, {"user":"admin"})
+        if p == "/api/admin/business-date": return self._send(200, dict(businessDate=BD["date"], status=BD["status"], fromLending=True))
         if p == "/v3/api-docs": return self._send(200, {"paths": {"/api/admin/overdue": {"get": {"summary":"overdue"}}}})
         if p == "/api/admin/ledger-outbox":
             items = [dict(accountNumber=n) for n in OUTBOX]
@@ -282,7 +334,7 @@ class H(BaseHTTPRequestHandler):
             a = ACCOUNTS[int(parts[3])]; rest = parts[4:]
             if not rest:
                 out = outstanding(a) if a["accountStatus"] not in ("CLOSED","FORECLOSED") else D(0)
-                wall = dt.date.today(); unpaid = [d(r["dueDate"]) for r in a["schedule"] if r["installmentStatus"] != "PAID" and d(r["dueDate"]) < wall]
+                wall = dt.date.today() if MODE == "bugs" else d(BD["date"]); unpaid = [d(r["dueDate"]) for r in a["schedule"] if r["installmentStatus"] != "PAID" and d(r["dueDate"]) < wall]
                 return self._send(200, dict(accountId=a["accountId"], accountNumber=a["accountNumber"], accountStatus=a["accountStatus"],
                                             figures=dict(outstandingPrincipal=str(out), daysPastDue=max([(wall-x).days for x in unpaid], default=0))))
             if rest == ["schedule"]:

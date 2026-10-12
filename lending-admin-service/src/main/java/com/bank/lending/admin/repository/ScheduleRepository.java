@@ -2,12 +2,12 @@ package com.bank.lending.admin.repository;
 
 import com.bank.lending.admin.dto.AdminDtos.ScheduleRow;
 import com.bank.lending.admin.dto.AdminDtos.ScheduleVersion;
+import com.bank.lending.admin.service.BusinessDateSource;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -15,15 +15,15 @@ import java.util.List;
 public class ScheduleRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final Clock clock;
+    private final BusinessDateSource businessDate;
 
-    public ScheduleRepository(NamedParameterJdbcTemplate jdbc, Clock clock) {
+    public ScheduleRepository(NamedParameterJdbcTemplate jdbc, BusinessDateSource businessDate) {
         this.jdbc = jdbc;
-        this.clock = clock;
+        this.businessDate = businessDate;
     }
 
     private RowMapper<ScheduleRow> mapper() {
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = businessDate.today();
         return (rs, i) -> {
             String status = rs.getString("installment_status");
             LocalDate due = Sql.date(rs, "due_date");

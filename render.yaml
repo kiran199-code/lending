@@ -92,6 +92,10 @@ services:
       # Required: the prod profile refuses to start without it.
       - key: LENDING_SERVICE_URL
         value: https://lending-service-5tqm.onrender.com
+      # Nightly end of day (runs the DAILY jobs for the business date, then advances it). The service
+      # sleeps on the free tier, so the cron may be missed; POST /api/v1/batch-admin/eod/run does it on demand.
+      - key: BATCH_EOD_ENABLED
+        value: "true"
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 

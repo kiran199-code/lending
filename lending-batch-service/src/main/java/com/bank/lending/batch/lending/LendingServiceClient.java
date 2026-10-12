@@ -66,7 +66,35 @@ public class LendingServiceClient {
         }
     }
 
+    /** Business date as reported by lending-service. Dates are kept as ISO strings (no JavaTimeModule dependency). */
+    public record BusinessDateInfo(String businessDate, String previousBusinessDate, String nextBusinessDate,
+                                   String status, boolean workingDay, String systemDate) {
+        public LocalDate date() {
+            return LocalDate.parse(businessDate);
+        }
+
+        public boolean eodRunning() {
+            return "EOD_RUNNING".equals(status);
+        }
+    }
+
     // ---- endpoints ---------------------------------------------------------------------------
+
+    /** GET /api/v1/business-date */
+    public BusinessDateInfo businessDate() {
+        return call("GET", "/api/v1/business-date", null, null, BusinessDateInfo.class);
+    }
+
+    /** POST /api/v1/business-date/eod/start — OPEN to EOD_RUNNING; 409 (LendingServiceException) if already running. */
+    public BusinessDateInfo startEndOfDay(String actor) {
+        return call("POST", "/api/v1/business-date/eod/start", null, Map.of("X-Actor", actor), BusinessDateInfo.class);
+    }
+
+    /** POST /api/v1/business-date/advance — close {@code expected} and open the next day (idempotent on {@code expected}). */
+    public BusinessDateInfo advanceBusinessDate(LocalDate expected, String actor) {
+        return call("POST", "/api/v1/business-date/advance", Map.of("expectedBusinessDate", expected.toString()),
+                Map.of("X-Actor", actor), BusinessDateInfo.class);
+    }
 
     /** POST /api/v1/loan-accounts/{id}/interest-accruals?businessDate= */
     public AccrualResult accrueInterest(long accountId, LocalDate businessDate) {

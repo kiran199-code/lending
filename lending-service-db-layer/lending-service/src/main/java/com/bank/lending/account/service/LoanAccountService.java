@@ -1,5 +1,6 @@
 package com.bank.lending.account.service;
 
+import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.dto.CreateLoanAccountRequest;
 import com.bank.lending.account.dto.DelinquencyResultResponse;
@@ -56,6 +57,7 @@ public class LoanAccountService {
     private final AccountTermsResolver termsResolver;
     private final LoanProductRepository productRepository;
     private final BenchmarkRateService benchmarkRateService;
+    private final BusinessDateService businessDateService;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -189,6 +191,7 @@ public class LoanAccountService {
      */
     @Transactional
     public RateResetResultResponse resetRateForAccount(Long accountId, LocalDate businessDate, String requiredBenchmarkRef) {
+        businessDateService.assertNotFuture(businessDate, "businessDate");
         LoanAccount account = getById(accountId);
         String ref = account.getBenchmarkRateRef();
         if (account.getAccountStatus() != ACTIVE || account.getRateType() != LoanAccount.RateType.FLOATING || ref == null) {
@@ -264,6 +267,7 @@ public class LoanAccountService {
      */
     @Transactional
     public void classifyDelinquency(LocalDate asOfDate) {
+        businessDateService.assertNotFuture(asOfDate, "asOfDate");
         int pageNo = 0;
         Page<LoanAccount> page;
         do {
@@ -283,6 +287,7 @@ public class LoanAccountService {
      */
     @Transactional
     public DelinquencyResultResponse classifyOne(Long accountId, LocalDate asOfDate) {
+        businessDateService.assertNotFuture(asOfDate, "asOfDate");
         LoanAccount account = getById(accountId);
         if (!DELINQUENCY_TRACKED_STATUSES.contains(account.getAccountStatus())) {
             return new DelinquencyResultResponse(accountId, asOfDate, 0, account.getAccountStatus(),

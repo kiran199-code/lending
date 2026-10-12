@@ -9,6 +9,7 @@ import com.bank.lending.admin.dto.AdminDtos.PageResponse;
 import com.bank.lending.admin.dto.AdminDtos.PaymentRow;
 import com.bank.lending.admin.dto.AdminDtos.UpcomingResponse;
 import com.bank.lending.admin.repository.PaymentRepository;
+import com.bank.lending.admin.service.BusinessDateSource;
 import com.bank.lending.admin.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,12 +29,12 @@ public class PortfolioController {
 
     private final PortfolioService portfolio;
     private final PaymentRepository payments;
-    private final Clock clock;
+    private final BusinessDateSource businessDate;
 
-    public PortfolioController(PortfolioService portfolio, PaymentRepository payments, Clock clock) {
+    public PortfolioController(PortfolioService portfolio, PaymentRepository payments, BusinessDateSource businessDate) {
         this.portfolio = portfolio;
         this.payments = payments;
-        this.clock = clock;
+        this.businessDate = businessDate;
     }
 
     @Operation(summary = "Headline numbers, status mix and 30-day accrual / collection series")
@@ -93,7 +93,7 @@ public class PortfolioController {
     public List<DailyAmount> accrualSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        LocalDate end = to != null ? to : LocalDate.now(clock);
+        LocalDate end = to != null ? to : businessDate.today();
         LocalDate start = from != null ? from : end.minusDays(29);
         return payments.accrualDaily(start, end);
     }

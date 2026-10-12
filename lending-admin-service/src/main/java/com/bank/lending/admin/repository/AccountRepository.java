@@ -5,12 +5,12 @@ import com.bank.lending.admin.dto.AdminDtos.AccountSummary;
 import com.bank.lending.admin.dto.AdminDtos.MortgageDetail;
 import com.bank.lending.admin.dto.AdminDtos.PageResponse;
 import com.bank.lending.admin.dto.AdminDtos.ValuationRow;
+import com.bank.lending.admin.service.BusinessDateSource;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -32,17 +32,17 @@ public class AccountRepository {
             "nextDue", "nd.next_due");
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final Clock clock;
+    private final BusinessDateSource businessDate;
 
-    public AccountRepository(NamedParameterJdbcTemplate jdbc, Clock clock) {
+    public AccountRepository(NamedParameterJdbcTemplate jdbc, BusinessDateSource businessDate) {
         this.jdbc = jdbc;
-        this.clock = clock;
+        this.businessDate = businessDate;
     }
 
     public PageResponse<AccountSummary> search(Filter f, int page, int size, String sort, boolean desc) {
         page = Sql.clampPage(page);
         size = Sql.clampSize(size);
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = businessDate.today();
 
         StringBuilder where = new StringBuilder(" WHERE 1=1");
         MapSqlParameterSource p = new MapSqlParameterSource();

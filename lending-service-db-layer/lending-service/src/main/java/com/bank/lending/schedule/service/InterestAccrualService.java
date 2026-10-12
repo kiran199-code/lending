@@ -1,5 +1,6 @@
 package com.bank.lending.schedule.service;
 
+import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.common.exception.ResourceNotFoundException;
@@ -37,9 +38,11 @@ public class InterestAccrualService {
     private final LoanAccountRepository loanAccountRepository;
     private final AmortizationScheduleRepository scheduleRepository;
     private final InterestAccrualRepository interestAccrualRepository;
+    private final BusinessDateService businessDateService;
 
     @Transactional
     public void runDailyAccrual(LocalDate businessDate) {
+        businessDateService.assertNotFuture(businessDate, "businessDate");
         int pageNo = 0;
         Page<LoanAccount> page;
         do {
@@ -65,6 +68,7 @@ public class InterestAccrualService {
      */
     @Transactional
     public AccrualResultResponse accrueAccount(Long accountId, LocalDate businessDate) {
+        businessDateService.assertNotFuture(businessDate, "businessDate");
         LoanAccount account = loanAccountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan account " + accountId + " not found"));
         if (account.getAccountStatus() != LoanAccount.AccountStatus.ACTIVE) {

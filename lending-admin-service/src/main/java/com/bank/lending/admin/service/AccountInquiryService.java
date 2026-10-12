@@ -16,7 +16,6 @@ import com.bank.lending.admin.repository.ScheduleRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,14 +26,14 @@ public class AccountInquiryService {
     private final AccountRepository accounts;
     private final ScheduleRepository schedules;
     private final PaymentRepository payments;
-    private final Clock clock;
+    private final BusinessDateSource businessDate;
 
     public AccountInquiryService(AccountRepository accounts, ScheduleRepository schedules,
-                                 PaymentRepository payments, Clock clock) {
+                                 PaymentRepository payments, BusinessDateSource businessDate) {
         this.accounts = accounts;
         this.schedules = schedules;
         this.payments = payments;
-        this.clock = clock;
+        this.businessDate = businessDate;
     }
 
     public long resolveId(String accountNumber) {
@@ -49,7 +48,7 @@ public class AccountInquiryService {
         List<PaymentRow> paymentRows = payments.forAccount(accountId);
         var accrual = payments.accrualTotals(accountId);
         Figures figures = AccountFigures
-                .compute(a.accountStatus(), a.disbursedAmount(), schedule, paymentRows, LocalDate.now(clock))
+                .compute(a.accountStatus(), a.disbursedAmount(), schedule, paymentRows, businessDate.today())
                 .withAccrual(accrual.total(), accrual.lastDate());
         return new AccountDetail(a.accountId(), a.accountNumber(), a.customerId(), a.sanctionRefId(), a.productCode(),
                 a.accountType(), a.accountStatus(), a.sanctionedAmount(), a.disbursedAmount(), a.tenureMonths(),

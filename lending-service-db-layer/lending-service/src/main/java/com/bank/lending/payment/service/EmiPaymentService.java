@@ -1,5 +1,6 @@
 package com.bank.lending.payment.service;
 
+import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.common.exception.InvalidAccountStateException;
@@ -50,6 +51,7 @@ public class EmiPaymentService {
     private final EmiTransactionRepository emiTransactionRepository;
     private final InterestAccrualRepository interestAccrualRepository;
     private final LedgerOutboxService ledgerOutboxService;
+    private final BusinessDateService businessDateService;
 
     @Transactional
     public EmiTransaction postEmiPayment(Long accountId, LocalDate valueDate, BigDecimal amount,
@@ -58,6 +60,7 @@ public class EmiPaymentService {
         if (existing.isPresent()) {
             return existing.get();
         }
+        businessDateService.assertNotFuture(valueDate, "valueDate");
 
         LoanAccount account = getAccountOrThrow(accountId);
         if (account.getAccountStatus() != LoanAccount.AccountStatus.ACTIVE) {
@@ -121,6 +124,7 @@ public class EmiPaymentService {
         if (existing.isPresent()) {
             return existing.get();
         }
+        businessDateService.assertNotFuture(valueDate, "valueDate");
 
         LoanAccount account = getAccountOrThrow(accountId);
         if (account.getAccountStatus() != LoanAccount.AccountStatus.ACTIVE) {
@@ -184,6 +188,7 @@ public class EmiPaymentService {
         if (existing.isPresent()) {
             return existing.get();
         }
+        businessDateService.assertNotFuture(foreclosureDate, "foreclosureDate");
 
         LoanAccount account = getAccountOrThrow(accountId);
         if (NOT_FORECLOSABLE.contains(account.getAccountStatus())) {

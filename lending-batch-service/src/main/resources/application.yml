@@ -55,6 +55,17 @@ batch:
   admin:
     username: ${BATCH_ADMIN_USERNAME:batch-admin}
     password: ${BATCH_ADMIN_PASSWORD:changeme}
+  # Business date and end of day. Jobs run for lending-service's business date (not the calendar date).
+  # With eod.enabled, the DAILY jobs are not started by their own crons: one nightly end-of-day run
+  # (cron below) runs them in priority order for the current business date, and only when all have
+  # completed moves the business date forward. POST /api/v1/batch-admin/eod/run does the same on demand.
+  business-date:
+    source: ${BATCH_BUSINESS_DATE_SOURCE:LENDING}   # LENDING | SYSTEM (wall clock; standalone use only)
+    system-timezone: ${BATCH_SYSTEM_TIMEZONE:Asia/Kolkata}
+  eod:
+    enabled: ${BATCH_EOD_ENABLED:true}
+    cron: ${BATCH_EOD_CRON:0 0 1 * * ?}
+    zone: ${BATCH_EOD_ZONE:Asia/Kolkata}
 
 # lending-service is the only writer of loan data: batch jobs call its REST API (the batch DB
 # role is read-only on the lending tables). base-url comes from LENDING_SERVICE_URL — required in

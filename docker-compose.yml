@@ -55,6 +55,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/lending
       DB_USER: lending_app
       DB_PASSWORD: changeme
+      LENDING_RESET_ENABLED: "true"   # local dev: lets the admin portal's Maintenance screen clear all data
     ports:
       - "8080:8080"
 

@@ -44,6 +44,12 @@ business-date:
   # Only used to report systemDate next to the business date.
   system-timezone: ${BUSINESS_DATE_SYSTEM_TIMEZONE:Asia/Kolkata}
 
+# Start-from-scratch operations (POST /api/v1/maintenance/clear-data). Off unless you turn it on, so a
+# production deployment cannot be emptied by accident. Creating the base products is always allowed.
+lending:
+  maintenance:
+    reset-enabled: ${LENDING_RESET_ENABLED:false}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

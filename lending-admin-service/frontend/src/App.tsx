@@ -10,6 +10,7 @@ import Configuration from './pages/Configuration';
 import Dashboard from './pages/Dashboard';
 import Ledger from './pages/Ledger';
 import Login from './pages/Login';
+import Maintenance from './pages/Maintenance';
 import Overdue from './pages/Overdue';
 import Payments from './pages/Payments';
 import Products from './pages/Products';
@@ -33,6 +34,7 @@ function Gate() {
         <Route path="ledger" element={<Ledger />} />
         <Route path="batch" element={<Batch />} />
         <Route path="config" element={<Configuration />} />
+        <Route path="maintenance" element={<Maintenance />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

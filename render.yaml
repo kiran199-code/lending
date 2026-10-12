@@ -42,6 +42,10 @@ services:
         value: "5"
       - key: DB_POOL_MIN_IDLE
         value: "1"
+      # Sandbox only: lets the admin portal's Maintenance screen clear all data and start again.
+      # Remove it (or set "false") on anything that holds data you want to keep.
+      - key: LENDING_RESET_ENABLED
+        value: "true"
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 

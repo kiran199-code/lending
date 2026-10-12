@@ -186,3 +186,6 @@ input:focus, select:focus, .btn:focus-visible, .kpi-button:focus-visible, .tab:f
 .setting-desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 .secret { letter-spacing: 1px; }
 .changed { background: var(--warn-bg); }
+.btn-danger { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); font-weight: 600; }
+.btn-danger:hover:not(:disabled) { filter: brightness(.96); background: var(--bad-bg); }
+.danger-zone { border-color: var(--bad); }

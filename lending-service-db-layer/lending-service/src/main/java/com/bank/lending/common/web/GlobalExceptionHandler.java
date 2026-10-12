@@ -1,5 +1,6 @@
 package com.bank.lending.common.web;
 
+import com.bank.lending.common.exception.FeatureDisabledException;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,6 +38,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(FeatureDisabledException.class)
+    public ResponseEntity<ApiError> handleFeatureDisabled(FeatureDisabledException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidAccountStateException.class)

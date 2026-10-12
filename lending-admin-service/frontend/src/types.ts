@@ -142,3 +142,12 @@ export interface ProductInput {
   stepUpPercent: number | null; maxStepUpPercent: number | null;
   status: string; expectedVersion: number | null;
 }
+
+export interface MaintenanceStatus {
+  resetEnabled: boolean;
+  businessDateStatus: string;
+  rowCounts: Record<string, number>;
+  baseProducts: { productCode: string; productName: string; exists: boolean }[];
+}
+export interface ClearDataResult { deleted: Record<string, number>; totalRows: number; clearedBy: string; message: string }
+export interface BaseProductsResult { created: string[]; alreadyExisted: string[]; message: string }

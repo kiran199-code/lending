@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- **Maintenance: start from scratch.** Two new options in the admin portal (screen **Maintenance**): *Create base products* and *Clear all data*.
+  - lending-service: `GET /api/v1/maintenance/status` (whether clearing is enabled, row counts, which base products exist),
+    `POST /api/v1/maintenance/clear-data` (body `{"confirm":"RESET"}`) and `POST /api/v1/maintenance/base-products`.
+    Clear empties loan accounts, schedules, accruals, EMI transactions, mortgages and valuations, the ledger outbox, the idempotency log and the
+    loan product master in one `TRUNCATE ... RESTART IDENTITY` transaction, and keeps the business date, holidays, benchmark rates and the batch
+    service's tables. It answers 403 unless `LENDING_RESET_ENABLED=true` (default false), 400 without the confirmation word, 409 while end of
+    day is running. Base products are the six standard ones from V10 (PL01, BL01, EL01, GL01, AL01, HL01); existing codes are left unchanged
+    and the V11 sample products are not recreated. Creating the base products is always allowed.
+  - Admin portal: Maintenance screen with row counts, a typed-RESET confirmation, and the two actions; `/api/admin/maintenance/*` forwards to
+    lending-service with the signed-in user as `X-Actor`. The portal still never writes to the database itself. `render.yaml` sets
+    `LENDING_RESET_ENABLED=true` for the sandbox lending-service.
+  - Not built with Maven yet (the frontend type-checks and builds).
 - **Business date (task 1).** The platform now has one business date, owned by lending-service, and jobs run for it instead of the calendar date.
   - lending-service: migration V13 (`business_date_state`, `business_date_history`, `non_working_day`); `/api/v1/business-date`
     (`GET` state, `POST /eod/start` OPEN to EOD_RUNNING, `POST /advance` EOD_RUNNING to next day, idempotent on `expectedBusinessDate`,

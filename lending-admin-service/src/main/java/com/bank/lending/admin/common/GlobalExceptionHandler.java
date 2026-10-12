@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UpstreamException.class)
     public ResponseEntity<Map<String, Object>> upstream(UpstreamException ex) {
         int s = ex.getStatus();
-        HttpStatus status = (s == 400 || s == 404 || s == 409 || s == 422) ? HttpStatus.valueOf(s) : HttpStatus.BAD_GATEWAY;
+        HttpStatus status = (s == 400 || s == 403 || s == 404 || s == 409 || s == 422) ? HttpStatus.valueOf(s) : HttpStatus.BAD_GATEWAY;
         return body(status, ex.getMessage());
     }
 

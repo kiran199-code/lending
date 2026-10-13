@@ -74,6 +74,7 @@ public class EndOfDayService {
     }
 
     private static EodRunSummary failed(Instant started, LocalDate date, List<EodJobResult> results, String error) {
+        log.warn("End of day stopped for {}: {}", date, error);
         return new EodRunSummary(date == null ? null : date.toString(), started, Instant.now(),
                 EodRunSummary.Outcome.FAILED, null, results, error);
     }

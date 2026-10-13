@@ -66,6 +66,9 @@ batch:
     enabled: ${BATCH_EOD_ENABLED:true}
     cron: ${BATCH_EOD_CRON:0 0 1 * * ?}
     zone: ${BATCH_EOD_ZONE:Asia/Kolkata}
+    # End of day waits for each job to reach a final state before starting the next one.
+    job-timeout-minutes: ${BATCH_EOD_JOB_TIMEOUT_MINUTES:180}
+    poll-interval-ms: ${BATCH_EOD_POLL_INTERVAL_MS:1000}
 
 # lending-service is the only writer of loan data: batch jobs call its REST API (the batch DB
 # role is read-only on the lending tables). base-url comes from LENDING_SERVICE_URL — required in

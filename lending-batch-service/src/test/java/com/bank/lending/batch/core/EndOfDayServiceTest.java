@@ -28,7 +28,7 @@ class EndOfDayServiceTest {
     private static final LocalDate D = LocalDate.of(2026, 10, 12);
 
     /** Behaves like lending-service's business-date endpoints. */
-    static class FakeLending extends LendingServiceClient {
+    public static class FakeLending extends LendingServiceClient {
         LocalDate date = D;
         String status = "OPEN";
         final List<String> calls = new ArrayList<>();
@@ -68,7 +68,7 @@ class EndOfDayServiceTest {
         }
     }
 
-    static class FakeJobs implements EodJobGateway {
+    public static class FakeJobs implements EodJobGateway {
         final List<String> names;
         final Set<String> alreadyDone = new HashSet<>();
         final Map<String, String> outcomes;

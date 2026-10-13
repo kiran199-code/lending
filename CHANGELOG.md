@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- **End of day screen in the admin console** (`/#/eod`): shows the business date and the next one before you start or restart, asks for confirmation, and follows the run
+  with a per-job progress table that refreshes itself (3 s while running, 10 s otherwise). Restart resumes a stopped run (finished jobs are skipped). The start call carries
+  the date shown on screen and is refused with 409 if the business date has moved on. Admin API: `GET /api/admin/eod/status`, `POST /api/admin/eod/run`.
+  Batch service: `GET /api/v1/batch-admin/eod/status` now includes live `progress` (new `EodListener`, `EodProgress`; `EndOfDayService.run(actor, listener)`).
+  Tests: `EodProgressTest`, `EodControllerTest`. Needs `BATCH_SERVICE_URL` and `BATCH_ADMIN_PASSWORD` on the admin service.
+
 ### Documentation
 - Functional Specification, Technical Design Document and architecture deck updated to **v1.5** (Maintenance screen and eleven base products, batch framework fixes,
   two streams per job, end of day waiting for each job, Kafka and Swagger switches, test suite using existing products). `docs/Lending_Platform_*.docx` now hold v1.5;

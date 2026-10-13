@@ -151,3 +151,34 @@ export interface MaintenanceStatus {
 }
 export interface ClearDataResult { deleted: Record<string, number>; totalRows: number; clearedBy: string; message: string }
 export interface BaseProductsResult { created: string[]; alreadyExisted: string[]; message: string }
+
+export interface EodJobRow { jobName: string; status: string; startedAt: string | null; finishedAt: string | null; message: string | null }
+export interface EodProgress {
+  state: 'IDLE' | 'RUNNING' | 'ADVANCED' | 'FAILED';
+  actor: string | null;
+  businessDate: string | null;
+  resumed: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  currentJob: string | null;
+  total: number;
+  done: number;
+  jobs: EodJobRow[];
+  newBusinessDate: string | null;
+  message: string | null;
+}
+export interface EodBusinessDate {
+  businessDate: string; previousBusinessDate: string | null; nextBusinessDate: string | null;
+  status: string; workingDay: boolean; systemDate: string | null;
+}
+export interface EodStatus {
+  configured: boolean;
+  reachable: boolean;
+  error?: string;
+  databaseBusinessDate: string | null;
+  databaseStatus: string | null;
+  running?: boolean;
+  businessDate?: EodBusinessDate | null;
+  progress?: EodProgress;
+}
+export interface EodRunResult { started: boolean; message: string }

@@ -8,6 +8,7 @@ import Accruals from './pages/Accruals';
 import Batch from './pages/Batch';
 import Configuration from './pages/Configuration';
 import Dashboard from './pages/Dashboard';
+import EndOfDay from './pages/EndOfDay';
 import Ledger from './pages/Ledger';
 import Login from './pages/Login';
 import Maintenance from './pages/Maintenance';
@@ -33,6 +34,7 @@ function Gate() {
         <Route path="accruals" element={<Accruals />} />
         <Route path="ledger" element={<Ledger />} />
         <Route path="batch" element={<Batch />} />
+        <Route path="eod" element={<EndOfDay />} />
         <Route path="config" element={<Configuration />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="*" element={<Navigate to="/" replace />} />

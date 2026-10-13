@@ -37,45 +37,62 @@ public class EndOfDayService {
     }
 
     public EodRunSummary run(String actor) {
+        return run(actor, EodListener.NOOP);
+    }
+
+    /** As {@link #run(String)}, reporting each milestone to {@code listener} while the run is in progress. */
+    public EodRunSummary run(String actor, EodListener listener) {
         Instant started = Instant.now();
         List<EodJobResult> results = new ArrayList<>();
         LocalDate date = null;
         try {
             LendingServiceClient.BusinessDateInfo info = lending.businessDate();
-            if (!info.eodRunning()) {
+            boolean resumed = info.eodRunning();
+            if (!resumed) {
                 info = lending.startEndOfDay(actor);
             } else {
                 log.info("Resuming end of day for {}", info.businessDate());
             }
             date = info.date();
+            List<String> jobNames = jobs.dailyJobNames();
+            listener.started(date, jobNames, resumed);
 
-            for (String jobName : jobs.dailyJobNames()) {
+            for (String jobName : jobNames) {
                 if (jobs.alreadyCompleted(jobName, date)) {
-                    results.add(new EodJobResult(jobName, "SKIPPED", "already completed for " + date));
+                    EodJobResult skipped = new EodJobResult(jobName, "SKIPPED", "already completed for " + date);
+                    results.add(skipped);
+                    listener.jobFinished(skipped);
                     continue;
                 }
+                listener.jobStarted(jobName);
                 EodJobResult result = jobs.run(jobName, date);
                 results.add(result);
+                listener.jobFinished(result);
                 if (!result.ok()) {
                     return failed(started, date, results,
                             "Job " + jobName + " ended " + result.status() + "; business date " + date
-                                    + " stays in EOD_RUNNING. Fix the cause and run end of day again.");
+                                    + " stays in EOD_RUNNING. Fix the cause and run end of day again.", listener);
                 }
             }
 
             LendingServiceClient.BusinessDateInfo next = lending.advanceBusinessDate(date, actor);
             log.info("End of day complete: business date {} -> {}", date, next.businessDate());
-            return new EodRunSummary(date.toString(), started, Instant.now(), EodRunSummary.Outcome.ADVANCED,
+            EodRunSummary done = new EodRunSummary(date.toString(), started, Instant.now(), EodRunSummary.Outcome.ADVANCED,
                     next.businessDate(), results, null);
+            listener.finished(done);
+            return done;
         } catch (RuntimeException e) {
             log.error("End of day failed", e);
-            return failed(started, date, results, e.getMessage());
+            return failed(started, date, results, e.getMessage(), listener);
         }
     }
 
-    private static EodRunSummary failed(Instant started, LocalDate date, List<EodJobResult> results, String error) {
+    private static EodRunSummary failed(Instant started, LocalDate date, List<EodJobResult> results, String error,
+                                        EodListener listener) {
         log.warn("End of day stopped for {}: {}", date, error);
-        return new EodRunSummary(date == null ? null : date.toString(), started, Instant.now(),
+        EodRunSummary summary = new EodRunSummary(date == null ? null : date.toString(), started, Instant.now(),
                 EodRunSummary.Outcome.FAILED, null, results, error);
+        listener.finished(summary);
+        return summary;
     }
 }

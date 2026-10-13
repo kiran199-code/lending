@@ -189,3 +189,5 @@ input:focus, select:focus, .btn:focus-visible, .kpi-button:focus-visible, .tab:f
 .btn-danger { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); font-weight: 600; }
 .btn-danger:hover:not(:disabled) { filter: brightness(.96); background: var(--bad-bg); }
 .danger-zone { border-color: var(--bad); }
+
+.row-running td { background: var(--info-bg); }

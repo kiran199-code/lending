@@ -84,7 +84,7 @@ All under `/api/v1/batch-admin`, secured with HTTP Basic (`batch.admin.username`
 | `POST /config/reload` | Re-read `batch_job_config` and rebuild + reschedule every job — use after editing config rows. |
 | `GET /status/today` | Per-job status: last execution outcome + next Quartz fire time. |
 | `POST /eod/run` | Run end of day for the current business date (or resume a failed one): 202 started, 409 if already running. |
-| `GET /eod/status` | `{running, businessDate, lastRun}` - `lastRun` lists each job's result and whether the date advanced. |
+| `GET /eod/status` | `{running, businessDate, progress, lastRun}` - `progress` is live while a run is going (state IDLE / RUNNING / ADVANCED / FAILED, current job, done / total, one row per daily job with its status and times); `lastRun` lists each job's result and whether the date advanced. Progress is kept in memory and resets when the service restarts. The admin console's End of day screen polls this. |
 
 ---
 

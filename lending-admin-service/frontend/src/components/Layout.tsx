@@ -16,6 +16,7 @@ const NAV = [
   ['/accruals', 'Interest accruals'],
   ['/ledger', 'Ledger outbox'],
   ['/batch', 'Batch jobs'],
+  ['/eod', 'End of day'],
   ['/config', 'Configuration'],
   ['/maintenance', 'Maintenance'],
 ] as const;

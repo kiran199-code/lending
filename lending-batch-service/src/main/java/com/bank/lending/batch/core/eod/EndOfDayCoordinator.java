@@ -29,6 +29,7 @@ public class EndOfDayCoordinator {
         return t;
     });
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final EodProgress progress = new EodProgress();
     private volatile EodRunSummary lastRun;
 
     public EndOfDayCoordinator(LendingServiceClient lending, SpringBatchEodJobGateway gateway) {
@@ -41,11 +42,13 @@ public class EndOfDayCoordinator {
         if (!running.compareAndSet(false, true)) {
             return false;
         }
+        progress.begin(actor);
         executor.submit(() -> {
             try {
-                lastRun = endOfDayService.run(actor);
+                lastRun = endOfDayService.run(actor, progress);
             } catch (RuntimeException e) {
                 log.error("End of day crashed", e);
+                progress.crashed(e.getMessage());
             } finally {
                 running.set(false);
             }
@@ -59,6 +62,11 @@ public class EndOfDayCoordinator {
 
     public EodRunSummary lastRun() {
         return lastRun;
+    }
+
+    /** Live progress of the current run, or of the last one; state IDLE if none has run since this instance started. */
+    public EodProgress.View progress() {
+        return progress.snapshot();
     }
 
     /** The platform's business date as lending-service reports it; null if lending-service cannot be reached. */

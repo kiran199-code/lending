@@ -44,6 +44,7 @@ public class EndOfDayController {
         body.put("running", coordinator.isRunning());
         body.put("businessDate", date);
         body.put("lastRun", last);
+        body.put("progress", coordinator.progress());
         return body;
     }
 }

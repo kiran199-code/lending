@@ -9,6 +9,7 @@ change `lending-service` or `lending-batch-service`.
 | Page | Shows |
 |---|---|
 | Dashboard | Portfolio KPIs (accounts, outstanding principal, overdue, due in 7 days, month-to-date collections), status mix, accrual and collections trend |
+| End of day | **Start, restart and follow the end-of-day batch.** Shows the business date (and the next one) before you start or restart, asks for confirmation, then shows per-job progress (pending, running, completed, skipped, failed) and refreshes itself every 3 s while running and every 10 s otherwise. Runs on lending-batch-service (`POST /eod/run`, `GET /eod/status`); the start call carries the date on screen and is refused with 409 if the business date has since moved |
 | Maintenance | **Start from scratch** (sandbox / test only): *Create base products* (the six standard and five sample schedule-type products; existing ones untouched) and *Clear all data* (all accounts and their data, and all loan products; typed `RESET` confirmation). Done by lending-service (`/api/v1/maintenance/*`), which refuses the clear unless it runs with `LENDING_RESET_ENABLED=true`; keeps the business date, holidays and benchmark rates |
 | Products | Loan product master: default terms, rate / spread / amount / tenure bands, status and number of accounts; **editable**: New product / Edit, saved through lending-service's validated `/api/v1/loan-products` API (needs `LENDING_SERVICE_URL`). A change applies to accounts opened afterwards and to a floating rate reset of an individual account; existing accounts are not rewritten |
 | Accounts | Search and filter (account no. / customer id, status, type, product), sortable, paged |
@@ -23,7 +24,7 @@ change `lending-service` or `lending-batch-service`.
 
 ## How it gets data
 
-It connects **directly to the Lending PostgreSQL database, read-only**. The single exception to read-only is the Configuration screen, which does not write to the database itself: it asks `lending-batch-service` to save a job's settings (`PUT /api/v1/batch-admin/jobs/{name}`, validated there) and then to reload (`POST /config/reload`).
+It connects **directly to the Lending PostgreSQL database, read-only**. The exceptions to read-only are the Configuration, Maintenance and End of day screens, none of which write to the database themselves. Configuration: it asks `lending-batch-service` to save a job's settings (`PUT /api/v1/batch-admin/jobs/{name}`, validated there) and then to reload (`POST /config/reload`).
 
 * the Hikari pool is `read-only` and every session runs `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`;
 * all queries are `SELECT`s (the current amortization schedule is the highest `schedule_version` per account);
@@ -39,7 +40,7 @@ The only call to another service is the statement PDF, proxied from `lending-ser
 | `DB_USER`, `DB_PASSWORD` | `lending_app` / `changeme` | DB credentials |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `admin` / `changeme` | **Console login (HTTP Basic) - change in every real environment** |
 | `LENDING_SERVICE_URL` | empty | e.g. `https://lending-service-5tqm.onrender.com`; enables the statement download |
-| `BATCH_SERVICE_URL` | empty | Public URL of lending-batch-service; with the password below it enables editing batch job settings (without them the Configuration screen is view-only) |
+| `BATCH_SERVICE_URL` | empty | Public URL of lending-batch-service; with the password below it enables editing batch job settings and the End of day screen (without them the Configuration screen is view-only and End of day only shows the date) |
 | `BATCH_ADMIN_USERNAME`, `BATCH_ADMIN_PASSWORD` | `batch-admin` / empty | The batch service's own admin login (same values as on that service) |
 | `ADMIN_TIMEZONE` | `Asia/Kolkata` | Only a fallback: "today" is the platform business date (below); this zone is used for the wall-clock date if the business date cannot be read |
 | `SERVER_PORT` | `8082` | HTTP port |

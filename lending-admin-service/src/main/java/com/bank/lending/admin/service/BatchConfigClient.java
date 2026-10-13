@@ -69,10 +69,26 @@ public class BatchConfigClient {
         });
     }
 
+    /** GET /api/v1/batch-admin/eod/status: running flag, business date, live progress and the last run. */
+    public JsonNode eodStatus() {
+        require();
+        return call(() -> client.get().uri("/api/v1/batch-admin/eod/status")
+                .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                .body(JsonNode.class));
+    }
+
+    /** POST /api/v1/batch-admin/eod/run: starts end of day, or resumes a failed one (202); 409 if one is already running. */
+    public JsonNode eodRun() {
+        require();
+        return call(() -> client.post().uri("/api/v1/batch-admin/eod/run")
+                .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                .body(JsonNode.class));
+    }
+
     private void require() {
         if (!enabled()) {
             throw new FeatureDisabledException(
-                    "Editing is not set up. Set BATCH_SERVICE_URL and BATCH_ADMIN_PASSWORD on the admin service to enable it.");
+                    "Batch service access is not set up. Set BATCH_SERVICE_URL and BATCH_ADMIN_PASSWORD on the admin service to enable it.");
         }
     }
 

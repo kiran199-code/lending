@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Fixed
+- **End of day stopped after the first job it launched** (each run completed one job, the next run the next). The batch job launcher is asynchronous, so
+  `SpringBatchEodJobGateway` judged the job while it was still STARTING/STARTED and reported it as failed. It now waits until the job reaches a final
+  state (`batch.eod.job-timeout-minutes`, default 180; `batch.eod.poll-interval-ms`) and only then starts the next job in priority order, so one run
+  works through all the daily jobs and advances the business date. A job that fails, or is still running after the timeout, stops the chain and the
+  reason is logged. Test `SpringBatchEodJobGatewayTest`.
 - **Interest accrual (and other partitioned jobs) could silently skip accounts.** Same root cause as the `ReaderNotOpenException`: when partitions
   overwrote each other's reader, one partition could read another's id range and its own range was never processed, with no error (the job still
   ended COMPLETED). Fixed by the per-thread reader (below); each partition now also logs its range and counts so a gap is visible.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Documentation
+- Functional Specification, Technical Design Document and architecture deck updated to **v1.5** (Maintenance screen and eleven base products, batch framework fixes,
+  two streams per job, end of day waiting for each job, Kafka and Swagger switches, test suite using existing products). `docs/Lending_Platform_*.docx` now hold v1.5;
+  the previous version is kept as `-1.docx` and in git history.
+
 ### Fixed
 - **Tasklet jobs with a timeout failed with "No business date in the job context"** (seen on `GL_POSTING_RECONCILIATION_DAILY`, which stopped end of day).
   `TimeoutTaskletDecorator` runs the tasklet on a separate guard thread, but the business date and job params are thread-local and were set on the

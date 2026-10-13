@@ -182,3 +182,21 @@ export interface EodStatus {
   progress?: EodProgress;
 }
 export interface EodRunResult { started: boolean; message: string }
+
+export interface BusinessDateView { businessDate: string; status: string | null; fromLending: boolean }
+
+/** What lending-service returns for a created or disbursed account. */
+export interface LoanAccountResult {
+  accountId: number; accountNumber: string; customerId: number; sanctionRefId: number; productCode: string;
+  accountType: string; sanctionedAmount: number; disbursedAmount: number | null; tenureMonths: number;
+  scheduleType: string; rateType: string; interestRate: number; repaymentFrequency: string;
+  emiAmount: number | null; emiStartDate: string | null; accountStatus: string;
+}
+/** What lending-service returns for an instalment, part-payment or foreclosure. */
+export interface PaymentResult {
+  transactionId: number; valueDate: string; accountId: number; installmentNumber: number | null;
+  transactionType: string; amount: number; principalPaid: number | null; interestPaid: number | null;
+  paymentChannel: string; paymentStatus: string; idempotencyKey: string;
+}
+export interface BulkItemResult { index: number; outcome: string; accountId: number | null; accountNumber: string | null; accountStatus: string | null; message: string | null }
+export interface BulkResult { total: number; succeeded: number; failed: number; results: BulkItemResult[] }

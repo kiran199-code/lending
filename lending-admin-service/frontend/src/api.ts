@@ -37,10 +37,11 @@ function qs(params?: Params): string {
   return s ? `?${s}` : '';
 }
 
-async function request(path: string, params?: Params, init?: { method: string; body?: unknown }): Promise<Response> {
+async function request(path: string, params?: Params, init?: { method: string; body?: unknown; headers?: Record<string, string> }): Promise<Response> {
   const t = token();
   const headers: Record<string, string> = t ? { Authorization: `Basic ${t}` } : {};
   if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (init?.headers) Object.assign(headers, init.headers);
   const res = await fetch(`/api/admin${path}${qs(params)}`, {
     method: init?.method ?? 'GET',
     headers,
@@ -62,9 +63,9 @@ export async function get<T>(path: string, params?: Params): Promise<T> {
   return (await request(path, params)).json() as Promise<T>;
 }
 
-/** The few write calls (saving batch job settings); everything else in the console is read-only. */
-export async function send<T>(method: 'PUT' | 'POST', path: string, body?: unknown, params?: Params): Promise<T> {
-  return (await request(path, params, { method, body })).json() as Promise<T>;
+/** Write calls (settings, end of day, account operations); inquiry screens are read-only. `headers` carries e.g. an Idempotency-Key. */
+export async function send<T>(method: 'PUT' | 'POST', path: string, body?: unknown, params?: Params, headers?: Record<string, string>): Promise<T> {
+  return (await request(path, params, { method, body, headers })).json() as Promise<T>;
 }
 
 export async function download(path: string, fallbackName: string) {

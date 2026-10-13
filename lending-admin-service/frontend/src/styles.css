@@ -191,3 +191,12 @@ input:focus, select:focus, .btn:focus-visible, .kpi-button:focus-visible, .tab:f
 .danger-zone { border-color: var(--bad); }
 
 .row-running td { background: var(--info-bg); }
+
+/* menu sections */
+.side nav { overflow-y: auto; min-height: 0; gap: 6px; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-head { font: inherit; line-height: 1.2; display: flex; justify-content: space-between; align-items: center; background: none; border: none; color: #9bb3b7; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 700; padding: 8px 10px 4px; cursor: pointer; text-align: left; }
+.nav-head:hover { color: #fff; }
+.nav-head:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 6px; }
+.nav-items { display: flex; flex-direction: column; gap: 2px; }
+.nav-items .nav { padding: 6px 10px 6px 16px; }

@@ -83,7 +83,9 @@ services:
       # all grabbing connections at once.
       - key: QUARTZ_THREAD_COUNT
         value: "3"
-      # No broker on this setup; point at a dead address and fail sends fast.
+      # No broker on this setup: Kafka publishing is switched off, so no producer is created and the logs stay quiet.
+      - key: BATCH_KAFKA_ENABLED
+        value: "false"
       - key: KAFKA_BOOTSTRAP_SERVERS
         value: "localhost:9092"
       - key: BATCH_KAFKA_MAX_BLOCK_MS

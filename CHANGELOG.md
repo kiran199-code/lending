@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **Batch service: Kafka publishing can be switched off** (`BATCH_KAFKA_ENABLED=false` / `batch.kafka.enabled`). When off, no producer is created and
+  `KafkaJobEventBridge` is not loaded, so nothing tries to reach a broker (this removes the endless `localhost:9092 ... could not be established`
+  warnings on setups without Kafka). Default `false` in the `local` profile, `true` in `prod`; `render.yaml` sets it to `false`, docker-compose and the
+  integration test keep it on.
 - **E2E suite no longer stops on missing products or on one failing account.** The plan is fitted to the products that exist
   (`ProductResolver`, `e2e.products.fallback=AUTO|SKIP`): a missing/inactive/mortgage product is replaced by the closest existing active
   unsecured product or the account is skipped, and out-of-range amounts/tenures/rates are moved inside the product's limits. Product trouble is

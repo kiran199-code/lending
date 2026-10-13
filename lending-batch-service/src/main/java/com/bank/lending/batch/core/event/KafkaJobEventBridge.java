@@ -3,6 +3,7 @@ package com.bank.lending.batch.core.event;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
  * or filter per job type.
  */
 @Slf4j
+@ConditionalOnProperty(prefix = "batch.kafka", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Component
 @RequiredArgsConstructor
 public class KafkaJobEventBridge {

@@ -19,6 +19,12 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
+# Off by default for a local run (nobody needs a broker to try the batch jobs). Set BATCH_KAFKA_ENABLED=true when
+# a broker is running (docker-compose does) to publish job-completion events to lending.batch.job-events.
+batch:
+  kafka:
+    enabled: ${BATCH_KAFKA_ENABLED:false}
+
   jpa:
     hibernate:
       ddl-auto: validate

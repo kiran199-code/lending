@@ -3,6 +3,7 @@ package com.bank.lending.batch.config;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -15,8 +16,12 @@ import java.util.Map;
 /**
  * Producer-only Kafka wiring — this service only ever publishes job-completion/downstream
  * events (see KafkaJobEventBridge); it has no consumer side.
+ *
+ * <p>Switched off with {@code batch.kafka.enabled=false} ({@code BATCH_KAFKA_ENABLED=false}): no producer is created,
+ * nothing tries to reach a broker, and job-completion events are simply not forwarded.
  */
 @Configuration
+@ConditionalOnProperty(prefix = "batch.kafka", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")

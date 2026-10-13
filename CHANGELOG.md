@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Batch partitioned jobs failed with `ReaderNotOpenException: Reader must be open before it can be read`** (seen on `DPD_UPDATE_DAILY`, which left the
+  end-of-day run FAILED). All partitions of a job share one `PartitionRangeItemReader`, and it kept its per-partition delegate reader in a plain field,
+  so partitions starting at the same time overwrote each other's reader before it was opened. The delegate is now held per thread (each partition runs
+  its whole step on one thread). Regression test `PartitionRangeItemReaderTest`.
+
 ### Changed
 - **Batch service: Swagger UI** at `/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`) for the batch admin API, behind the same HTTP Basic login
   (`batch-admin` / `BATCH_ADMIN_PASSWORD`). Added `springdoc-openapi-starter-webmvc-ui` 2.6.0 and `OpenApiConfig`; `BATCH_SWAGGER_ENABLED` (default on,

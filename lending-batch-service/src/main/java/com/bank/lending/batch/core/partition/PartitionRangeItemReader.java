@@ -27,7 +27,15 @@ import java.util.function.BiFunction;
 public class PartitionRangeItemReader<I> implements ItemStreamReader<I>, StepExecutionListener {
 
     private final BiFunction<Long, Long, org.springframework.batch.item.ItemReader<I>> readerFactory;
-    private org.springframework.batch.item.ItemReader<I> delegate;
+    /**
+     * One instance of this class is shared by every partition's worker-step execution of a job (the registry builds a single
+     * worker step), and the partitions run in parallel on different threads. The delegate therefore must not be a plain field:
+     * partition B's {@code beforeStep} would replace partition A's delegate before A's {@code open()} ran, so A opened B's reader
+     * and then read from its own, never-opened one ("ReaderNotOpenException: Reader must be open before it can be read").
+     * Each partition runs {@code beforeStep}, {@code open}, {@code read}/{@code update} and {@code close} on its own thread,
+     * so a thread-local holds exactly that partition's delegate.
+     */
+    private final ThreadLocal<org.springframework.batch.item.ItemReader<I>> delegateHolder = new ThreadLocal<>();
 
     public PartitionRangeItemReader(BiFunction<Long, Long, org.springframework.batch.item.ItemReader<I>> readerFactory) {
         this.readerFactory = readerFactory;
@@ -38,37 +46,43 @@ public class PartitionRangeItemReader<I> implements ItemStreamReader<I>, StepExe
         ExecutionContext ctx = stepExecution.getExecutionContext();
         Long minId = ctx.containsKey("minValue") ? ctx.getLong("minValue") : null;
         Long maxId = ctx.containsKey("maxValue") ? ctx.getLong("maxValue") : null;
-        this.delegate = readerFactory.apply(minId, maxId);
+        delegateHolder.set(readerFactory.apply(minId, maxId));
     }
 
     @Override
     public I read() throws Exception {
+        org.springframework.batch.item.ItemReader<I> delegate = delegateHolder.get();
         if (delegate == null) {
             // beforeStep wasn't invoked (e.g. reader used outside a managed step, such as a unit
             // test) — fall back to the unrestricted range rather than NPE.
             delegate = readerFactory.apply(null, null);
+            delegateHolder.set(delegate);
         }
         return delegate.read();
     }
 
     @Override
     public void open(ExecutionContext executionContext) throws ItemStreamException {
-        if (delegate instanceof ItemStream stream) {
+        if (delegateHolder.get() instanceof ItemStream stream) {
             stream.open(executionContext);
         }
     }
 
     @Override
     public void update(ExecutionContext executionContext) throws ItemStreamException {
-        if (delegate instanceof ItemStream stream) {
+        if (delegateHolder.get() instanceof ItemStream stream) {
             stream.update(executionContext);
         }
     }
 
     @Override
     public void close() throws ItemStreamException {
-        if (delegate instanceof ItemStream stream) {
-            stream.close();
+        try {
+            if (delegateHolder.get() instanceof ItemStream stream) {
+                stream.close();
+            }
+        } finally {
+            delegateHolder.remove();
         }
     }
 }

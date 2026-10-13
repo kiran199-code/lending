@@ -41,6 +41,19 @@ public final class BatchJobContext {
         return JOB_PARAMS_JSON.get();
     }
 
+    /** The context of the current thread, for handing to another thread that runs part of the same step. */
+    public record Snapshot(LocalDate businessDate, String jobParamsJson) {
+    }
+
+    public static Snapshot snapshot() {
+        return new Snapshot(BUSINESS_DATE.get(), JOB_PARAMS_JSON.get());
+    }
+
+    public static void restore(Snapshot snapshot) {
+        BUSINESS_DATE.set(snapshot.businessDate());
+        JOB_PARAMS_JSON.set(snapshot.jobParamsJson());
+    }
+
     public static void clear() {
         BUSINESS_DATE.remove();
         JOB_PARAMS_JSON.remove();

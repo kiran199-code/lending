@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **Tasklet jobs with a timeout failed with "No business date in the job context"** (seen on `GL_POSTING_RECONCILIATION_DAILY`, which stopped end of day).
+  `TimeoutTaskletDecorator` runs the tasklet on a separate guard thread, but the business date and job params are thread-local and were set on the
+  step's thread. The context is now handed over to the guard thread (`BatchJobContext.snapshot()/restore()`). Affects every tasklet job that has
+  `timeout_minutes` set. Test `TimeoutTaskletDecoratorTest`.
 - **End of day failed outright when lending-service answered 502** (free-tier cold start or redeploy). The business-date calls (read, start end of day,
   advance) retried for only ~3 s. They now retry up to 9 times with a doubling pause capped at 30 s (about 1.5-2 minutes), still only on 429/502/503/504
   and connection errors; per-account calls keep the short retry so a down service does not stall every account.

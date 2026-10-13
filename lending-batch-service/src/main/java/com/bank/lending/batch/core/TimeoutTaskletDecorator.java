@@ -33,7 +33,17 @@ public class TimeoutTaskletDecorator implements Tasklet {
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-        Future<RepeatStatus> future = GUARD_EXECUTOR.submit(() -> delegate.execute(contribution, chunkContext));
+        // The tasklet runs on a guard thread, but BatchJobContext (business date, job params) is thread-local and was set on this
+        // step's thread: hand it over, otherwise the tasklet fails with "No business date in the job context".
+        BatchJobContext.Snapshot context = BatchJobContext.snapshot();
+        Future<RepeatStatus> future = GUARD_EXECUTOR.submit(() -> {
+            BatchJobContext.restore(context);
+            try {
+                return delegate.execute(contribution, chunkContext);
+            } finally {
+                BatchJobContext.clear();
+            }
+        });
         try {
             return future.get(timeoutMinutes, TimeUnit.MINUTES);
         } catch (TimeoutException e) {

@@ -3,12 +3,18 @@
 ## [Unreleased]
 
 ### Fixed
+- **Interest accrual (and other partitioned jobs) could silently skip accounts.** Same root cause as the `ReaderNotOpenException`: when partitions
+  overwrote each other's reader, one partition could read another's id range and its own range was never processed, with no error (the job still
+  ended COMPLETED). Fixed by the per-thread reader (below); each partition now also logs its range and counts so a gap is visible.
 - **Batch partitioned jobs failed with `ReaderNotOpenException: Reader must be open before it can be read`** (seen on `DPD_UPDATE_DAILY`, which left the
   end-of-day run FAILED). All partitions of a job share one `PartitionRangeItemReader`, and it kept its per-partition delegate reader in a plain field,
   so partitions starting at the same time overwrote each other's reader before it was opened. The delegate is now held per thread (each partition runs
   its whole step on one thread). Regression test `PartitionRangeItemReaderTest`.
 
 ### Changed
+- **Batch jobs run in 2 streams.** Migration V5 sets `concurrency = 2` and `throttle_limit = 2` for every chunk job (was 4-8), and 2 is the fallback when
+  a chunk job has no value. The number of streams stays a per-job setting (`batch_job_config.concurrency`, editable from the admin portal's
+  Configuration screen or the batch admin API).
 - **Batch service: Swagger UI** at `/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`) for the batch admin API, behind the same HTTP Basic login
   (`batch-admin` / `BATCH_ADMIN_PASSWORD`). Added `springdoc-openapi-starter-webmvc-ui` 2.6.0 and `OpenApiConfig`; `BATCH_SWAGGER_ENABLED` (default on,
   default off in the `prod` profile, set `true` in `render.yaml`) switches it.

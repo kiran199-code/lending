@@ -83,6 +83,9 @@ services:
       # all grabbing connections at once.
       - key: QUARTZ_THREAD_COUNT
         value: "3"
+      # Swagger UI at /swagger-ui.html (behind the batch-admin Basic login).
+      - key: BATCH_SWAGGER_ENABLED
+        value: "true"
       # No broker on this setup: Kafka publishing is switched off, so no producer is created and the logs stay quiet.
       - key: BATCH_KAFKA_ENABLED
         value: "false"

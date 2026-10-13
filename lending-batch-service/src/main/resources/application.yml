@@ -82,6 +82,16 @@ lending:
     max-attempts: ${LENDING_SERVICE_MAX_ATTEMPTS:4}
     retry-backoff-millis: ${LENDING_SERVICE_RETRY_BACKOFF_MILLIS:500}
 
+# Swagger UI at /swagger-ui.html, OpenAPI JSON at /v3/api-docs. Both sit behind the same HTTP Basic login as the admin API (the browser
+# asks for batch-admin / BATCH_ADMIN_PASSWORD, then "Try it out" reuses it). Switch off with BATCH_SWAGGER_ENABLED=false.
+springdoc:
+  swagger-ui:
+    enabled: ${BATCH_SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+  api-docs:
+    enabled: ${BATCH_SWAGGER_ENABLED:true}
+    path: /v3/api-docs
+
 management:
   endpoints:
     web:

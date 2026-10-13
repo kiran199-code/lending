@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **Batch service: Swagger UI** at `/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`) for the batch admin API, behind the same HTTP Basic login
+  (`batch-admin` / `BATCH_ADMIN_PASSWORD`). Added `springdoc-openapi-starter-webmvc-ui` 2.6.0 and `OpenApiConfig`; `BATCH_SWAGGER_ENABLED` (default on,
+  default off in the `prod` profile, set `true` in `render.yaml`) switches it.
 - **Batch service: Kafka publishing can be switched off** (`BATCH_KAFKA_ENABLED=false` / `batch.kafka.enabled`). When off, no producer is created and
   `KafkaJobEventBridge` is not loaded, so nothing tries to reach a broker (this removes the endless `localhost:9092 ... could not be established`
   warnings on setups without Kafka). Default `false` in the `local` profile, `true` in `prod`; `render.yaml` sets it to `false`, docker-compose and the

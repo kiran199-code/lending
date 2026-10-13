@@ -51,7 +51,7 @@ store, `isClustered=true`), and restarted independently.
 Prerequisites: PostgreSQL 16 reachable at `localhost:5432` with a `lending` database already
 containing the `lending-service` schema (this app only owns the `batch` schema — see
 `db/migration`), and, optionally, a local Kafka broker at `localhost:9092` (job-completion
-events are best-effort; a missing broker will not fail a batch job, see `KafkaJobEventBridge`). Publishing can be switched off with `BATCH_KAFKA_ENABLED=false` (`batch.kafka.enabled`; the default is `false` in the `local` profile, `true` in `prod`, and docker-compose and the integration test turn it on): no producer is created and no broker connection is attempted.
+events are best-effort; a missing broker will not fail a batch job, see `KafkaJobEventBridge`). Swagger UI: `/swagger-ui.html` (login `batch-admin`; `BATCH_SWAGGER_ENABLED=false` disables it; default on, except off in the `prod` profile). Publishing can be switched off with `BATCH_KAFKA_ENABLED=false` (`batch.kafka.enabled`; the default is `false` in the `local` profile, `true` in `prod`, and docker-compose and the integration test turn it on): no producer is created and no broker connection is attempted.
 
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=local

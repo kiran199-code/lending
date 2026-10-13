@@ -26,6 +26,13 @@ spring:
       hibernate:
         default_schema: batch
 
+# Off by default in prod; the Render sandbox blueprint turns it on with BATCH_SWAGGER_ENABLED=true.
+springdoc:
+  swagger-ui:
+    enabled: ${BATCH_SWAGGER_ENABLED:false}
+  api-docs:
+    enabled: ${BATCH_SWAGGER_ENABLED:false}
+
 server:
   port: ${SERVER_PORT:8081}
 

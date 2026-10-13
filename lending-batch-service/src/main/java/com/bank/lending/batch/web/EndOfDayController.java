@@ -4,13 +4,16 @@ import com.bank.lending.batch.core.eod.EndOfDayCoordinator;
 import com.bank.lending.batch.core.eod.EodRunSummary;
 import com.bank.lending.batch.lending.LendingServiceClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -25,10 +28,23 @@ public class EndOfDayController {
 
     private final EndOfDayCoordinator coordinator;
 
-    /** Starts end of day for the current business date, or resumes a failed one. 409 if a run is already in progress. */
+    /**
+     * Starts end of day for the current business date, or resumes a failed one. 409 if a run is already in progress, or if
+     * {@code expectedBusinessDate} is given and is not the current business date (so a stale screen cannot close the wrong day).
+     */
     @PostMapping("/run")
-    public ResponseEntity<Map<String, Object>> run() {
-        boolean started = coordinator.trigger("batch-admin");
+    public ResponseEntity<Map<String, Object>> run(
+            @RequestParam(value = "expectedBusinessDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expectedBusinessDate) {
+        boolean started;
+        try {
+            started = coordinator.trigger("batch-admin", expectedBusinessDate);
+        } catch (EndOfDayCoordinator.StaleBusinessDateException e) {
+            Map<String, Object> stale = new LinkedHashMap<>();
+            stale.put("started", false);
+            stale.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(stale);
+        }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("started", started);
         body.put("message", started ? "End of day started; poll /api/v1/batch-admin/eod/status"

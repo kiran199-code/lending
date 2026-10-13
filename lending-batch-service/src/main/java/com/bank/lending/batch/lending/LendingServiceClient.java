@@ -85,6 +85,11 @@ public class LendingServiceClient {
         return call(patientAttempts(), "GET", "/api/v1/business-date", null, null, BusinessDateInfo.class);
     }
 
+    /** GET /api/v1/business-date with the normal (short) retry; for status displays that must not wait for a cold-starting service. */
+    public BusinessDateInfo businessDateOnce() {
+        return call("GET", "/api/v1/business-date", null, null, BusinessDateInfo.class);
+    }
+
     /** POST /api/v1/business-date/eod/start — OPEN to EOD_RUNNING; 409 (LendingServiceException) if already running. */
     public BusinessDateInfo startEndOfDay(String actor) {
         return call(patientAttempts(), "POST", "/api/v1/business-date/eod/start", null, Map.of("X-Actor", actor), BusinessDateInfo.class);

@@ -15,6 +15,10 @@
   the previous version is kept as `-1.docx` and in git history.
 
 ### Fixed
+- **End of day screen sat on "Loading..." while lending-service was asleep.** The batch status call read the business date from lending-service with retries, so a 502 from a
+  cold-starting lending-service held the page for a minute or more. The status call now never waits: the date is read in the background and shown once it arrives (the
+  screen says so and keeps checking), and the admin service gives the batch service only 20 s for a status check. The "start" call now asks the batch service to compare the
+  date on screen with lending-service's own date (`POST /eod/run?expectedBusinessDate=`), refusing with 409 if it moved. Test `EndOfDayCoordinatorTest`.
 - **Tasklet jobs with a timeout failed with "No business date in the job context"** (seen on `GL_POSTING_RECONCILIATION_DAILY`, which stopped end of day).
   `TimeoutTaskletDecorator` runs the tasklet on a separate guard thread, but the business date and job params are thread-local and were set on the
   step's thread. The context is now handed over to the guard thread (`BatchJobContext.snapshot()/restore()`). Affects every tasklet job that has

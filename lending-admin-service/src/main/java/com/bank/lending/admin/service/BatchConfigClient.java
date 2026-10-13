@@ -29,6 +29,8 @@ public class BatchConfigClient {
     private final String username;
     private final String password;
     private final RestClient client;
+    /** Same service, short timeout: status checks come every few seconds and must not hang the screen while the service wakes up. */
+    private final RestClient statusClient;
 
     public BatchConfigClient(@Value("${batch.service.base-url:}") String baseUrl,
                              @Value("${batch.service.username:batch-admin}") String username,
@@ -41,6 +43,13 @@ public class BatchConfigClient {
         factory.setReadTimeout(90_000); // a sleeping free-tier service needs about a minute to wake
         this.client = enabled()
                 ? RestClient.builder().baseUrl(this.baseUrl).requestFactory(factory)
+                        .defaultHeaders(h -> h.setBasicAuth(this.username, this.password)).build()
+                : null;
+        SimpleClientHttpRequestFactory quick = new SimpleClientHttpRequestFactory();
+        quick.setConnectTimeout(10_000);
+        quick.setReadTimeout(20_000);
+        this.statusClient = enabled()
+                ? RestClient.builder().baseUrl(this.baseUrl).requestFactory(quick)
                         .defaultHeaders(h -> h.setBasicAuth(this.username, this.password)).build()
                 : null;
     }
@@ -72,15 +81,18 @@ public class BatchConfigClient {
     /** GET /api/v1/batch-admin/eod/status: running flag, business date, live progress and the last run. */
     public JsonNode eodStatus() {
         require();
-        return call(() -> client.get().uri("/api/v1/batch-admin/eod/status")
+        return call(() -> statusClient.get().uri("/api/v1/batch-admin/eod/status")
                 .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
                 .body(JsonNode.class));
     }
 
-    /** POST /api/v1/batch-admin/eod/run: starts end of day, or resumes a failed one (202); 409 if one is already running. */
-    public JsonNode eodRun() {
+    /**
+     * POST /api/v1/batch-admin/eod/run: starts end of day, or resumes a failed one (202); 409 if one is already running or if the
+     * business date is no longer {@code expectedBusinessDate} (the date the operator saw on screen).
+     */
+    public JsonNode eodRun(String expectedBusinessDate) {
         require();
-        return call(() -> client.post().uri("/api/v1/batch-admin/eod/run")
+        return call(() -> client.post().uri("/api/v1/batch-admin/eod/run?expectedBusinessDate={d}", expectedBusinessDate)
                 .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
                 .body(JsonNode.class));
     }

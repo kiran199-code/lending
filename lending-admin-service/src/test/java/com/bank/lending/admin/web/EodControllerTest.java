@@ -13,6 +13,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,30 +37,28 @@ class EodControllerTest {
         when(batch.enabled()).thenReturn(true);
         assertThatThrownBy(() -> controller.run(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> controller.run(Map.of("expectedBusinessDate", "02/11/2026"))).isInstanceOf(IllegalArgumentException.class);
-        verify(batch, never()).eodRun();
+        verify(batch, never()).eodRun(anyString());
     }
 
     @Test
-    void startingWhenTheBusinessDateHasMovedOnIsRefusedWith409() throws Exception {
-        when(batch.eodStatus()).thenReturn(batchStatus("2026-11-03"));
+    void startingWhenTheBatchServiceSaysTheDateHasMovedOnIsRefusedWith409() {
+        when(batch.eodRun("2026-11-02")).thenThrow(new UpstreamException(409, "The business date is now 2026-11-03, not 2026-11-02."));
 
         assertThatThrownBy(() -> controller.run(Map.of("expectedBusinessDate", "2026-11-02")))
                 .isInstanceOfSatisfying(UpstreamException.class, e -> {
                     assertThat(e.getStatus()).isEqualTo(409);
                     assertThat(e.getMessage()).contains("2026-11-03");
                 });
-        verify(batch, never()).eodRun();
     }
 
     @Test
-    void startingWithTheCurrentDateIsForwarded() throws Exception {
-        when(batch.eodStatus()).thenReturn(batchStatus("2026-11-02"));
-        when(batch.eodRun()).thenReturn(JSON.readTree("{\"started\":true}"));
+    void startingForwardsTheDateOnScreenToTheBatchService() throws Exception {
+        when(batch.eodRun("2026-11-02")).thenReturn(JSON.readTree("{\"started\":true}"));
 
         JsonNode r = controller.run(Map.of("expectedBusinessDate", "2026-11-02"));
 
         assertThat(r.path("started").asBoolean()).isTrue();
-        verify(batch).eodRun();
+        verify(batch).eodRun("2026-11-02");
     }
 
     @Test

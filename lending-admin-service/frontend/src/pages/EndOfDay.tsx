@@ -32,7 +32,8 @@ function duration(from: string | null, to: string | null, now: number): string {
 export default function EndOfDay() {
   const { data, error, lastChecked, refresh } = usePolling(
     () => get<EodStatus>('/eod/status'),
-    d => (d?.running || d?.progress?.state === 'RUNNING' ? FAST_MS : SLOW_MS),
+    // Faster while running, and while the batch service has not yet got the business date from lending-service (waking up).
+    d => (d?.running || d?.progress?.state === 'RUNNING' || (d?.reachable && !d.businessDate) || (d && !d.reachable) ? FAST_MS : SLOW_MS),
   );
   const [notice, setNotice] = useState<Notice>(null);
   const [confirming, setConfirming] = useState(false);
@@ -60,7 +61,8 @@ export default function EndOfDay() {
     return (
       <>
         <PageHeader title="End of day" sub="Start, restart and follow the end-of-day batch" />
-        {error ? <ErrorBox message={error} onRetry={refresh} /> : <Loading />}
+        {error ? <ErrorBox message={error} onRetry={refresh} /> : <Loading what="Contacting the admin service" />}
+        {!error && <p className="muted">This can take up to a minute when the service has been idle (free-tier services sleep and need to wake up).</p>}
       </>
     );
   }
@@ -102,6 +104,12 @@ export default function EndOfDay() {
         <div className="banner banner-warn" role="alert">
           The batch service could not be reached ({data.error}). On the free tier it can take a minute to wake up; this screen keeps trying.
           The date below is read from the shared database.
+        </div>
+      )}
+      {data.configured && data.reachable && !bd && (
+        <div className="banner banner-warn" role="status">
+          The batch service is up but has not yet got the business date from lending-service (it may be waking up). Checking again every few
+          seconds; the date below is read from the shared database, and Start unlocks once lending-service answers.
         </div>
       )}
       {error && <div className="banner banner-warn" role="alert">The last status check failed: {error}. Showing the last known status.</div>}

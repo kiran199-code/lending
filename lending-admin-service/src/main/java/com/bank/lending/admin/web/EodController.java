@@ -79,14 +79,7 @@ public class EodController {
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException("expectedBusinessDate must look like 2026-11-02");
         }
-        JsonNode current = batch.eodStatus().path("businessDate").path("businessDate");
-        if (current.isMissingNode() || current.isNull()) {
-            throw new UpstreamException(502, "The batch service could not read the business date from lending-service. Try again in a minute.");
-        }
-        if (!expectedDate.toString().equals(current.asText())) {
-            throw new UpstreamException(409, "The business date is now " + current.asText() + ", not " + expectedDate
-                    + ". Check the screen and try again.");
-        }
-        return batch.eodRun();
+        // The batch service reads the date from lending-service itself and refuses (409) if it is not the one on screen.
+        return batch.eodRun(expectedDate.toString());
     }
 }

@@ -5,6 +5,7 @@ import com.bank.lending.e2e.client.BatchClient;
 import com.bank.lending.e2e.client.LendingClient;
 import com.bank.lending.e2e.config.E2eConfig;
 import com.bank.lending.e2e.config.EnvironmentGuard;
+import com.bank.lending.e2e.http.ApiResult;
 import com.bank.lending.e2e.http.Http;
 import com.bank.lending.e2e.report.Reporter;
 import com.bank.lending.e2e.scenario.Scenario;
@@ -64,14 +65,43 @@ public final class E2eRunner {
 
         List<Scenario> matrix = ScenarioLoader.load(cfg.require("e2e.scenario-file"));
         List<Scenario> expanded = ScenarioLoader.expand(matrix, cfg.getInt("e2e.accounts"), cfg.getInt("e2e.cohort-a-percent"));
+
+        // Fit the plan to the products that exist, so a missing sample product never stops the run: the account is moved to the
+        // closest existing product (or skipped), and every change is listed below and in the run report.
+        ApiResult productList = lending.listProducts();
+        List<String> planNotes = new ArrayList<>();
+        List<Scenario> resolved = expanded;
         List<AccountSim> sims = new ArrayList<>();
-        for (int i = 0; i < expanded.size(); i++) {
-            sims.add(new AccountSim(i + 1, expanded.get(i), ctx.customerId(i + 1), ctx.sanctionRefId(i + 1)));
+        if (productList.ok()) {
+            boolean auto = !"SKIP".equalsIgnoreCase(cfg.get("e2e.products.fallback", "AUTO"));
+            ProductResolver.Result res = ProductResolver.resolve(productList.body(), expanded, auto);
+            planNotes.addAll(res.notes());
+            res.skipped().forEach(m -> planNotes.add("SKIPPED " + m));
+            resolved = new ArrayList<>();
+            for (int i = 0; i < res.scenarios().size(); i++) {
+                Scenario sc = res.scenarios().get(i);
+                if (sc != null) {
+                    resolved.add(sc);
+                    sims.add(new AccountSim(i + 1, sc, ctx.customerId(i + 1), ctx.sanctionRefId(i + 1)));
+                }
+            }
+        } else {
+            for (int i = 0; i < expanded.size(); i++) {
+                sims.add(new AccountSim(i + 1, expanded.get(i), ctx.customerId(i + 1), ctx.sanctionRefId(i + 1)));
+            }
         }
 
-        Preflight.Report pre = Preflight.run(cfg, lending, batch, admin, expanded);
-        log.accept("Preflight: " + pre.ok().size() + " ok, " + pre.problems().size() + " problem(s)");
+        Preflight.Report pre0 = Preflight.run(cfg, lending, batch, admin, resolved);
+        List<String> problems = new ArrayList<>(pre0.problems());
+        if (productList.ok() && sims.isEmpty()) {
+            problems.add("no account can be planned: there is no ACTIVE unsecured loan product. Create products first (admin portal: Maintenance -> Create base products, or Products -> New product).");
+        }
+        Preflight.Report pre = new Preflight.Report(pre0.ok(), problems, pre0.warnings());
+        log.accept("Preflight: " + pre.ok().size() + " ok, " + pre.problems().size() + " problem(s), " + pre.warnings().size()
+                + " warning(s), " + planNotes.size() + " plan change(s)");
         pre.ok().forEach(m -> log.accept("  ok    " + m));
+        planNotes.forEach(m -> log.accept("  ADAPT " + m));
+        pre.warnings().forEach(m -> log.accept("  WARN  " + m));
         pre.problems().forEach(m -> log.accept("  FIX   " + m));
 
         if (dryRun) {
@@ -86,6 +116,8 @@ public final class E2eRunner {
         Findings findings = new Findings();
         Map<String, String> caps = CapabilityProbes.run(cfg, findings, lendingHttp, adminHttp, batchHttp, cfg.getDate("e2e.start-date"));
         List<String> deviations = new ArrayList<>();
+        planNotes.forEach(m -> deviations.add("Plan adapted to the products that exist - " + m));
+        pre.warnings().forEach(m -> deviations.add("Preflight warning (run went ahead) - " + m));
         if ("API".equalsIgnoreCase(cfg.get("e2e.accrual.path"))) {
             deviations.add("e2e.accrual.path=API: accrual was triggered through lending-service directly, NOT through the batch service.");
         }

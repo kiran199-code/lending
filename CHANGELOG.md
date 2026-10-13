@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+- **E2E suite no longer stops on missing products or on one failing account.** The plan is fitted to the products that exist
+  (`ProductResolver`, `e2e.products.fallback=AUTO|SKIP`): a missing/inactive/mortgage product is replaced by the closest existing active
+  unsecured product or the account is skipped, and out-of-range amounts/tenures/rates are moved inside the product's limits. Product trouble is
+  now a preflight warning instead of a blocking problem; only unreachable services, disabled jobs, a wrong business date or no usable product
+  stop a run. An account that fails to be created or disbursed (`SETUP-01/02/03`) is recorded and the others carry on.
+
 ### Added
 - **Maintenance: start from scratch.** Two new options in the admin portal (screen **Maintenance**): *Create base products* and *Clear all data*.
   - lending-service: `GET /api/v1/maintenance/status` (whether clearing is enabled, row counts, which base products exist),

@@ -51,7 +51,15 @@ docker build -t lending-e2e-test lending-e2e-test-service
 docker run --rm --env-file lending-e2e-test-service/.env -v "$PWD/results:/results" lending-e2e-test run --profile=sit
 ```
 
-Exit codes: `0` pass, `1` a check at or above `e2e.fail-on-severity` (default HIGH) failed (NOT FOUND capabilities gate only if `e2e.fail-on-not-found=true`), `2` preflight problems (nothing
+**Existing products only, and one bad account never stops the rest.** Before preflight the suite reads the product list and fits the plan to
+it: an account whose product (e.g. TL01, BB01, AB01, SU01, EM01) does not exist, is inactive or is a mortgage product moves to the closest
+existing active unsecured product (its day count, moratorium, balloon and step-up overrides are dropped) - or is left out when
+`e2e.products.fallback=SKIP`; amounts, tenures, rates and frequencies outside a product's limits are moved inside them. Every change is printed
+as `ADAPT` in the log and listed under deviations in `run-report.md`. If creating or disbursing one account fails (`SETUP-01/02/03` in
+`checks.csv` / `defects.md`), that account is marked failed and the run carries on with the others. To exercise every schedule type, create the
+sample products first (admin portal: Maintenance -> Create base products).
+
+Exit codes: `0` pass, `1` a check at or above `e2e.fail-on-severity` (default HIGH) failed (NOT FOUND capabilities gate only if `e2e.fail-on-not-found=true`), `2` preflight problems that make a run pointless - a service unreachable, a batch job disabled, the business date wrong, or no usable product at all (nothing
 was created), `3` refused by the production guard, `4` error.
 
 ## Environments and the production guard

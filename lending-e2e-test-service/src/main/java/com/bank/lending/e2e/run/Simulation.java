@@ -152,6 +152,23 @@ public final class Simulation {
             return;
         }
         for (AccountSim s : sims) {
+            try {
+                setupOne(s, start);
+            } catch (RuntimeException e) {
+                // one account's trouble never stops the others
+                s.setupFailed = true;
+                findings.fail("SETUP-03", s.scenario.scenarioId(), s.accountNumber != null ? s.accountNumber : s.label(), start,
+                        "account set up", e.getClass().getSimpleName() + ": " + e.getMessage(), "unexpected error while setting up the account");
+            }
+        }
+        long failed = sims.stream().filter(a -> a.setupFailed).count();
+        log.accept("Setup done: " + (sims.size() - failed) + " account(s) ready" + (failed > 0
+                ? ", " + failed + " could not be set up (see checks.csv / defects.md, rows SETUP-01..03); the run carries on with the rest" : ""));
+    }
+
+    /** Creates, disburses and checks the schedule of one account. A failure marks the account and returns; it never throws on bad data. */
+    private void setupOne(AccountSim s, LocalDate start) {
+        {
             Scenario sc = s.scenario;
             ObjectNode body = Http.MAPPER.createObjectNode();
             body.put("customerId", s.customerId);
@@ -171,7 +188,7 @@ public final class Simulation {
             if (!findings.check(created.ok() && created.body().hasNonNull("accountId"), "SETUP-01", sc.scenarioId(), s.label(), start,
                     "2xx with accountId", created.brief(), "create account failed")) {
                 s.setupFailed = true;
-                continue;
+                return;
             }
             s.accountId = created.body().get("accountId").asLong();
             s.accountNumber = created.body().path("accountNumber").asText(String.valueOf(s.accountId));
@@ -182,7 +199,7 @@ public final class Simulation {
             ApiResult disb = lending.disburse(s.accountId, sc.amount(), firstDue);
             if (!findings.check(disb.ok(), "SETUP-02", sc.scenarioId(), s.accountNumber, start, "2xx", disb.brief(), "disbursal failed")) {
                 s.setupFailed = true;
-                continue;
+                return;
             }
             JsonNode d = disb.body();
             s.terms = new ScheduleInvariants.Terms(
@@ -209,7 +226,7 @@ public final class Simulation {
             } else {
                 findings.fail("SETUP-02", sc.scenarioId(), s.accountNumber, start, "schedule readable", sched.brief(), "cannot read schedule");
                 s.setupFailed = true;
-                continue;
+                return;
             }
             s.endDate = computeEnd(s);
             statusSeen(s, d.path("accountStatus").asText("ACTIVE"));

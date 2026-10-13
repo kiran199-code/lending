@@ -17,7 +17,16 @@ import java.util.Set;
 /** Read-only readiness checks shared by dry-run and by the start of a real run. Never writes to any system. */
 public final class Preflight {
 
-    public record Report(List<String> ok, List<String> problems) {
+    /**
+     * {@code problems} block the run (a service is unreachable, a job is disabled, the business date is wrong). {@code warnings} are
+     * per-account trouble (an override outside a product's limits...): the run goes ahead, and an account that cannot be created
+     * is recorded as a defect without stopping the others.
+     */
+    public record Report(List<String> ok, List<String> problems, List<String> warnings) {
+        public Report(List<String> ok, List<String> problems) {
+            this(ok, problems, List.of());
+        }
+
         public boolean passed() {
             return problems.isEmpty();
         }
@@ -29,6 +38,7 @@ public final class Preflight {
     public static Report run(E2eConfig cfg, LendingClient lending, BatchClient batch, AdminReadClient admin, List<Scenario> expanded) {
         List<String> ok = new ArrayList<>();
         List<String> bad = new ArrayList<>();
+        List<String> warn = new ArrayList<>();
 
         ApiResult products = lending.listProducts();
         if (!products.ok()) {
@@ -42,19 +52,19 @@ public final class Preflight {
                 }
                 JsonNode p = find(products.body(), s.productCode());
                 if (p == null) {
-                    bad.add(s.scenarioId() + ": product " + s.productCode() + " does not exist");
+                    warn.add(s.scenarioId() + ": product " + s.productCode() + " does not exist");
                     continue;
                 }
                 if (!"ACTIVE".equals(p.path("status").asText())) {
-                    bad.add(s.scenarioId() + ": product " + s.productCode() + " is " + p.path("status").asText());
+                    warn.add(s.scenarioId() + ": product " + s.productCode() + " is " + p.path("status").asText());
                 }
-                limit(bad, s, "amount", s.amount(), p.path("minSanctionedAmount"), p.path("maxSanctionedAmount"));
-                limit(bad, s, "tenure", BigDecimal.valueOf(s.tenureMonths()), p.path("minTenureMonths"), p.path("maxTenureMonths"));
+                limit(warn, s, "amount", s.amount(), p.path("minSanctionedAmount"), p.path("maxSanctionedAmount"));
+                limit(warn, s, "tenure", BigDecimal.valueOf(s.tenureMonths()), p.path("minTenureMonths"), p.path("maxTenureMonths"));
                 if (s.interestRate() != null) {
-                    limit(bad, s, "rate", s.interestRate(), p.path("minInterestRate"), p.path("maxInterestRate"));
+                    limit(warn, s, "rate", s.interestRate(), p.path("minInterestRate"), p.path("maxInterestRate"));
                 }
                 if ("MORTGAGE".equals(p.path("accountType").asText())) {
-                    bad.add(s.scenarioId() + ": product " + s.productCode() + " is a MORTGAGE product (needs a mortgage record) - not supported by this suite");
+                    warn.add(s.scenarioId() + ": product " + s.productCode() + " is a MORTGAGE product (needs a mortgage record) - not supported by this suite");
                 }
                 String freq = s.repaymentFrequency() != null ? s.repaymentFrequency() : p.path("repaymentFrequency").asText("MONTHLY");
                 boolean allowed = false;
@@ -62,7 +72,7 @@ public final class Preflight {
                     allowed |= a.asText().equals(freq);
                 }
                 if (p.has("allowedRepaymentFrequencies") && p.get("allowedRepaymentFrequencies").size() > 0 && !allowed) {
-                    bad.add(s.scenarioId() + ": frequency " + freq + " not allowed by " + s.productCode());
+                    warn.add(s.scenarioId() + ": frequency " + freq + " not allowed by " + s.productCode());
                 }
                 int period = switch (freq) {
                     case "QUARTERLY" -> 3;
@@ -71,11 +81,11 @@ public final class Preflight {
                     default -> 1;
                 };
                 if (s.tenureMonths() % period != 0) {
-                    bad.add(s.scenarioId() + ": tenure " + s.tenureMonths() + " is not a multiple of " + freq);
+                    warn.add(s.scenarioId() + ": tenure " + s.tenureMonths() + " is not a multiple of " + freq);
                 }
             }
-            if (bad.isEmpty()) {
-                ok.add("all " + seen.size() + " scenario(s) sit inside their product's limits");
+            if (warn.isEmpty()) {
+                ok.add("all " + seen.size() + " planned scenario(s) sit inside their product's limits");
             }
         }
 
@@ -111,7 +121,7 @@ public final class Preflight {
         } else {
             ok.add("admin portal reachable (read-only verification surface)");
         }
-        return new Report(ok, bad);
+        return new Report(ok, bad, warn);
     }
 
     /** Business-date readiness. Read-only: the date itself is only moved by the run, not by preflight / dry-run. */

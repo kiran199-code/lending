@@ -114,6 +114,14 @@ All under `/api/v1/batch-admin`, secured with HTTP Basic (`batch.admin.username`
 4. Confirm it shows up in `GET /api/v1/batch-admin/jobs` and, if scheduled, has a sensible
    `nextFireTime` in `GET /api/v1/batch-admin/status/today`.
 
+## Streams per job (2 by default)
+
+Every chunk job runs in **2 streams**: `concurrency` = 2 partitions side by side, on a pool of `throttle_limit` = 2 threads (migration V5 sets this for
+all `CHUNK` jobs; a chunk job with an empty `concurrency` also falls back to 2). The number of streams is a per-job setting in `batch.batch_job_config`:
+change `concurrency` (and `throttle_limit`) for one job from the admin portal's Configuration screen or `PUT /api/v1/batch-admin/jobs/{jobName}/config`;
+it applies from that job's next run. Each partition logs its account-id range and its read/written/skipped counts (`Step ... reads account ids a .. b`,
+`Step ... finished: read=.. written=.. skipped=..`).
+
 ## Changing frequency / concurrency / commit interval
 
 All of this is a `batch_job_config` row update — no redeploy needed, just an `UPDATE` (bump

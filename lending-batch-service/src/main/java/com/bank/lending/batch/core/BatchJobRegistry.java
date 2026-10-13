@@ -64,6 +64,8 @@ import java.util.stream.Collectors;
 public class BatchJobRegistry {
 
     private static final int DEFAULT_CHUNK_SIZE = 100;
+    /** Streams (partitions running side by side) for a chunk job whose batch_job_config.concurrency is empty. */
+    private static final int DEFAULT_CONCURRENCY = 2;
     private static final String PARTITION_TABLE = "public.loan_account";
     private static final String PARTITION_ID_COLUMN = "account_id";
 
@@ -150,7 +152,7 @@ public class BatchJobRegistry {
     private <I, O> Job buildChunkJob(BatchJobConfig config, BusinessChunkJob<?, ?> rawJob) {
         BusinessChunkJob<I, O> businessJob = (BusinessChunkJob<I, O>) rawJob;
         int chunkSize = config.getChunkSize() != null ? config.getChunkSize() : DEFAULT_CHUNK_SIZE;
-        int concurrency = config.getConcurrency() != null ? config.getConcurrency() : 1;
+        int concurrency = config.getConcurrency() != null ? config.getConcurrency() : DEFAULT_CONCURRENCY;
         int throttleLimit = config.getThrottleLimit() != null ? config.getThrottleLimit() : Math.max(1, concurrency);
         int skipLimit = config.getSkipLimit() != null ? config.getSkipLimit() : 0;
         int retryLimit = config.getRetryLimit() != null ? config.getRetryLimit() : 0;

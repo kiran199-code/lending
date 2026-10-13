@@ -1,5 +1,7 @@
 package com.bank.lending.batch.core.partition;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.item.ExecutionContext;
@@ -24,6 +26,7 @@ import java.util.function.BiFunction;
  * bounds resolve to {@code null}, which {@code AbstractAccountRangeChunkJob}'s reader treats as
  * "no range restriction".
  */
+@Slf4j
 public class PartitionRangeItemReader<I> implements ItemStreamReader<I>, StepExecutionListener {
 
     private final BiFunction<Long, Long, org.springframework.batch.item.ItemReader<I>> readerFactory;
@@ -47,6 +50,14 @@ public class PartitionRangeItemReader<I> implements ItemStreamReader<I>, StepExe
         Long minId = ctx.containsKey("minValue") ? ctx.getLong("minValue") : null;
         Long maxId = ctx.containsKey("maxValue") ? ctx.getLong("maxValue") : null;
         delegateHolder.set(readerFactory.apply(minId, maxId));
+        log.info("Step {} reads account ids {} .. {}", stepExecution.getStepName(), minId == null ? "-" : minId, maxId == null ? "-" : maxId);
+    }
+
+    @Override
+    public ExitStatus afterStep(StepExecution stepExecution) {
+        log.info("Step {} finished: read={} written={} skipped={}", stepExecution.getStepName(), stepExecution.getReadCount(),
+                stepExecution.getWriteCount(), stepExecution.getSkipCount());
+        return null; // leave the exit status as the step set it
     }
 
     @Override

@@ -103,9 +103,10 @@ class MaintenanceServiceTest {
 
         BaseProductsResponse r = service(false).createBaseProducts();
 
-        assertThat(r.created()).containsExactly("PL01", "BL01", "EL01", "GL01", "AL01", "HL01");
+        assertThat(r.created()).containsExactly("PL01", "BL01", "EL01", "GL01", "AL01", "HL01",
+                "TL01", "BB01", "AB01", "SU01", "EM01");
         assertThat(r.alreadyExisted()).isEmpty();
-        verify(productService, times(6)).create(any(LoanProductRequest.class));
+        verify(productService, times(11)).create(any(LoanProductRequest.class));
     }
 
     @Test
@@ -116,17 +117,22 @@ class MaintenanceServiceTest {
 
         BaseProductsResponse r = service(false).createBaseProducts();
 
-        assertThat(r.created()).containsExactly("BL01", "EL01", "GL01", "AL01");
+        assertThat(r.created()).containsExactly("BL01", "EL01", "GL01", "AL01", "TL01", "BB01", "AB01", "SU01", "EM01");
         assertThat(r.alreadyExisted()).containsExactly("PL01", "HL01");
         verify(productService, never()).create(Mockito.argThat(p -> p.productCode().equals("PL01")));
         verify(productService, never()).update(anyString(), any());
     }
 
     @Test
-    void theBaseProductSetIsTheSixSeededProductsAndEachOneIsValid() {
+    void theBaseProductSetIsTheSeededAndSampleProductsAndEachOneIsValid() {
         List<LoanProductRequest> all = BaseProducts.all();
         Set<String> codes = all.stream().map(LoanProductRequest::productCode).collect(Collectors.toSet());
-        assertThat(codes).containsExactlyInAnyOrder("PL01", "BL01", "EL01", "GL01", "AL01", "HL01");
+        assertThat(codes).containsExactlyInAnyOrder("PL01", "BL01", "EL01", "GL01", "AL01", "HL01",
+                "TL01", "BB01", "AB01", "SU01", "EM01");
+        // The end-to-end scenarios depend on these schedule types.
+        assertThat(all).filteredOn(p -> p.productCode().equals("BB01"))
+                .extracting(LoanProductRequest::scheduleType)
+                .containsExactly(com.bank.lending.account.domain.LoanAccount.ScheduleType.INTEREST_ONLY);
         all.forEach(LoanProductService::validate);
         assertThat(all).filteredOn(p -> p.rateType() == com.bank.lending.account.domain.LoanAccount.RateType.FLOATING)
                 .extracting(LoanProductRequest::benchmarkRateRef).containsOnly("REPO");

@@ -69,7 +69,7 @@ export default function Maintenance() {
             </button>}
           >
             <p className="muted">
-              The six standard products: personal, business, education, gold, auto and home loans. A product that already exists is
+              The eleven standard and sample products: personal, business, education, gold, auto and home loans, plus the equal-principal, interest-only, balloon, step-up and study-moratorium samples that the end-to-end tests use. A product that already exists is
               left exactly as it is, so this is safe to run at any time. Floating products (auto, home) use the REPO benchmark; clearing
               keeps benchmark rates, so publish a REPO rate if you have not yet.
             </p>

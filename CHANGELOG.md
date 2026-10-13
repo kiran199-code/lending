@@ -9,8 +9,8 @@
     Clear empties loan accounts, schedules, accruals, EMI transactions, mortgages and valuations, the ledger outbox, the idempotency log and the
     loan product master in one `TRUNCATE ... RESTART IDENTITY` transaction, and keeps the business date, holidays, benchmark rates and the batch
     service's tables. It answers 403 unless `LENDING_RESET_ENABLED=true` (default false), 400 without the confirmation word, 409 while end of
-    day is running. Base products are the six standard ones from V10 (PL01, BL01, EL01, GL01, AL01, HL01); existing codes are left unchanged
-    and the V11 sample products are not recreated. Creating the base products is always allowed.
+    day is running. Base products are the eleven standard and sample ones from V10 and V11 (PL01, BL01, EL01, GL01, AL01, HL01 and the schedule-type samples TL01, BB01, AB01, SU01, EM01 that the end-to-end scenarios use); existing codes are left unchanged.
+    Creating the base products is always allowed.
   - Admin portal: Maintenance screen with row counts, a typed-RESET confirmation, and the two actions; `/api/admin/maintenance/*` forwards to
     lending-service with the signed-in user as `X-Actor`. The portal still never writes to the database itself. `render.yaml` sets
     `LENDING_RESET_ENABLED=true` for the sandbox lending-service.

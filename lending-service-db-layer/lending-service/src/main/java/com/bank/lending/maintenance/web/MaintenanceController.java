@@ -39,7 +39,7 @@ public class MaintenanceController {
         return maintenanceService.clearAllData(request == null ? null : request.confirm(), actor);
     }
 
-    @Operation(summary = "Create the six base products (PL01, BL01, EL01, GL01, AL01, HL01)",
+    @Operation(summary = "Create the eleven base products (PL01, BL01, EL01, GL01, AL01, HL01, TL01, BB01, AB01, SU01, EM01)",
             description = "Products that already exist are left unchanged, so it is safe to call repeatedly.")
     @PostMapping("/base-products")
     public BaseProductsResponse createBaseProducts() {

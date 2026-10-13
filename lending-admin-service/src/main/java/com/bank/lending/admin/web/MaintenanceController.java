@@ -41,7 +41,7 @@ public class MaintenanceController {
         return client.clearData(user == null ? null : user.getName());
     }
 
-    @Operation(summary = "Create the six base products (existing ones are left unchanged)")
+    @Operation(summary = "Create the eleven base products (existing ones are left unchanged)")
     @PostMapping("/base-products")
     public JsonNode createBaseProducts() {
         return client.createBaseProducts();

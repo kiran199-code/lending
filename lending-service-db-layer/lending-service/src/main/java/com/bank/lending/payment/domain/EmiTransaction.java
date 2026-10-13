@@ -22,8 +22,11 @@ import java.time.OffsetDateTime;
 @Builder
 public class EmiTransaction {
 
+    // Assigned by the caller from the table's own sequence (EmiTransactionRepository#nextTransactionId).
+    // Not @GeneratedValue: Hibernate cannot generate one part of a composite id, so the
+    // previous IDENTITY mapping made every payment insert fail with "Identity generation
+    // isn't supported for composite ids".
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "transaction_id")
     private Long transactionId;
 

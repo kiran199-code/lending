@@ -58,5 +58,5 @@ springdoc:
 
 logging:
   level:
-    org.hibernate.SQL: debug
+    org.hibernate.SQL: info   # set to debug to see every statement (very noisy)
     org.flywaydb: info

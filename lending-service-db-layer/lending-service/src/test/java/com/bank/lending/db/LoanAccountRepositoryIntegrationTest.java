@@ -152,6 +152,7 @@ class LoanAccountRepositoryIntegrationTest extends AbstractIntegrationTest {
         LoanAccount account = loanAccountRepository.save(unsecuredAccount("PL-000007", 7001L));
 
         EmiTransaction txn = EmiTransaction.builder()
+                .transactionId(emiTransactionRepository.nextTransactionId())
                 .accountId(account.getAccountId())
                 .installmentNumber(1)
                 .transactionType(EmiTransaction.TransactionType.EMI)
@@ -169,6 +170,7 @@ class LoanAccountRepositoryIntegrationTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> {
             EmiTransaction duplicate = EmiTransaction.builder()
+                    .transactionId(emiTransactionRepository.nextTransactionId())
                     .accountId(account.getAccountId())
                     .installmentNumber(1)
                     .transactionType(EmiTransaction.TransactionType.EMI)

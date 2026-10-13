@@ -94,7 +94,7 @@ public class EmiPaymentService {
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
                 .build();
-        EmiTransaction saved = emiTransactionRepository.save(txn);
+        EmiTransaction saved = saveNew(txn);
 
         ledgerOutboxService.recordEvent(accountId, LedgerOutboxEntry.EventType.EMI_POSTING, Map.of(
                 "installmentNumber", installment.getInstallmentNumber(),
@@ -157,7 +157,7 @@ public class EmiPaymentService {
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
                 .build();
-        EmiTransaction saved = emiTransactionRepository.save(txn);
+        EmiTransaction saved = saveNew(txn);
 
         if (newOutstanding.compareTo(BigDecimal.ZERO) == 0) {
             account.setAccountStatus(LoanAccount.AccountStatus.CLOSED);
@@ -236,7 +236,7 @@ public class EmiPaymentService {
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
                 .build();
-        EmiTransaction saved = emiTransactionRepository.save(txn);
+        EmiTransaction saved = saveNew(txn);
 
         account.setAccountStatus(LoanAccount.AccountStatus.FORECLOSED);
         loanAccountRepository.save(account);
@@ -252,6 +252,12 @@ public class EmiPaymentService {
     }
 
     /** Read accessor for the REST layer — payment/foreclosure history for an account, most recent first. */
+    /** Gives a new payment record its transaction id from the table's sequence, then saves it. */
+    private EmiTransaction saveNew(EmiTransaction txn) {
+        txn.setTransactionId(emiTransactionRepository.nextTransactionId());
+        return emiTransactionRepository.save(txn);
+    }
+
     @Transactional(readOnly = true)
     public List<EmiTransaction> getTransactionHistory(Long accountId) {
         return emiTransactionRepository.findByAccountIdOrderByValueDateDesc(accountId);

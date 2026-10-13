@@ -12,6 +12,7 @@
   Tests: `EodProgressTest`, `EodControllerTest`. Needs `BATCH_SERVICE_URL` and `BATCH_ADMIN_PASSWORD` on the admin service.
 
 ### Documentation
+- **Architecture deck v1.6** (`docs/Lending-Platform-Architecture-v1.6.pptx`, 42 slides) is now organised in seven sections, each opened by a divider slide that lists its slides: Platform, Product, Account, Admin console, Batch, E2E test suite, Reference and roadmap. New slides: how the deck is organised, what changed in v1.6, the admin End of day screen, end of day live progress and safe start (batch), what one end-to-end run does, and the hosted test console with the start date. The roadmap slide now mentions the End of day screen and the ledger stub (outbox entries stay FAILED until a real client exists). The Functional Specification and Technical Design Document remain at v1.5; the End of day screen and start date field are described in this changelog, the module READMEs and the deck.
 - Functional Specification, Technical Design Document and architecture deck updated to **v1.5** (Maintenance screen and eleven base products, batch framework fixes,
   two streams per job, end of day waiting for each job, Kafka and Swagger switches, test suite using existing products). `docs/Lending_Platform_*.docx` now hold v1.5;
   the previous version is kept as `-1.docx` and in git history.

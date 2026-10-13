@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- **E2E console: start date field.** The hosted console (`lending-e2e-test`) now has a Start date box next to accounts and max simulated days, sent as `start-date`. Before, the
+  console could not change it and the built-in default (2026-11-01) was refused once the platform business date had moved past it. It must be the current business date or later.
 - **End of day screen in the admin console** (`/#/eod`): shows the business date and the next one before you start or restart, asks for confirmation, and follows the run
   with a per-job progress table that refreshes itself (3 s while running, 10 s otherwise). Restart resumes a stopped run (finished jobs are skipped). The start call carries
   the date shown on screen and is refused with 409 if the business date has moved on. Admin API: `GET /api/admin/eod/status`, `POST /api/admin/eod/run`.

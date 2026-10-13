@@ -180,7 +180,7 @@ three platform services. You start runs and read results from a browser.
 2. **Set two URLs** (they are public URLs, not secrets) on `lending-e2e-test` -> Environment:
    `E2E_BATCH_BASE_URL` = the lending-batch-service URL, `E2E_ADMIN_BASE_URL` = the lending-admin-service URL.
    `E2E_LENDING_BASE_URL` is pre-filled. Save; Render redeploys.
-3. **Open the service URL**, paste the token (copy `E2E_SERVER_TOKEN` from the service's Environment tab) and press
+3. **Open the service URL**, paste the token (the console has boxes for accounts, max simulated days and **start date** - the start date must be the platform's current business date or later) (copy `E2E_SERVER_TOKEN` from the service's Environment tab) and press
    *Dry run*. Fix anything it reports, then *Run*. Start small: accounts `10`, max simulated days `120`.
 4. **Watch** with *Refresh status* (the log tail is shown) or Render -> Logs. When it finishes, *List runs*, put the run id in
    the box and open *Report*, *Defects*, *Audit trail*, *Checks*. *Teardown* forecloses the run's open accounts and returns

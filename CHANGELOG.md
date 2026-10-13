@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **End of day failed outright when lending-service answered 502** (free-tier cold start or redeploy). The business-date calls (read, start end of day,
+  advance) retried for only ~3 s. They now retry up to 9 times with a doubling pause capped at 30 s (about 1.5-2 minutes), still only on 429/502/503/504
+  and connection errors; per-account calls keep the short retry so a down service does not stall every account.
 - **End of day stopped after the first job it launched** (each run completed one job, the next run the next). The batch job launcher is asynchronous, so
   `SpringBatchEodJobGateway` judged the job while it was still STARTING/STARTED and reported it as failed. It now waits until the job reaches a final
   state (`batch.eod.job-timeout-minutes`, default 180; `batch.eod.poll-interval-ms`) and only then starts the next job in priority order, so one run

@@ -82,17 +82,17 @@ public class LendingServiceClient {
 
     /** GET /api/v1/business-date */
     public BusinessDateInfo businessDate() {
-        return call("GET", "/api/v1/business-date", null, null, BusinessDateInfo.class);
+        return call(patientAttempts(), "GET", "/api/v1/business-date", null, null, BusinessDateInfo.class);
     }
 
     /** POST /api/v1/business-date/eod/start — OPEN to EOD_RUNNING; 409 (LendingServiceException) if already running. */
     public BusinessDateInfo startEndOfDay(String actor) {
-        return call("POST", "/api/v1/business-date/eod/start", null, Map.of("X-Actor", actor), BusinessDateInfo.class);
+        return call(patientAttempts(), "POST", "/api/v1/business-date/eod/start", null, Map.of("X-Actor", actor), BusinessDateInfo.class);
     }
 
     /** POST /api/v1/business-date/advance — close {@code expected} and open the next day (idempotent on {@code expected}). */
     public BusinessDateInfo advanceBusinessDate(LocalDate expected, String actor) {
-        return call("POST", "/api/v1/business-date/advance", Map.of("expectedBusinessDate", expected.toString()),
+        return call(patientAttempts(), "POST", "/api/v1/business-date/advance", Map.of("expectedBusinessDate", expected.toString()),
                 Map.of("X-Actor", actor), BusinessDateInfo.class);
     }
 
@@ -142,7 +142,25 @@ public class LendingServiceClient {
 
     // ---- plumbing ----------------------------------------------------------------------------
 
+    /** Longest pause between two attempts; the doubling backoff stops growing here. */
+    private static final long MAX_BACKOFF_MILLIS = 30_000;
+    /** Attempts for the few calls end of day cannot do without (business date read / start / advance): about two minutes of retrying. */
+    private static final int PATIENT_ATTEMPTS = 9;
+
+    /**
+     * End of day depends on the business-date calls, and a free-tier lending-service that is cold-starting or redeploying answers 502 for
+     * up to a minute or two, so these calls keep retrying much longer than a per-account call does (which fails fast and is retried/skipped by
+     * the job). Retrying is off when the settings say a single attempt.
+     */
+    private int patientAttempts() {
+        return settings.maxAttempts() > 1 ? Math.max(settings.maxAttempts(), PATIENT_ATTEMPTS) : 1;
+    }
+
     private <T> T call(String method, String pathAndQuery, Object body, Map<String, String> headers, Class<T> type) {
+        return call(settings.maxAttempts(), method, pathAndQuery, body, headers, type);
+    }
+
+    private <T> T call(int maxAttempts, String method, String pathAndQuery, Object body, Map<String, String> headers, Class<T> type) {
         URI uri = URI.create(settings.baseUrl() + pathAndQuery);
         String json;
         try {
@@ -152,7 +170,7 @@ public class LendingServiceClient {
         }
 
         LendingServiceException last = null;
-        for (int attempt = 1; attempt <= settings.maxAttempts(); attempt++) {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 HttpRequest.Builder req = HttpRequest.newBuilder(uri)
                         .timeout(settings.requestTimeout())
@@ -188,8 +206,8 @@ public class LendingServiceClient {
                 Thread.currentThread().interrupt();
                 throw new LendingServiceException(method + " " + pathAndQuery + " interrupted", 0, e);
             }
-            if (attempt < settings.maxAttempts()) {
-                sleep(settings.retryBackoff().toMillis() * (1L << (attempt - 1)));
+            if (attempt < maxAttempts) {
+                sleep(Math.min(MAX_BACKOFF_MILLIS, settings.retryBackoff().toMillis() * (1L << Math.min(attempt - 1, 20))));
             }
         }
         throw last;

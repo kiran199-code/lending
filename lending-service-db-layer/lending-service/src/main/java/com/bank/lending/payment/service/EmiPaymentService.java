@@ -3,6 +3,7 @@ package com.bank.lending.payment.service;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.account.service.LoanAccountService;
+import com.bank.lending.accounting.service.AccountingPoster;
 import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
@@ -77,6 +78,7 @@ public class EmiPaymentService {
     private final PaymentAllocationRepository allocationRepository;
     private final LoanAccountService loanAccountService;
     private final PenalInterestService penalService;
+    private final AccountingPoster accountingPoster;
 
     /**
      * Applies any positive amount to what is due, oldest first. Money left after everything due is paid is held as an
@@ -129,6 +131,8 @@ public class EmiPaymentService {
                 "penalInterestPaid", w.applied(PENALTY),
                 "valueDate", valueDate.toString()
         ));
+        accountingPoster.emiPaid(account, saved, w.applied(PENALTY), w.applied(INTEREST), w.applied(PRINCIPAL),
+                plan.surplus());
 
         finish(account);
         return outcome(saved, account);
@@ -200,6 +204,8 @@ public class EmiPaymentService {
                 "valueDate", valueDate.toString(),
                 "newOutstandingPrincipal", newOutstanding
         ));
+        accountingPoster.partPaid(account, saved, w.applied(PENALTY), w.applied(INTEREST), w.applied(PRINCIPAL),
+                toPrincipal);
 
         finish(account);
         return outcome(saved, account);
@@ -300,6 +306,8 @@ public class EmiPaymentService {
                 "penalInterest", openPenal,
                 "foreclosureDate", foreclosureDate.toString()
         ));
+        accountingPoster.foreclosed(account, saved, payoffAmount, advanceUsed, openPenal, openInterest, openPrincipal,
+                undemandedPrincipal, accruedInterest);
 
         return outcome(saved, account);
     }

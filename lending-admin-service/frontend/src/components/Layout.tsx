@@ -25,6 +25,14 @@ const SECTIONS: { title: string | null; items: [string, string][] }[] = [
       ['/accruals', 'Interest accruals'], ['/ledger', 'Ledger outbox'],
     ],
   },
+  {
+    title: 'Accounting',
+    items: [
+      ['/accounting/journals', 'Journals'], ['/accounting/trial-balance', 'Trial balance'],
+      ['/accounting/exceptions', 'Posting exceptions'], ['/accounting/reconciliation', 'Reconciliation'],
+      ['/accounting/currencies', 'Currencies'], ['/accounting/branches', 'Branches'],
+    ],
+  },
   { title: 'Batch', items: [['/batch', 'Batch jobs'], ['/eod', 'End of day']] },
   { title: 'Administration', items: [['/config', 'Configuration'], ['/maintenance', 'Maintenance']] },
 ];

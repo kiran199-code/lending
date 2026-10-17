@@ -38,6 +38,45 @@ class FlywayMigrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void accountingTablesExistAndTheSeedIsLoaded() {
+        List<String> tables = jdbcTemplate.queryForList(
+                """
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public' AND (table_name LIKE 'acct\\_%' OR table_name IN ('gl_ledger', 'gl_account'))
+                """, String.class);
+        assertThat(tables).contains(
+                "acct_event_def", "acct_amount_tag", "acct_role", "gl_ledger", "gl_account", "acct_route",
+                "acct_event_ledger", "acct_entry_template", "acct_entry_rule", "acct_journal", "acct_journal_line",
+                "acct_idempotency", "acct_journal_reversal", "acct_accrual_carry", "acct_posting_exception",
+                "acct_balance_daily", "acct_reconciliation", "acct_period", "acct_config_audit");
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM acct_entry_template WHERE status = 'APPROVED'",
+                Integer.class)).isEqualTo(12);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM gl_account", Integer.class)).isEqualTo(26);
+    }
+
+    @Test
+    void currencyAndBranchAreReferenceDataWithOneSeededRowEach() {
+        assertThat(jdbcTemplate.queryForList("SELECT currency_code FROM currency", String.class)).containsExactly("INR");
+        assertThat(jdbcTemplate.queryForList("SELECT branch_code FROM branch", String.class)).containsExactly("ONLINE");
+        List<String> columns = jdbcTemplate.queryForList(
+                """
+                SELECT table_name || '.' || column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND column_name IN ('currency_code', 'branch_code')
+                  AND table_name IN ('loan_account', 'acct_journal', 'acct_journal_line', 'acct_route', 'acct_balance_daily')
+                """, String.class);
+        assertThat(columns).contains("loan_account.currency_code", "loan_account.branch_code", "acct_journal.branch_code",
+                "acct_journal_line.branch_code", "acct_route.branch_code", "acct_balance_daily.branch_code");
+    }
+
+    @Test
+    void journalsCannotBeUpdatedOrDeleted() {
+        Integer blocked = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM pg_trigger WHERE tgname IN ('trg_acct_journal_immutable', 'trg_acct_journal_line_immutable')",
+                Integer.class);
+        assertThat(blocked).isPositive();
+    }
+
+    @Test
     void scheduleParameterColumnsExistOnProductAndAccount() {
         List<String> columns = jdbcTemplate.queryForList(
                 """

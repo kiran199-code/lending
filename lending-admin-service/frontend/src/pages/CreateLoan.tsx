@@ -5,7 +5,7 @@ import { BusinessDateBar, ConfirmModal, Field, Notice, useBusinessDate } from '.
 import { Card, ErrorBox, KeyValues, Loading, PageHeader, StatusBadge } from '../components/ui';
 import { label, money, money0, pct } from '../format';
 import { useLoad } from '../hooks';
-import type { LoanAccountResult, Product, ProductsResponse } from '../types';
+import type { BranchInfo, CurrencyInfo, LoanAccountResult, Product, ProductsResponse } from '../types';
 
 const band = (min: number | null, max: number | null, fmt: (v: number) => string = String) =>
   min === null && max === null ? 'no limit' : `${min === null ? '-' : fmt(min)} to ${max === null ? '-' : fmt(max)}`;
@@ -14,12 +14,15 @@ const freqName = (v: string) => label(v).replace('_', '-');
 interface Form {
   customerId: string; sanctionRefId: string; productCode: string; amount: string; tenure: string;
   rate: string; spread: string; frequency: string; moratorium: string; balloon: string; stepUp: string;
+  currencyCode: string; branchCode: string;
 }
-const EMPTY: Form = { customerId: '', sanctionRefId: '', productCode: '', amount: '', tenure: '', rate: '', spread: '', frequency: '', moratorium: '', balloon: '', stepUp: '' };
+const EMPTY: Form = { customerId: '', sanctionRefId: '', productCode: '', amount: '', tenure: '', rate: '', spread: '', frequency: '', moratorium: '', balloon: '', stepUp: '', currencyCode: '', branchCode: '' };
 
 export default function CreateLoan() {
   const bd = useBusinessDate();
   const products = useLoad(() => get<ProductsResponse>('/products'), []);
+  const currencies = useLoad(() => get<CurrencyInfo[]>('/accounting/currencies'), []);
+  const branches = useLoad(() => get<BranchInfo[]>('/accounting/branches'), []);
   const [f, setF] = useState<Form>(EMPTY);
   const [more, setMore] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -36,6 +39,8 @@ export default function CreateLoan() {
       customerId: Number(f.customerId), sanctionRefId: Number(f.sanctionRefId), productCode: f.productCode,
       sanctionedAmount: Number(f.amount), tenureMonths: Number(f.tenure),
     };
+    if (f.currencyCode !== '') b.currencyCode = f.currencyCode;
+    if (f.branchCode !== '') b.branchCode = f.branchCode;
     if (f.rate !== '') b.interestRate = Number(f.rate);
     if (f.spread !== '') b.spread = Number(f.spread);
     if (f.frequency !== '') b.repaymentFrequency = f.frequency;
@@ -69,6 +74,8 @@ export default function CreateLoan() {
     ['Customer', f.customerId], ['Sanction reference', f.sanctionRefId], ['Product', product ? `${product.productCode} - ${product.productName}` : f.productCode],
     ['Sanctioned amount', money(Number(f.amount))], ['Tenure', `${f.tenure} months`],
   ];
+  if (f.currencyCode !== '') rows.push(['Currency', f.currencyCode]);
+  if (f.branchCode !== '') rows.push(['Branch', f.branchCode]);
   if (f.rate !== '') rows.push(['Interest rate', pct(Number(f.rate))]);
   if (f.spread !== '') rows.push(['Spread', pct(Number(f.spread))]);
   if (f.frequency !== '') rows.push(['Repayment frequency', freqName(f.frequency)]);
@@ -87,6 +94,7 @@ export default function CreateLoan() {
             ['Account number', <strong className="mono">{created.accountNumber}</strong>], ['Account id', created.accountId],
             ['Status', <StatusBadge status={created.accountStatus} />], ['Product', created.productCode],
             ['Sanctioned', money(created.sanctionedAmount)], ['Rate', pct(created.interestRate)],
+            ['Currency / branch', `${created.currencyCode ?? '-'} / ${created.branchCode ?? '-'}`],
             ['Tenure', `${created.tenureMonths} months`], ['Repayment', `${label(created.scheduleType)}, ${freqName(created.repaymentFrequency)}`],
           ]} />
         </Card>
@@ -112,6 +120,18 @@ export default function CreateLoan() {
               </Field>
               <Field label="Sanctioned amount" hint={product ? `Allowed ${band(product.minSanctionedAmount, product.maxSanctionedAmount, money0)}` : undefined}>
                 <input type="number" step="0.01" min="0" value={f.amount} onChange={set('amount')} />
+              </Field>
+              <Field label="Currency" hint="Fixed for the life of the account; the books post in this currency">
+                <select value={f.currencyCode} onChange={set('currencyCode')}>
+                  <option value="">Default</option>
+                  {(currencies.data ?? []).filter(c => c.active).map(c => <option key={c.currencyCode} value={c.currencyCode}>{c.currencyCode} - {c.currencyName}</option>)}
+                </select>
+              </Field>
+              <Field label="Branch" hint="Fixed for the life of the account; journals are booked at this branch">
+                <select value={f.branchCode} onChange={set('branchCode')}>
+                  <option value="">Default</option>
+                  {(branches.data ?? []).filter(b => b.active).map(b => <option key={b.branchCode} value={b.branchCode}>{b.branchCode} - {b.branchName}</option>)}
+                </select>
               </Field>
               <Field label="Tenure (months)" hint={product ? `Allowed ${band(product.minTenureMonths, product.maxTenureMonths)}` : undefined}>
                 <input inputMode="numeric" value={f.tenure} onChange={set('tenure')} />

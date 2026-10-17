@@ -29,6 +29,8 @@ public record LoanAccountResponse(
         BigDecimal stepUpPercent,
         BigDecimal emiAmount,
         LocalDate emiStartDate,
+        String currencyCode,
+        String branchCode,
         LoanAccount.AccountStatus accountStatus,
         Long mortgageId,
         Integer version,
@@ -42,7 +44,7 @@ public record LoanAccountResponse(
                 a.getTenureMonths(), a.getScheduleType(), a.getRateType(), a.getInterestRate(), a.getBenchmarkRateRef(),
                 a.getSpread(), a.getDayCountConvention(),
                 a.getRepaymentFrequency(), a.getMoratoriumMonths(), a.getBalloonPercent(), a.getStepUpPercent(),
-                a.getEmiAmount(), a.getEmiStartDate(),
+                a.getEmiAmount(), a.getEmiStartDate(), a.getCurrencyCode(), a.getBranchCode(),
                 a.getAccountStatus(), a.getMortgageId(), a.getVersion(), a.getCreatedAt(), a.getUpdatedAt()
         );
     }

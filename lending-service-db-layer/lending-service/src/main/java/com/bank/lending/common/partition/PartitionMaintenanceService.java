@@ -13,7 +13,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 /**
- * Keeps monthly partitions of interest_accrual and emi_transaction ahead of the calendar, so a
+ * Keeps monthly partitions of interest_accrual, emi_transaction and the accounting journal ahead of the calendar, so a
  * posting never fails with "no partition of relation ... found for row". Runs at startup and on
  * the 1st and 15th of each month; create_monthly_partition (V7) is idempotent.
  */
@@ -22,7 +22,8 @@ import java.util.List;
 @EnableScheduling
 public class PartitionMaintenanceService {
 
-    private static final List<String> TABLES = List.of("interest_accrual", "emi_transaction");
+    private static final List<String> TABLES = List.of("interest_accrual", "emi_transaction",
+            "acct_journal", "acct_journal_line");
     private static final int MONTHS_AHEAD = 6;
 
     private final JdbcTemplate jdbcTemplate;

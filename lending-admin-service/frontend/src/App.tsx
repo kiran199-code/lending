@@ -5,6 +5,12 @@ import { Loading } from './components/ui';
 import AccountDetail from './pages/AccountDetail';
 import Accounts from './pages/Accounts';
 import Accruals from './pages/Accruals';
+import AccountingBranches from './pages/AccountingBranches';
+import AccountingCurrencies from './pages/AccountingCurrencies';
+import AccountingExceptions from './pages/AccountingExceptions';
+import AccountingJournals from './pages/AccountingJournals';
+import AccountingReconciliation from './pages/AccountingReconciliation';
+import AccountingTrialBalance from './pages/AccountingTrialBalance';
 import Batch from './pages/Batch';
 import BulkOperations from './pages/BulkOperations';
 import Configuration from './pages/Configuration';
@@ -45,6 +51,12 @@ function Gate() {
         <Route path="payments" element={<Payments />} />
         <Route path="accruals" element={<Accruals />} />
         <Route path="ledger" element={<Ledger />} />
+        <Route path="accounting/journals" element={<AccountingJournals />} />
+        <Route path="accounting/trial-balance" element={<AccountingTrialBalance />} />
+        <Route path="accounting/exceptions" element={<AccountingExceptions />} />
+        <Route path="accounting/reconciliation" element={<AccountingReconciliation />} />
+        <Route path="accounting/currencies" element={<AccountingCurrencies />} />
+        <Route path="accounting/branches" element={<AccountingBranches />} />
         <Route path="batch" element={<Batch />} />
         <Route path="eod" element={<EndOfDay />} />
         <Route path="config" element={<Configuration />} />

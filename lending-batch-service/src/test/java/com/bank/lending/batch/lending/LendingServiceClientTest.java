@@ -244,4 +244,43 @@ class LendingServiceClientTest {
     void aBlankBaseUrlIsRejectedAtStartup() {
         assertThrows(IllegalArgumentException.class, () -> new LendingServiceSettings(" ", null, null, null, null, 1, null));
     }
+
+    @Test
+    void snapshotPostsForTheDateAndReadsHowManyBalancesWereWritten() throws Exception {
+        try {
+            LendingServiceClient c = start(n -> new Object[]{200, "{\"businessDate\":\"2026-10-12\",\"balancesWritten\":26}"}, null, 1);
+            assertEquals(26, c.snapshotAccountingBalances(LocalDate.of(2026, 10, 12)));
+            assertEquals("POST", seen.get(0).method());
+            assertEquals("/api/v1/accounting/snapshot?businessDate=2026-10-12", seen.get(0).pathAndQuery());
+        } finally {
+            stop();
+        }
+    }
+
+    @Test
+    void reconciliationReportsTheFailedChecks() throws Exception {
+        try {
+            LendingServiceClient c = start(n -> new Object[]{200, "{\"businessDate\":\"2026-10-12\",\"allPassed\":false,\"checks\":["
+                    + "{\"checkCode\":\"LEDGER_BALANCED\",\"status\":\"PASS\",\"detail\":\"ok\",\"difference\":0},"
+                    + "{\"checkCode\":\"RECON_PENAL\",\"status\":\"FAIL\",\"detail\":\"1 account(s) differ\",\"difference\":1.00}]}"}, null, 1);
+            LendingServiceClient.ReconciliationOutcome r = c.runAccountingReconciliation(LocalDate.of(2026, 10, 12));
+            assertFalse(r.allPassed());
+            assertEquals(2, r.checks().size());
+            assertEquals(1, r.failed().size());
+            assertEquals("RECON_PENAL", r.failed().get(0).checkCode());
+            assertEquals("/api/v1/accounting/reconciliation/run?businessDate=2026-10-12", seen.get(0).pathAndQuery());
+        } finally {
+            stop();
+        }
+    }
+
+    @Test
+    void anEmptyReconciliationResponseIsNotTreatedAsPassed() throws Exception {
+        try {
+            LendingServiceClient c = start(n -> new Object[]{200, "{}"}, null, 1);
+            assertFalse(c.runAccountingReconciliation(LocalDate.of(2026, 10, 12)).allPassed());
+        } finally {
+            stop();
+        }
+    }
 }

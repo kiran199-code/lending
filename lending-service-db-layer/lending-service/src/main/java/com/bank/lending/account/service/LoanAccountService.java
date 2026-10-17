@@ -9,6 +9,8 @@ import com.bank.lending.benchmark.domain.BenchmarkRate;
 import com.bank.lending.benchmark.service.BenchmarkRateService;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.account.util.AccountNumberGenerator;
+import com.bank.lending.accounting.service.AccountingPoster;
+import com.bank.lending.refdata.ReferenceDataService;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.demand.domain.LoanDemand;
@@ -61,6 +63,8 @@ public class LoanAccountService {
     private final BenchmarkRateService benchmarkRateService;
     private final BusinessDateService businessDateService;
     private final LoanDemandRepository demandRepository;
+    private final AccountingPoster accountingPoster;
+    private final ReferenceDataService referenceData;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -72,6 +76,9 @@ public class LoanAccountService {
 
         // Product terms are defaulted / validated here; the account keeps its own copy of them.
         AccountTermsResolver.AccountTerms terms = termsResolver.resolve(request);
+        // currency and branch are fixed here for the life of the account; its accounting entries use the same two
+        String currencyCode = referenceData.resolveCurrency(request.currencyCode());
+        String branchCode = referenceData.resolveBranch(request.branchCode());
 
         LoanAccount account = LoanAccount.builder()
                 .customerId(request.customerId())
@@ -91,6 +98,8 @@ public class LoanAccountService {
                 .moratoriumMonths(terms.moratoriumMonths())
                 .balloonPercent(terms.balloonPercent())
                 .stepUpPercent(terms.stepUpPercent())
+                .currencyCode(currencyCode)
+                .branchCode(branchCode)
                 .accountStatus(PENDING_DISBURSEMENT)
                 .version(0)
                 .build();
@@ -161,6 +170,7 @@ public class LoanAccountService {
                 "firstEmiDueDate", firstEmiDueDate.toString(),
                 "tenureMonths", account.getTenureMonths()
         ));
+        accountingPoster.disbursed(saved, disbursedAmount, BigDecimal.ZERO);
 
         return saved;
     }

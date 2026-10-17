@@ -200,3 +200,5 @@ input:focus, select:focus, .btn:focus-visible, .kpi-button:focus-visible, .tab:f
 .nav-head:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 6px; }
 .nav-items { display: flex; flex-direction: column; gap: 2px; }
 .nav-items .nav { padding: 6px 10px 6px 16px; }
+.link-button { font: inherit; background: none; border: 0; padding: 0; color: var(--brand); cursor: pointer; text-decoration: underline; }
+.link-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

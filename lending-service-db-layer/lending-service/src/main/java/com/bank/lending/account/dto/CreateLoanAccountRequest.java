@@ -39,14 +39,30 @@ public record CreateLoanAccountRequest(
         @Schema(description = "BALLOON products only. Optional % of the principal left for the last instalment. Defaults to the product's; cannot exceed its maximum.")
         BigDecimal balloonPercent,
         @Schema(description = "STEP_UP_EMI products only. Optional yearly rise of the instalment in %. Defaults to the product's; cannot exceed its maximum.")
-        BigDecimal stepUpPercent
+        BigDecimal stepUpPercent,
+        @Schema(description = "Optional ISO code, e.g. INR (the default). Must be an active currency (GET /api/v1/reference/currencies). Fixed once the account exists.")
+        String currencyCode,
+        @Schema(description = "Optional branch code, e.g. ONLINE (the default). Must be an active branch (GET /api/v1/reference/branches). Fixed once the account exists.")
+        String branchCode
 ) {
+    /** Request with every schedule parameter given and the default currency and branch. */
+    public CreateLoanAccountRequest(Long customerId, Long sanctionRefId, String productCode,
+                                    LoanAccount.AccountType accountType, BigDecimal sanctionedAmount, Integer tenureMonths,
+                                    LoanAccount.RateType rateType, BigDecimal interestRate, String benchmarkRateRef,
+                                    BigDecimal spread, LoanAccount.DayCountConvention dayCountConvention,
+                                    LoanAccount.RepaymentFrequency repaymentFrequency, Integer moratoriumMonths,
+                                    BigDecimal balloonPercent, BigDecimal stepUpPercent) {
+        this(customerId, sanctionRefId, productCode, accountType, sanctionedAmount, tenureMonths, rateType,
+                interestRate, benchmarkRateRef, spread, dayCountConvention, repaymentFrequency, moratoriumMonths,
+                balloonPercent, stepUpPercent, null, null);
+    }
+
     /** Request that takes every schedule parameter from the product. */
     public CreateLoanAccountRequest(Long customerId, Long sanctionRefId, String productCode,
                                     LoanAccount.AccountType accountType, BigDecimal sanctionedAmount, Integer tenureMonths,
                                     LoanAccount.RateType rateType, BigDecimal interestRate, String benchmarkRateRef,
                                     BigDecimal spread, LoanAccount.DayCountConvention dayCountConvention) {
         this(customerId, sanctionRefId, productCode, accountType, sanctionedAmount, tenureMonths, rateType,
-                interestRate, benchmarkRateRef, spread, dayCountConvention, null, null, null, null);
+                interestRate, benchmarkRateRef, spread, dayCountConvention, null, null, null, null, null, null);
     }
 }

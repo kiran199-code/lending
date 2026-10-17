@@ -6,6 +6,7 @@ import com.bank.lending.account.dto.DelinquencyResultResponse;
 import com.bank.lending.account.dto.RateResetResultResponse;
 import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.account.service.LoanAccountService;
+import com.bank.lending.accounting.service.AccountingPoster;
 import com.bank.lending.account.util.AccountNumberGenerator;
 import com.bank.lending.benchmark.domain.BenchmarkRate;
 import com.bank.lending.benchmark.service.BenchmarkRateService;
@@ -40,7 +41,8 @@ class AccountLevelBatchOperationsTest {
     private final LoanAccountService service = new LoanAccountService(accounts, schedule, scheduleService,
             Mockito.mock(AccountNumberGenerator.class), Mockito.mock(LedgerOutboxService.class),
             Mockito.mock(AccountTermsResolver.class), products, benchmarks, Mockito.mock(BusinessDateService.class),
-            Mockito.mock(LoanDemandRepository.class));
+            Mockito.mock(LoanDemandRepository.class), Mockito.mock(AccountingPoster.class),
+            Mockito.mock(com.bank.lending.refdata.ReferenceDataService.class));
 
     private LoanAccount account(LoanAccount.AccountStatus status) {
         LoanAccount a = LoanAccount.builder().accountId(1L).productId(10L).accountStatus(status)

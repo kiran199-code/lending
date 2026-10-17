@@ -72,6 +72,20 @@ public class LendingServiceClient {
     public record PenalAccrualResult(Long accountId, int accrualsCreated, BigDecimal amount) {
     }
 
+    /** One reconciliation check as lending-service reports it. */
+    public record ReconciliationCheck(String checkCode, String status, String detail) {
+        public boolean passed() {
+            return "PASS".equals(status);
+        }
+    }
+
+    /** Outcome of the accounting reconciliation run for a business date. */
+    public record ReconciliationOutcome(boolean allPassed, java.util.List<ReconciliationCheck> checks) {
+        public java.util.List<ReconciliationCheck> failed() {
+            return checks.stream().filter(c -> !c.passed()).toList();
+        }
+    }
+
     /** Business date as reported by lending-service. Dates are kept as ISO strings (no JavaTimeModule dependency). */
     public record BusinessDateInfo(String businessDate, String previousBusinessDate, String nextBusinessDate,
                                    String status, boolean workingDay, String systemDate) {
@@ -152,6 +166,33 @@ public class LendingServiceClient {
             body.put("benchmarkRateRef", benchmarkRateRef);
         }
         return call("POST", "/api/v1/loan-accounts/" + accountId + "/rate-reset", body, null, RateResetResult.class);
+    }
+
+    /**
+     * POST /api/v1/accounting/snapshot?businessDate= — writes the day's balance of every GL account (replaces the date's
+     * rows, so a re-run is harmless).
+     *
+     * @return the number of balance rows written
+     */
+    public int snapshotAccountingBalances(LocalDate businessDate) {
+        JsonNode r = call("POST", "/api/v1/accounting/snapshot?businessDate=" + businessDate, null, null, JsonNode.class);
+        return r == null ? 0 : r.path("balancesWritten").asInt(0);
+    }
+
+    /**
+     * POST /api/v1/accounting/reconciliation/run?businessDate= — compares the general ledger with the loan sub-ledger,
+     * account by account, and stores the result. Only the current business date can be reconciled.
+     */
+    public ReconciliationOutcome runAccountingReconciliation(LocalDate businessDate) {
+        JsonNode r = call("POST", "/api/v1/accounting/reconciliation/run?businessDate=" + businessDate, null, null, JsonNode.class);
+        java.util.List<ReconciliationCheck> checks = new java.util.ArrayList<>();
+        if (r != null) {
+            for (JsonNode c : r.path("checks")) {
+                checks.add(new ReconciliationCheck(c.path("checkCode").asText(), c.path("status").asText(),
+                        c.path("detail").asText("")));
+            }
+        }
+        return new ReconciliationOutcome(r != null && r.path("allPassed").asBoolean(false), checks);
     }
 
     /** POST /api/v1/ledger-outbox/push?batchSize= */

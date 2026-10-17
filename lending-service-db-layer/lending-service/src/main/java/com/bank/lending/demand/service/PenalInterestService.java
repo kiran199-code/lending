@@ -2,6 +2,7 @@ package com.bank.lending.demand.service;
 
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
+import com.bank.lending.accounting.service.AccountingPoster;
 import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.demand.domain.LoanDemand;
@@ -61,6 +62,7 @@ public class PenalInterestService {
     private final PaymentAllocationRepository allocationRepository;
     private final LoanProductRepository productRepository;
     private final BusinessDateService businessDateService;
+    private final AccountingPoster accountingPoster;
 
     /** The penal terms of the account's product; switched off when the account has no product. */
     @Transactional(readOnly = true)
@@ -127,6 +129,7 @@ public class PenalInterestService {
         if (!written.isEmpty()) {
             penalRepository.saveAll(written);
             demandRepository.saveAll(touched);
+            accountingPoster.penalAccrued(account, written);
         }
         return written;
     }

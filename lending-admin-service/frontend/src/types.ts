@@ -4,7 +4,7 @@ export interface AccountSummary {
   accountId: number; accountNumber: string; customerId: number; sanctionRefId: number; productCode: string;
   accountType: string; accountStatus: string; sanctionedAmount: number; disbursedAmount: number | null;
   interestRate: number; tenureMonths: number; emiAmount: number | null; nextDueDate: string | null;
-  daysPastDue: number; createdAt: string;
+  daysPastDue: number; createdAt: string; currencyCode: string; branchCode: string;
 }
 
 export interface Figures {
@@ -19,6 +19,7 @@ export interface AccountDetail {
   tenureMonths: number; rateType: string; interestRate: number; benchmarkRateRef: string | null;
   spread: number | null; dayCountConvention: string; emiAmount: number | null; emiStartDate: string | null;
   mortgageId: number | null; version: number; createdAt: string; updatedAt: string; figures: Figures;
+  currencyCode: string; branchCode: string;
 }
 
 export interface ScheduleRow {
@@ -193,6 +194,7 @@ export interface LoanAccountResult {
   accountType: string; sanctionedAmount: number; disbursedAmount: number | null; tenureMonths: number;
   scheduleType: string; rateType: string; interestRate: number; repaymentFrequency: string;
   emiAmount: number | null; emiStartDate: string | null; accountStatus: string;
+  currencyCode?: string; branchCode?: string;
 }
 /** What lending-service returns for an instalment, part-payment or foreclosure. */
 export interface PaymentResult {
@@ -223,3 +225,33 @@ export interface PaymentPreview {
 }
 export interface BulkItemResult { index: number; outcome: string; accountId: number | null; accountNumber: string | null; accountStatus: string | null; message: string | null }
 export interface BulkResult { total: number; succeeded: number; failed: number; results: BulkItemResult[] }
+
+// ---- accounting (read from lending-service /api/v1/accounting) ----
+export interface JournalSummary {
+  journalId: number; journalNo: string; eventCode: string; accountId: number | null; productCode: string | null;
+  sourceType: string; sourceId: number | null; businessDate: string; valueDate: string; txnCurrency: string;
+  postingMode: string; backdated: boolean; priorPeriod: boolean; reversalOfJournalId: number | null; narrative: string | null;
+  templateId: number | null; templateVersion: number | null; createdAt: string; branchCode: string;
+}
+export interface JournalLine {
+  lineId: number; lineSeq: number; ledgerId: number; ledgerCode: string; glAccountCode: string; roleCode: string; side: 'DR' | 'CR';
+  amountTxn: number; currencyTxn: string; fxRate: number | null; amountBase: number; currencyBase: string; ruleId: number | null; narrative: string | null;
+}
+export interface JournalDetail { header: JournalSummary; lines: JournalLine[]; reversedByJournalId: number | null }
+export interface LedgerInfo { ledgerId: number; ledgerCode: string; ledgerType: string; purpose: string; baseCurrency: string; deliveryMode: string; status: string }
+export interface TrialBalanceRow {
+  ledgerId: number; ledgerCode: string; glAccountCode: string; accountName: string; currency: string; debits: number; credits: number; netDebit: number; branchCode: string;
+}
+export interface CurrencyInfo { currencyCode: string; currencyName: string; minorUnits: number; active: boolean; base: boolean }
+export interface BranchInfo { branchCode: string; branchName: string; active: boolean; defaultBranch: boolean }
+export interface TrialBalance { asOf: string; rows: TrialBalanceRow[]; totalDebits: number; totalCredits: number; balanced: boolean }
+export interface PostingException {
+  exceptionId: number; eventCode: string; accountId: number | null; idempotencyKey: string; reason: string; errorMessage: string | null;
+  eodGate: boolean; attempts: number; status: string; createdAt: string; lastAttemptAt: string | null; resolvedBy: string | null; resolvedNote: string | null;
+}
+export interface ExceptionGate { openGateExceptions: number; openExceptions: number }
+export interface ReconciliationCheck {
+  checkCode: string; status: string; expected: number; actual: number; difference: number; detail: string | null; businessDate: string; runAt: string | null;
+}
+export interface Reconciliation { businessDate: string; allPassed: boolean; checks: ReconciliationCheck[] }
+export interface PostOutcome { status: string; journalId: number | null; journalNo: string | null; note: string | null }

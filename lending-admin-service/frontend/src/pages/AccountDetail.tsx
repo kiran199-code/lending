@@ -103,6 +103,7 @@ function Overview({ a }: { a: Detail }) {
             ['Customer id', a.customerId],
             ['Sanction reference', a.sanctionRefId],
             ['Product', a.productCode],
+            ['Currency / branch', `${a.currencyCode} / ${a.branchCode}`],
             ['Type', label(a.accountType)],
             ['Status', <StatusBadge key="s" status={a.accountStatus} />],
             ['Mortgage id', a.mortgageId ?? '-'],

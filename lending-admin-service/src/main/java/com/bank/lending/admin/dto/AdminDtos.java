@@ -26,7 +26,8 @@ public final class AdminDtos {
                                  String productCode, String accountType, String accountStatus,
                                  BigDecimal sanctionedAmount, BigDecimal disbursedAmount, BigDecimal interestRate,
                                  Integer tenureMonths, BigDecimal emiAmount, LocalDate nextDueDate,
-                                 int daysPastDue, OffsetDateTime createdAt) {
+                                 int daysPastDue, OffsetDateTime createdAt, String currencyCode,
+                                 String branchCode) {
     }
 
     public record AccountDetail(Long accountId, String accountNumber, Long customerId, Long sanctionRefId,
@@ -35,7 +36,7 @@ public final class AdminDtos {
                                 String rateType, BigDecimal interestRate, String benchmarkRateRef, BigDecimal spread,
                                 String dayCountConvention, BigDecimal emiAmount, LocalDate emiStartDate,
                                 Long mortgageId, Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt,
-                                Figures figures) {
+                                Figures figures, String currencyCode, String branchCode) {
     }
 
     /** Numbers derived from the schedule, payments and accruals of one account. */

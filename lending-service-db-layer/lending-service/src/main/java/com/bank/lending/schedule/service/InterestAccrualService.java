@@ -3,6 +3,7 @@ package com.bank.lending.schedule.service;
 import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
+import com.bank.lending.accounting.service.AccountingPoster;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
 import com.bank.lending.schedule.domain.InterestAccrual;
@@ -39,6 +40,7 @@ public class InterestAccrualService {
     private final AmortizationScheduleRepository scheduleRepository;
     private final InterestAccrualRepository interestAccrualRepository;
     private final BusinessDateService businessDateService;
+    private final AccountingPoster accountingPoster;
 
     @Transactional
     public void runDailyAccrual(LocalDate businessDate) {
@@ -89,6 +91,7 @@ public class InterestAccrualService {
                 outstanding, account.getInterestRate(), account.getDayCountConvention(), businessDate);
         int inserted = interestAccrualRepository.insertIfAbsent(accountId, businessDate, dailyInterest, outstanding);
         if (inserted == 1) {
+            accountingPoster.interestAccrued(account, businessDate, dailyInterest);
             return new AccrualResultResponse(accountId, businessDate, AccrualResultResponse.Outcome.POSTED,
                     dailyInterest, outstanding, null);
         }

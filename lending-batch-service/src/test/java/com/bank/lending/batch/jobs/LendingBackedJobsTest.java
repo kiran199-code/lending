@@ -1,6 +1,8 @@
 package com.bank.lending.batch.jobs;
 
 import com.bank.lending.batch.core.BatchJobContext;
+import com.bank.lending.batch.jobs.daily.AccountingBalanceSnapshotBatchJob;
+import com.bank.lending.batch.jobs.daily.AccountingReconciliationBatchJob;
 import com.bank.lending.batch.jobs.daily.DemandRaiseBatchJob;
 import com.bank.lending.batch.jobs.daily.DpdUpdateBatchJob;
 import com.bank.lending.batch.jobs.daily.GlPostingReconciliationBatchJob;
@@ -46,6 +48,8 @@ class LendingBackedJobsTest {
         int penalAccruals = 3;
         final Deque<Integer> pendingCounts = new ArrayDeque<>();
         boolean failAll;
+        boolean reconciled = true;
+        int snapshotRows = 26;
 
         FakeLending() {
             super(new LendingServiceSettings("http://unused", null, null, null, null, 1, Duration.ofMillis(1)),
@@ -89,6 +93,23 @@ class LendingBackedJobsTest {
         public RateResetResult resetRate(long accountId, LocalDate businessDate, String benchmarkRateRef) {
             calls.add("reset " + accountId + " " + businessDate + " " + benchmarkRateRef);
             return new RateResetResult(accountId, rateOutcome, BigDecimal.ONE, BigDecimal.TEN, null);
+        }
+
+        @Override
+        public int snapshotAccountingBalances(LocalDate businessDate) {
+            calls.add("snapshot " + businessDate);
+            return snapshotRows;
+        }
+
+        @Override
+        public ReconciliationOutcome runAccountingReconciliation(LocalDate businessDate) {
+            calls.add("reconcile " + businessDate);
+            if (reconciled) {
+                return new ReconciliationOutcome(true, List.of(new ReconciliationCheck("LEDGER_BALANCED", "PASS", "ok")));
+            }
+            return new ReconciliationOutcome(false, List.of(
+                    new ReconciliationCheck("LEDGER_BALANCED", "PASS", "ok"),
+                    new ReconciliationCheck("RECON_PENAL", "FAIL", "2 account(s) differ; account 7: ledger 1.00 vs sub-ledger 2.00")));
         }
 
         @Override
@@ -249,5 +270,38 @@ class LendingBackedJobsTest {
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> new ForeclosurePrepaymentProcessingBatchJob(lending).buildTasklet().execute(null, null));
         assertTrue(e.getMessage().contains("accountId"));
+    }
+
+    @Test
+    void accountingReconciliationPassesWhenEveryCheckPasses() throws Exception {
+        FakeLending lending = new FakeLending();
+        context("{}");
+        AccountingReconciliationBatchJob job = new AccountingReconciliationBatchJob(lending);
+        job.buildTasklet().execute(null, null);
+        assertEquals(List.of("reconcile 2026-10-12"), lending.calls);
+        assertEquals("ACCOUNTING_RECONCILIATION_DAILY", job.getJobName());
+    }
+
+    @Test
+    void accountingReconciliationFailsEndOfDayAndNamesTheFailedChecks() {
+        FakeLending lending = new FakeLending();
+        lending.reconciled = false;
+        context("{}");
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> new AccountingReconciliationBatchJob(lending).buildTasklet().execute(null, null));
+        assertTrue(e.getMessage().contains("RECON_PENAL"));
+        assertTrue(e.getMessage().contains("account 7"));
+        assertTrue(e.getMessage().contains("2026-10-12"));
+        assertTrue(!e.getMessage().contains("LEDGER_BALANCED"), "only failed checks are listed");
+    }
+
+    @Test
+    void accountingSnapshotCallsLendingOnceForTheBusinessDate() throws Exception {
+        FakeLending lending = new FakeLending();
+        context("{}");
+        AccountingBalanceSnapshotBatchJob job = new AccountingBalanceSnapshotBatchJob(lending);
+        job.buildTasklet().execute(null, null);
+        assertEquals(List.of("snapshot 2026-10-12"), lending.calls);
+        assertEquals("ACCOUNTING_BALANCE_SNAPSHOT_DAILY", job.getJobName());
     }
 }

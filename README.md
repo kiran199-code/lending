@@ -4,7 +4,7 @@ A retail lending platform: loan accounts, mortgage collateral, amortization, int
 
 | Module | What it is | Port (local / Render) |
 |---|---|---|
-| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V14), owner of the business date | 8080 / 10000 |
+| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V18), owner of the business date | 8080 / 10000 |
 | `lending-batch-service` | Spring Batch + Quartz platform, 37 job slots (eleven call lending-service, 26 still stubs), nightly end of day, Kafka producer | 8081 / 10000 |
 | `lending-admin-service` | Read-only admin console: Spring Boot API + React UI in one container | 8082 / 10000 |
 | PostgreSQL 16 | One shared `lending` database (`public` and `batch` schemas) | 5432 |
@@ -79,10 +79,14 @@ connection (wall-clock fallback if the table is missing). **E2E suite:** sets an
 ## Batch jobs and lending-service
 
 The batch service no longer writes loan data itself: wired jobs call lending-service's REST API (`LENDING_SERVICE_URL`, one call per account so a
-failed account is skipped and dead-lettered without stopping the run). Nine jobs are wired: `INTEREST_ACCRUAL_DAILY`, `DPD_UPDATE_DAILY`,
+failed account is skipped and dead-lettered without stopping the run). Eleven jobs are wired (including `ACCOUNTING_RECONCILIATION_DAILY` and `ACCOUNTING_BALANCE_SNAPSHOT_DAILY`); the others are: `INTEREST_ACCRUAL_DAILY`, `DPD_UPDATE_DAILY`,
 `NPA_CLASSIFICATION_CHECK_DAILY`, `RATE_RESET_CHECK_DAILY`, `RATE_RESET_MONTHLY`, `QUARTERLY_RATE_RESET`, `GL_POSTING_RECONCILIATION_DAILY`,
 `MONTH_END_GL_CLOSE_MONTHLY` and `FORECLOSURE_PREPAYMENT_PROCESSING`. Floating-rate resets read the new rate from the `benchmark_rate` table
 (`PUT /api/v1/benchmark-rates/{ref}/{effectiveDate}`). Details are in the CHANGELOG and [`lending-batch-service/README.md`](lending-batch-service/README.md).
+
+## Accounting
+
+Loan events write balanced double-entry journals in the same transaction as the business change (`DISBURSE`, `INT_ACCRUE`, `DEMAND_RAISE`, `PENAL_ACCRUE`, `EMI_PAYMENT`, `PART_PAYMENT`, `FORECLOSURE` and the supporting `INT_TRUEUP`, `ADVANCE_ADJUST`, `OPENING_BALANCE`). Which GL account is debited or credited is configuration (templates, rules, roles, routes; V17 seeds a working set), so changing a chart of accounts does not need a release. Switch it off with `accounting.enabled=false`. Journals are append-only. The nightly `ACCOUNTING_RECONCILIATION_DAILY` job proves the ledger equals the loan tables account by account and stops end of day if it does not. For an existing database, run `POST /api/v1/accounting/opening-balance` once after the upgrade. Screens: Accounting menu in the admin console. API: `/api/v1/accounting` (Swagger). Every account has a currency and a branch (INR and ONLINE out of the box; more can be added through `/api/v1/reference`) and its journals are posted in them. Phase A only; see the CHANGELOG for what is built and what is not.
 
 ## Scripts and samples
 

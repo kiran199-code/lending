@@ -40,6 +40,7 @@ export default function Accounts() {
     { key: 'no', header: 'Account number', sortKey: 'accountNumber', render: r => <strong>{r.accountNumber}</strong> },
     { key: 'cust', header: 'Customer', sortKey: 'customerId', render: r => r.customerId },
     { key: 'prod', header: 'Product', sortKey: 'product', render: r => `${r.productCode} (${r.accountType === 'MORTGAGE' ? 'Mortgage' : 'Unsecured'})` },
+    { key: 'br', header: 'Branch', render: r => `${r.branchCode} (${r.currencyCode})` },
     { key: 'status', header: 'Status', sortKey: 'status', render: r => <StatusBadge status={r.accountStatus} /> },
     { key: 'sanc', header: 'Sanctioned', sortKey: 'sanctionedAmount', align: 'right', render: r => money(r.sanctionedAmount) },
     { key: 'rate', header: 'Rate', align: 'right', render: r => pct(r.interestRate) },

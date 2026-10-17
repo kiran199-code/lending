@@ -1,5 +1,7 @@
 package com.bank.lending.common.web;
 
+import com.bank.lending.accounting.model.ConfigConflictException;
+import com.bank.lending.accounting.model.PostingException;
 import com.bank.lending.common.exception.FeatureDisabledException;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
@@ -47,6 +49,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidAccountStateException.class)
     public ResponseEntity<ApiError> handleInvalidState(InvalidAccountStateException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    /** A journal could not be generated (no template, no route, unbalanced, period closed...). The request itself was well formed. */
+    @ExceptionHandler(PostingException.class)
+    public ResponseEntity<ApiError> handlePosting(PostingException ex, HttpServletRequest request) {
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.reason() + ": " + ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ConfigConflictException.class)
+    public ResponseEntity<ApiError> handleConfigConflict(ConfigConflictException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 

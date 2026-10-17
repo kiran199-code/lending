@@ -119,6 +119,16 @@ public class LoanAccount {
     @Column(name = "advance_balance", nullable = false, precision = 15, scale = 2)
     private BigDecimal advanceBalance = BigDecimal.ZERO;
 
+    /** ISO currency of the account; every accounting entry for it is posted in this currency. Set at creation, never changed. */
+    @Builder.Default
+    @Column(name = "currency_code", nullable = false, length = 3)
+    private String currencyCode = "INR";
+
+    /** Branch that holds the account; every accounting entry for it is posted to this branch. Set at creation, never changed. */
+    @Builder.Default
+    @Column(name = "branch_code", nullable = false, length = 10)
+    private String branchCode = "ONLINE";
+
     @Column(name = "mortgage_id")
     private Long mortgageId;
 

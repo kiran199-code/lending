@@ -33,4 +33,17 @@ class TeardownSqlTest {
             }
         }
     }
+
+    @Test
+    void cleanupScriptPurgesAccountingRowsUnderTheAppendOnlyOptIn() {
+        RunContext c = RunContext.create(9_000_000_000_000L, Path.of("target/test-results"));
+        String sql = Teardown.cleanupSql(c);
+        int optIn = sql.indexOf("set_config('acct.allow_purge', 'on', true)");
+        assertTrue(optIn > 0);
+        // the opt-in comes first, and journal lines go before their headers
+        assertTrue(optIn < sql.indexOf("DELETE FROM acct_journal_line"));
+        assertTrue(sql.indexOf("DELETE FROM acct_journal_line") < sql.indexOf("DELETE FROM acct_journal WHERE"));
+        assertTrue(sql.contains("DELETE FROM acct_accrual_carry WHERE"));
+        assertTrue(sql.contains("DELETE FROM acct_posting_exception WHERE"));
+    }
 }

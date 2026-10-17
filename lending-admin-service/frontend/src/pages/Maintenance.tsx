@@ -16,6 +16,14 @@ const TABLE_NAMES: Record<string, string> = {
   ledger_outbox: 'Ledger outbox entries',
   processed_request: 'Idempotency log',
   loan_product: 'Loan products',
+  acct_journal: 'Accounting journals',
+  acct_journal_line: 'Accounting journal lines',
+  acct_idempotency: 'Accounting idempotency keys',
+  acct_journal_reversal: 'Accounting reversal links',
+  acct_accrual_carry: 'Accounting rounding carries',
+  acct_posting_exception: 'Accounting posting exceptions',
+  acct_balance_daily: 'Accounting daily balances',
+  acct_reconciliation: 'Accounting reconciliation results',
 };
 
 type Notice = { tone: 'good' | 'warn' | 'bad'; text: string } | null;

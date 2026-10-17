@@ -2,6 +2,7 @@ package com.bank.lending.demand.service;
 
 import com.bank.lending.account.domain.LoanAccount;
 import com.bank.lending.account.repository.LoanAccountRepository;
+import com.bank.lending.accounting.service.AccountingPoster;
 import com.bank.lending.common.exception.ResourceNotFoundException;
 import com.bank.lending.demand.domain.LoanDemand;
 import com.bank.lending.demand.domain.PaymentAllocation;
@@ -43,6 +44,7 @@ public class DemandService {
     private final PaymentAllocationRepository allocationRepository;
     private final AmortizationScheduleRepository scheduleRepository;
     private final LoanAccountRepository loanAccountRepository;
+    private final AccountingPoster accountingPoster;
 
     /**
      * Raises a demand for every instalment of the current schedule that is due on or before {@code upTo} and has none
@@ -88,6 +90,7 @@ public class DemandService {
         }
         if (!created.isEmpty()) {
             demandRepository.saveAll(created);
+            accountingPoster.demandsRaised(account, created);
         }
         if (account.getAdvanceBalance().signum() > 0) {
             applyAdvance(account, upTo);
@@ -218,6 +221,18 @@ public class DemandService {
         applyLines(account, open, result.lines(), date, null, PaymentAllocation.Source.ADVANCE);
         account.setAdvanceBalance(result.surplus());
         loanAccountRepository.save(account);
+        BigDecimal penal = applied(result, PaymentWaterfall.Component.PENALTY);
+        BigDecimal interest = applied(result, PaymentWaterfall.Component.INTEREST);
+        BigDecimal principal = applied(result, PaymentWaterfall.Component.PRINCIPAL);
+        if (penal.add(interest).add(principal).signum() > 0) {
+            accountingPoster.advanceApplied(account, date, allocationRepository.countByAccountId(account.getAccountId()),
+                    penal, interest, principal);
+        }
+    }
+
+    private static BigDecimal applied(PaymentWaterfall.Result result, PaymentWaterfall.Component component) {
+        return result.lines().stream().filter(l -> l.component() == component)
+                .map(PaymentWaterfall.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**

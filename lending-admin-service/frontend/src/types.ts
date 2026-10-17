@@ -44,7 +44,7 @@ export interface AccrualResponse { rows: AccrualRow[]; total: number; days: numb
 export interface PaymentRow {
   transactionId: number; valueDate: string; accountId: number; accountNumber: string;
   installmentNumber: number | null; type: string; amount: number; principalPaid: number | null;
-  interestPaid: number | null; channel: string; status: string; idempotencyKey: string | null;
+  interestPaid: number | null; penalInterestPaid: number | null; channel: string; status: string; idempotencyKey: string | null;
 }
 export interface PaymentResponse {
   rows: PaymentRow[]; totalReceived: number; principalReceived: number; interestReceived: number; failed: number;
@@ -125,6 +125,7 @@ export interface Product {
   moratoriumMonths: number; maxMoratoriumMonths: number | null;
   balloonPercent: number; maxBalloonPercent: number | null;
   stepUpPercent: number; maxStepUpPercent: number | null;
+  penalInterestEnabled: boolean; penalInterestRate: number; penalGraceDays: number; penalCapPercent: number | null;
   status: string; accountCount: number; version: number;
 }
 
@@ -140,6 +141,7 @@ export interface ProductInput {
   moratoriumMonths: number | null; maxMoratoriumMonths: number | null;
   balloonPercent: number | null; maxBalloonPercent: number | null;
   stepUpPercent: number | null; maxStepUpPercent: number | null;
+  penalInterestEnabled: boolean; penalInterestRate: number | null; penalGraceDays: number | null; penalCapPercent: number | null;
   status: string; expectedVersion: number | null;
 }
 
@@ -195,7 +197,7 @@ export interface LoanAccountResult {
 /** What lending-service returns for an instalment, part-payment or foreclosure. */
 export interface PaymentResult {
   transactionId: number; valueDate: string; accountId: number; installmentNumber: number | null;
-  transactionType: string; amount: number; principalPaid: number | null; interestPaid: number | null;
+  transactionType: string; amount: number; principalPaid: number | null; interestPaid: number | null; penalInterestPaid?: number | null;
   paymentChannel: string; paymentStatus: string; idempotencyKey: string;
   /** How the payment was applied; absent on transactions read back from history. */
   allocations?: AllocationLine[] | null; advanceBalance?: number | null;
@@ -206,7 +208,7 @@ export interface AllocationLine { installmentNumber: number | null; component: s
 
 export interface DemandLine {
   installmentNumber: number; dueDate: string; principalDue: number; interestDue: number; principalPaid: number;
-  interestPaid: number; principalOutstanding: number; interestOutstanding: number; outstanding: number;
+  interestPaid: number; principalOutstanding: number; interestOutstanding: number; penalOutstanding: number; outstanding: number;
   status: string; raised: boolean;
 }
 export interface AmountPayable {

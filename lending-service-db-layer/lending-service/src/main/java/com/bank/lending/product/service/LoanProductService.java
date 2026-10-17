@@ -95,6 +95,13 @@ public class LoanProductService {
         p.setMaxBalloonPercent(r.maxBalloonPercent());
         p.setStepUpPercent(r.stepUpPercent() != null ? r.stepUpPercent() : BigDecimal.ZERO);
         p.setMaxStepUpPercent(r.maxStepUpPercent());
+        if (r.penalInterestEnabled() != null) {
+            // The four penal fields travel together: a null rate or grace falls back to the default, a null cap means no cap.
+            p.setPenalInterestEnabled(r.penalInterestEnabled());
+            p.setPenalInterestRate(r.penalInterestRate() != null ? r.penalInterestRate() : new BigDecimal("24.0000"));
+            p.setPenalGraceDays(r.penalGraceDays() != null ? r.penalGraceDays() : 0);
+            p.setPenalCapPercent(r.penalCapPercent());
+        }
         p.setStatus(r.status() != null ? r.status() : LoanProduct.Status.ACTIVE);
     }
 
@@ -157,6 +164,18 @@ public class LoanProductService {
                 r.moratoriumMonths(), r.maxMoratoriumMonths(),
                 r.balloonPercent(), r.maxBalloonPercent(),
                 r.stepUpPercent(), r.maxStepUpPercent()));
+
+        rateInRange("penalInterestRate", r.penalInterestRate(), problems);
+        if (r.penalInterestRate() != null && r.penalInterestRate().signum() >= 0
+                && r.penalInterestRate().setScale(4, java.math.RoundingMode.HALF_UP).compareTo(RATE_LIMIT) >= 0) {
+            problems.add("penalInterestRate must be below 99.99995 (four decimals are kept)");
+        }
+        if (r.penalGraceDays() != null && (r.penalGraceDays() < 0 || r.penalGraceDays() > 365)) {
+            problems.add("penalGraceDays must be between 0 and 365");
+        }
+        if (r.penalCapPercent() != null && (r.penalCapPercent().signum() <= 0 || r.penalCapPercent().compareTo(new BigDecimal("1000")) > 0)) {
+            problems.add("penalCapPercent must be above 0 and at most 1000, or empty for no cap");
+        }
 
         if (!problems.isEmpty()) {
             throw new IllegalArgumentException("Invalid loan product: " + String.join("; ", problems));

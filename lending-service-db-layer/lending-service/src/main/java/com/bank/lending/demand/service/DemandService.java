@@ -143,7 +143,7 @@ public class DemandService {
     public static List<PaymentWaterfall.Due> toDues(List<LoanDemand> demands) {
         return demands.stream()
                 .map(d -> new PaymentWaterfall.Due(d.getDemandId(), d.getInstallmentNumber(), d.getDueDate(),
-                        BigDecimal.ZERO, d.interestOutstanding(), d.principalOutstanding()))
+                        d.penalOutstanding(), d.interestOutstanding(), d.principalOutstanding()))
                 .toList();
     }
 
@@ -164,7 +164,7 @@ public class DemandService {
                 switch (line.component()) {
                     case INTEREST -> demand.setInterestPaid(demand.getInterestPaid().add(line.amount()));
                     case PRINCIPAL -> demand.setPrincipalPaid(demand.getPrincipalPaid().add(line.amount()));
-                    case PENALTY -> { /* penal interest is not part of this release */ }
+                    case PENALTY -> demand.setPenalPaid(demand.getPenalPaid().add(line.amount()));
                 }
                 touched.add(demand);
             }
@@ -220,16 +220,23 @@ public class DemandService {
         loanAccountRepository.save(account);
     }
 
+    /**
+     * A demand's principal and interest decide when its instalment is PAID; the demand itself is CLEARED only when its
+     * penal interest has been paid as well, so penal interest left unpaid on a paid-up instalment stays payable.
+     */
     private void refreshStatus(LoanDemand d, LocalDate valueDate) {
-        if (d.outstanding().signum() == 0) {
-            d.setStatus(CLEARED);
+        boolean principalAndInterestPaid = d.outstanding().signum() == 0;
+        if (principalAndInterestPaid && d.getClearedDate() == null) {
             d.setClearedDate(valueDate);
             scheduleRepository.findByAccountIdAndScheduleVersionAndInstallmentNumber(
                     d.getAccountId(), d.getScheduleVersion(), d.getInstallmentNumber()).ifPresent(e -> {
                 e.setInstallmentStatus(PAID);
                 scheduleRepository.save(e);
             });
-        } else if (d.getPrincipalPaid().add(d.getInterestPaid()).signum() > 0) {
+        }
+        if (principalAndInterestPaid && d.penalOutstanding().signum() == 0) {
+            d.setStatus(CLEARED);
+        } else if (d.getPrincipalPaid().add(d.getInterestPaid()).add(d.getPenalPaid()).signum() > 0) {
             d.setStatus(PART_PAID);
         } else {
             d.setStatus(OPEN);

@@ -11,6 +11,7 @@ import com.bank.lending.demand.domain.PaymentAllocation;
 import com.bank.lending.demand.repository.PaymentAllocationRepository;
 import com.bank.lending.demand.service.DemandService;
 import com.bank.lending.demand.service.PaymentPlanner;
+import com.bank.lending.demand.service.PenalInterestService;
 import com.bank.lending.demand.util.PaymentWaterfall;
 import com.bank.lending.ledger.domain.LedgerOutboxEntry;
 import com.bank.lending.ledger.service.LedgerOutboxService;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.bank.lending.demand.util.PaymentWaterfall.Component.INTEREST;
+import static com.bank.lending.demand.util.PaymentWaterfall.Component.PENALTY;
 import static com.bank.lending.demand.util.PaymentWaterfall.Component.PRINCIPAL;
 import static com.bank.lending.payment.domain.EmiTransaction.PaymentStatus.SUCCESS;
 import static com.bank.lending.payment.domain.EmiTransaction.TransactionType.*;
@@ -74,6 +76,7 @@ public class EmiPaymentService {
     private final PaymentPlanner planner;
     private final PaymentAllocationRepository allocationRepository;
     private final LoanAccountService loanAccountService;
+    private final PenalInterestService penalService;
 
     /**
      * Applies any positive amount to what is due, oldest first. Money left after everything due is paid is held as an
@@ -92,6 +95,7 @@ public class EmiPaymentService {
         requirePayable(account);
 
         demandService.raiseDue(account, valueDate);
+        penalService.accrueThrough(account, valueDate.minusDays(1)); // penal interest up to the day before the payment
         List<LoanDemand> open = demandService.openDemands(accountId);
         PaymentPlanner.Plan plan = planner.plan(account, valueDate, amount, EMI, DemandService.toDues(open));
         if (!plan.allowed()) {
@@ -107,6 +111,7 @@ public class EmiPaymentService {
                 .amount(amount)
                 .principalPaid(w.applied(PRINCIPAL))
                 .interestPaid(w.applied(INTEREST))
+                .penalPaid(w.applied(PENALTY))
                 .paymentChannel(channel)
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
@@ -121,6 +126,7 @@ public class EmiPaymentService {
                 "installmentNumber", instalment == null ? 0 : instalment,
                 "principalPaid", w.applied(PRINCIPAL),
                 "interestPaid", w.applied(INTEREST),
+                "penalInterestPaid", w.applied(PENALTY),
                 "valueDate", valueDate.toString()
         ));
 
@@ -147,6 +153,7 @@ public class EmiPaymentService {
         requirePayable(account);
 
         demandService.raiseDue(account, valueDate);
+        penalService.accrueThrough(account, valueDate.minusDays(1)); // penal interest up to the day before the payment
         List<LoanDemand> open = demandService.openDemands(accountId);
         PaymentPlanner.Plan plan = planner.plan(account, valueDate, amount, PART_PAYMENT, DemandService.toDues(open));
         if (!plan.allowed()) {
@@ -163,6 +170,7 @@ public class EmiPaymentService {
                 .amount(amount)
                 .principalPaid(w.applied(PRINCIPAL).add(toPrincipal))
                 .interestPaid(w.applied(INTEREST))
+                .penalPaid(w.applied(PENALTY))
                 .paymentChannel(channel)
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
@@ -199,8 +207,8 @@ public class EmiPaymentService {
 
     /**
      * Full payoff: everything still owed on raised demands, the principal of instalments not yet due, and the
-     * interest accrued since the last demand's due date up to the foreclosure date; less any advance the account
-     * holds. Open demands are cleared and the account becomes FORECLOSED.
+     * interest accrued since the last demand's due date up to the foreclosure date, plus the penal interest owed (charged
+     * up to the day before the foreclosure date); less any advance the account holds. Open demands are cleared and the account becomes FORECLOSED.
      */
     @Transactional
     public PaymentOutcome foreclose(Long accountId, LocalDate foreclosureDate,
@@ -219,9 +227,11 @@ public class EmiPaymentService {
         currentVersionOrThrow(accountId);
 
         demandService.raiseDue(account, foreclosureDate);
+        penalService.accrueThrough(account, foreclosureDate.minusDays(1)); // penal interest stops at the foreclosure date
         List<LoanDemand> open = demandService.openDemands(accountId);
         BigDecimal openPrincipal = open.stream().map(LoanDemand::principalOutstanding).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal openInterest = open.stream().map(LoanDemand::interestOutstanding).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal openPenal = open.stream().map(LoanDemand::penalOutstanding).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<AmortizationScheduleEntry> ahead = demandService.undemandedEntries(accountId, foreclosureDate);
         BigDecimal undemandedPrincipal = ahead.isEmpty()
@@ -240,7 +250,7 @@ public class EmiPaymentService {
 
         BigDecimal principalPaid = openPrincipal.add(undemandedPrincipal);
         BigDecimal interestPaid = openInterest.add(accruedInterest);
-        BigDecimal owed = principalPaid.add(interestPaid);
+        BigDecimal owed = principalPaid.add(interestPaid).add(openPenal);
         BigDecimal advanceUsed = account.getAdvanceBalance().min(owed);
         BigDecimal payoffAmount = owed.subtract(advanceUsed);
         if (payoffAmount.signum() <= 0) {
@@ -257,6 +267,7 @@ public class EmiPaymentService {
                 .amount(payoffAmount)
                 .principalPaid(principalPaid)
                 .interestPaid(interestPaid)
+                .penalPaid(openPenal)
                 .paymentChannel(channel)
                 .paymentStatus(SUCCESS)
                 .idempotencyKey(idempotencyKey)
@@ -264,8 +275,9 @@ public class EmiPaymentService {
         EmiTransaction saved = saveNew(txn);
         Long txnId = saved.getTransactionId();
 
-        if (!open.isEmpty() && openPrincipal.add(openInterest).signum() > 0) {
-            PaymentWaterfall.Result w = PaymentWaterfall.apply(DemandService.toDues(open), openPrincipal.add(openInterest));
+        BigDecimal openTotal = openPrincipal.add(openInterest).add(openPenal);
+        if (!open.isEmpty() && openTotal.signum() > 0) {
+            PaymentWaterfall.Result w = PaymentWaterfall.apply(DemandService.toDues(open), openTotal);
             demandService.applyLines(account, open, w.lines(), foreclosureDate, txnId, PaymentAllocation.Source.PAYMENT);
         }
         demandService.record(account, null, null, txnId, foreclosureDate,
@@ -285,6 +297,7 @@ public class EmiPaymentService {
                 "payoffAmount", payoffAmount,
                 "principal", principalPaid,
                 "interest", interestPaid,
+                "penalInterest", openPenal,
                 "foreclosureDate", foreclosureDate.toString()
         ));
 

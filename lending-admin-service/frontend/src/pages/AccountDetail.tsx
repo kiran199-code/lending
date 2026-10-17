@@ -227,6 +227,7 @@ function Payments({ id, accountNumber }: { id: number; accountNumber: string }) 
     { key: 'a', header: 'Amount', align: 'right', render: r => <strong>{money(r.amount)}</strong> },
     { key: 'p', header: 'Principal', align: 'right', render: r => money(r.principalPaid) },
     { key: 'i', header: 'Interest', align: 'right', render: r => money(r.interestPaid) },
+    { key: 'pn', header: 'Penal interest', align: 'right', render: r => money(r.penalInterestPaid) },
     { key: 'c', header: 'Channel', render: r => label(r.channel) },
     { key: 's', header: 'Status', render: r => <PaymentBadge status={r.status} /> },
     { key: 'k', header: 'Reference', render: r => <span className="mono">{r.idempotencyKey ?? '-'}</span> },
@@ -234,8 +235,8 @@ function Payments({ id, accountNumber }: { id: number; accountNumber: string }) 
 
   function exportCsv() {
     downloadCsv(`payments-${accountNumber}.csv`,
-      ['Transaction', 'Value date', 'Type', 'Instalment', 'Amount', 'Principal', 'Interest', 'Channel', 'Status', 'Reference'],
-      data!.rows.map(r => [r.transactionId, r.valueDate, r.type, r.installmentNumber, r.amount, r.principalPaid, r.interestPaid, r.channel, r.status, r.idempotencyKey]));
+      ['Transaction', 'Value date', 'Type', 'Instalment', 'Amount', 'Principal', 'Interest', 'Penal interest', 'Channel', 'Status', 'Reference'],
+      data!.rows.map(r => [r.transactionId, r.valueDate, r.type, r.installmentNumber, r.amount, r.principalPaid, r.interestPaid, r.penalInterestPaid, r.channel, r.status, r.idempotencyKey]));
   }
 
   return (

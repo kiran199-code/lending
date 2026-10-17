@@ -53,6 +53,10 @@ public class EmiTransaction {
     @Column(name = "interest_paid", precision = 15, scale = 2)
     private BigDecimal interestPaid;
 
+    /** Part of the payment that went to penal interest; null on payments made before penal interest existed. */
+    @Column(name = "penal_paid", precision = 15, scale = 2)
+    private BigDecimal penalPaid;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_channel", nullable = false, length = 20)
     private PaymentChannel paymentChannel;

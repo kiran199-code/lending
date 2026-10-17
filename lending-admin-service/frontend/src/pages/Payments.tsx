@@ -22,14 +22,15 @@ export default function Payments() {
     { key: 'am', header: 'Amount', align: 'right', render: r => <strong>{money(r.amount)}</strong> },
     { key: 'p', header: 'Principal', align: 'right', render: r => money(r.principalPaid) },
     { key: 'i', header: 'Interest', align: 'right', render: r => money(r.interestPaid) },
+    { key: 'pn', header: 'Penal interest', align: 'right', render: r => money(r.penalInterestPaid) },
     { key: 'c', header: 'Channel', render: r => label(r.channel) },
     { key: 's', header: 'Status', render: r => <PaymentBadge status={r.status} /> },
   ];
 
   function exportCsv() {
     if (!data) return;
-    downloadCsv('payments.csv', ['Transaction', 'Value date', 'Account', 'Type', 'Instalment', 'Amount', 'Principal', 'Interest', 'Channel', 'Status'],
-      data.items.map(r => [r.transactionId, r.valueDate, r.accountNumber, r.type, r.installmentNumber, r.amount, r.principalPaid, r.interestPaid, r.channel, r.status]));
+    downloadCsv('payments.csv', ['Transaction', 'Value date', 'Account', 'Type', 'Instalment', 'Amount', 'Principal', 'Interest', 'Penal interest', 'Channel', 'Status'],
+      data.items.map(r => [r.transactionId, r.valueDate, r.accountNumber, r.type, r.installmentNumber, r.amount, r.principalPaid, r.interestPaid, r.penalInterestPaid, r.channel, r.status]));
   }
 
   return (

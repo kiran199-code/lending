@@ -6,7 +6,8 @@ import java.util.List;
 
 /**
  * What a borrower owes on a business date: every demand with something left to pay (oldest first), the split into
- * overdue and due today, any advance held, and the next instalment that is not yet due.
+ * overdue and due today, penal interest, any advance held, and the next instalment that is not yet due.
+ * Each line's outstanding is its principal, interest and penal interest together.
  */
 public record AmountPayableResponse(
         Long accountId,
@@ -31,6 +32,7 @@ public record AmountPayableResponse(
             BigDecimal interestPaid,
             BigDecimal principalOutstanding,
             BigDecimal interestOutstanding,
+            BigDecimal penalOutstanding,
             BigDecimal outstanding,
             String status,
             boolean raised

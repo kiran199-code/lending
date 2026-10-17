@@ -69,6 +69,9 @@ public class LendingServiceClient {
     public record DemandRaiseResult(Long accountId, int demandsCreated) {
     }
 
+    public record PenalAccrualResult(Long accountId, int accrualsCreated, BigDecimal amount) {
+    }
+
     /** Business date as reported by lending-service. Dates are kept as ISO strings (no JavaTimeModule dependency). */
     public record BusinessDateInfo(String businessDate, String previousBusinessDate, String nextBusinessDate,
                                    String status, boolean workingDay, String systemDate) {
@@ -118,6 +121,17 @@ public class LendingServiceClient {
         JsonNode r = call("POST", "/api/v1/loan-accounts/" + accountId + "/demands?businessDate=" + businessDate,
                 null, null, JsonNode.class);
         return new DemandRaiseResult(accountId, r == null ? 0 : r.path("demandsCreated").asInt(0));
+    }
+
+    /**
+     * POST /api/v1/loan-accounts/{id}/penal-interest?businessDate= — charges penal interest for every day up to and
+     * including the date that has not been charged yet (idempotent: a second call writes nothing).
+     */
+    public PenalAccrualResult accruePenalInterest(long accountId, LocalDate businessDate) {
+        JsonNode r = call("POST", "/api/v1/loan-accounts/" + accountId + "/penal-interest?businessDate=" + businessDate,
+                null, null, JsonNode.class);
+        return new PenalAccrualResult(accountId, r == null ? 0 : r.path("accrualsCreated").asInt(0),
+                r == null ? BigDecimal.ZERO : new BigDecimal(r.path("amount").asText("0")));
     }
 
     /** POST /api/v1/loan-accounts/{id}/delinquency-classification */

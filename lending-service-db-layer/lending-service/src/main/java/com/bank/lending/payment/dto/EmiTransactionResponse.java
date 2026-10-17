@@ -22,6 +22,7 @@ public record EmiTransactionResponse(
         BigDecimal amount,
         BigDecimal principalPaid,
         BigDecimal interestPaid,
+        BigDecimal penalInterestPaid,
         EmiTransaction.PaymentChannel paymentChannel,
         EmiTransaction.PaymentStatus paymentStatus,
         String idempotencyKey,
@@ -42,7 +43,7 @@ public record EmiTransactionResponse(
     private static EmiTransactionResponse from(EmiTransaction t, List<AllocationLine> allocations, BigDecimal advance) {
         return new EmiTransactionResponse(
                 t.getTransactionId(), t.getValueDate(), t.getAccountId(), t.getInstallmentNumber(),
-                t.getTransactionType(), t.getAmount(), t.getPrincipalPaid(), t.getInterestPaid(),
+                t.getTransactionType(), t.getAmount(), t.getPrincipalPaid(), t.getInterestPaid(), t.getPenalPaid(),
                 t.getPaymentChannel(), t.getPaymentStatus(), t.getIdempotencyKey(), t.getCreatedAt(),
                 allocations, advance
         );

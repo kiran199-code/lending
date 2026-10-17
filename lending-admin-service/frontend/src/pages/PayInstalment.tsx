@@ -14,6 +14,7 @@ const demandColumns: Col<DemandLine>[] = [
   { key: 'd', header: 'Due date', render: r => date(r.dueDate) },
   { key: 'i', header: 'Interest owed', align: 'right', render: r => money(r.interestOutstanding) },
   { key: 'p', header: 'Principal owed', align: 'right', render: r => money(r.principalOutstanding) },
+  { key: 'pn', header: 'Penal interest', align: 'right', render: r => money(r.penalOutstanding) },
   { key: 't', header: 'Total owed', align: 'right', render: r => money(r.outstanding) },
   { key: 's', header: 'Status', render: r => (r.raised ? label(r.status) : 'Due, demand not raised yet') },
 ];
@@ -109,7 +110,7 @@ export default function PayInstalment() {
 
   return (
     <>
-      <PageHeader title="Pay instalment" sub="Pay what is owed on an account: overdue amounts first, then the instalment due" />
+      <PageHeader title="Pay instalment" sub="Pay what is owed on an account: penal interest first, then the oldest instalment, interest before principal" />
       <BusinessDateBar bd={bd.data} />
       {notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}</div>}
       <AccountFinder finder={finder} hint="Any amount can be paid. It clears the oldest demand first (interest, then principal); anything left over is held as an advance for the next instalment." />
@@ -126,6 +127,8 @@ export default function PayInstalment() {
             <Kpi title="Overdue" value={money(payableNow.overdueAmount)} tone={payableNow.overdueAmount > 0 ? 'bad' : 'good'}
               sub={payableNow.daysPastDue > 0 ? `${payableNow.daysPastDue} days past due` : 'Nothing overdue'} />
             <Kpi title="Due today" value={money(payableNow.dueTodayAmount)} />
+            <Kpi title="Penal interest" value={money(payableNow.penalInterest)} tone={payableNow.penalInterest > 0 ? 'warn' : undefined}
+              sub="Included in the total" />
             <Kpi title="Advance held" value={money(payableNow.advanceBalance)} />
             <Kpi title="Total payable" value={money(payableNow.amountPayable)} tone={payableNow.amountPayable > 0 ? 'warn' : 'good'}
               sub={payableNow.amountPayable === 0 && payableNow.nextInstallment
@@ -166,7 +169,7 @@ export default function PayInstalment() {
         <Card title="Posted">
           <KeyValues items={[
             ['Transaction', result.transactionId], ['Value date', date(result.valueDate)],
-            ['Amount', money(result.amount)], ['Interest', money(result.interestPaid)], ['Principal', money(result.principalPaid)],
+            ['Amount', money(result.amount)], ['Penal interest', money(result.penalInterestPaid ?? 0)], ['Interest', money(result.interestPaid)], ['Principal', money(result.principalPaid)],
             ['Advance held now', money(result.advanceBalance ?? 0)],
             ['Channel', label(result.paymentChannel)], ['Status', <PaymentBadge status={result.paymentStatus} />],
           ]} />

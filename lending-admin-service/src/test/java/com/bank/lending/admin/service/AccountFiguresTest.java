@@ -24,7 +24,7 @@ class AccountFiguresTest {
     }
 
     private static PaymentRow payment(String status, String amount) {
-        return new PaymentRow(1L, TODAY, 1L, "PL01", 1, "EMI", new BigDecimal(amount), null, null, "NACH", status, null);
+        return new PaymentRow(1L, TODAY, 1L, "PL01", 1, "EMI", new BigDecimal(amount), null, null, null, "NACH", status, null);
     }
 
     /** Three instalments: #1 paid, #2 overdue by 45 days, #3 upcoming. */

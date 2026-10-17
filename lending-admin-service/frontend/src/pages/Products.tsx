@@ -28,6 +28,14 @@ function scheduleDetail(r: Product): string {
   return parts.join(', ');
 }
 
+/** Penal interest of a product in one short line, with the cap and grace days underneath. */
+function penalSummary(r: Product) {
+  if (!r.penalInterestEnabled) return <span className="muted">Off</span>;
+  return (<>{r.penalInterestRate}% a year<div className="muted">
+    {r.penalGraceDays === 0 ? 'no grace days' : `${r.penalGraceDays} grace day${r.penalGraceDays === 1 ? '' : 's'}`}
+    {', '}{r.penalCapPercent === null ? 'no cap' : `cap ${r.penalCapPercent}% of the instalment`}</div></>);
+}
+
 type Notice = { tone: 'good' | 'warn' | 'bad'; text: string } | null;
 
 export default function Products() {
@@ -41,6 +49,7 @@ export default function Products() {
     { key: 't', header: 'Type', render: r => (<>{label(r.accountType)} | {label(r.rateType)}<div className="muted">{r.dayCountConvention}</div></>) },
     { key: 'sc', header: 'Repayment', render: r => (<>{scheduleName(r.scheduleType)}<div className="muted">{scheduleDetail(r)}</div></>) },
     { key: 'r', header: 'Default rate', render: r => (<>{r.defaultInterestRate}%{r.rateType === 'FLOATING' && <div className="muted">{r.benchmarkRateRef} + {r.defaultSpread ?? 0}%</div>}</>) },
+    { key: 'pn', header: 'Penal interest', render: r => penalSummary(r) },
     { key: 'rb', header: 'Rate / spread band', render: r => (<>{pctRange(r.minInterestRate, r.maxInterestRate)}{r.rateType === 'FLOATING' && <div className="muted">spread {pctRange(r.minSpread, r.maxSpread)}</div>}</>) },
     { key: 'ab', header: 'Amount band', render: r => range(r.minSanctionedAmount, r.maxSanctionedAmount, money0) },
     { key: 'tb', header: 'Tenure (months)', render: r => range(r.minTenureMonths, r.maxTenureMonths) },
@@ -62,7 +71,8 @@ export default function Products() {
       <div className="banner">
         A change applies to accounts opened afterwards, and to an individual account when it is rescheduled by a floating rate
         reset (the rate band caps and floors the new rate). Existing accounts keep the terms they were opened with, and nothing
-        reschedules all accounts of a product.
+        reschedules all accounts of a product. Penal interest settings are the exception: they are read each night, so a change
+        applies to every account of the product from the next business date (days already charged keep the rate they were charged at).
       </div>
       {notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}</div>}
       {data?.note && <div className="banner banner-warn">{data.note}</div>}
@@ -124,6 +134,9 @@ function ProductDialog({ product, onClose, onSaved }: { product: Product | null;
     minSpread: txt(product?.minSpread), maxSpread: txt(product?.maxSpread),
     minAmount: txt(product?.minSanctionedAmount), maxAmount: txt(product?.maxSanctionedAmount),
     minTenure: txt(product?.minTenureMonths), maxTenure: txt(product?.maxTenureMonths),
+    penalEnabled: product ? (product.penalInterestEnabled ? 'ON' : 'OFF') : 'ON',
+    penalRate: txt(product?.penalInterestRate ?? 24), penalGrace: txt(product?.penalGraceDays ?? 0),
+    penalCap: txt(product?.penalCapPercent),
     status: product?.status ?? 'ACTIVE',
   });
   const [allowed, setAllowed] = useState<string[]>(product?.allowedRepaymentFrequencies ?? ['MONTHLY']);
@@ -168,6 +181,10 @@ function ProductDialog({ product, onClose, onSaved }: { product: Product | null;
       maxBalloonPercent: showBalloon ? num(f.maxBalloon) : null,
       stepUpPercent: showStepUp ? num(f.stepUp) : 0,
       maxStepUpPercent: showStepUp ? num(f.maxStepUp) : null,
+      penalInterestEnabled: f.penalEnabled === 'ON',
+      penalInterestRate: num(f.penalRate) ?? 24,
+      penalGraceDays: num(f.penalGrace) ?? 0,
+      penalCapPercent: num(f.penalCap),
       status: f.status,
       expectedVersion: product ? product.version : null,
     };
@@ -256,6 +273,10 @@ function ProductDialog({ product, onClose, onSaved }: { product: Product | null;
           {field('maxAmount', 'Sanctioned amount: maximum', { type: 'number' })}
           {field('minTenure', 'Tenure: minimum (months)', { type: 'number' })}
           {field('maxTenure', 'Tenure: maximum (months)', { type: 'number' })}
+          {pick('penalEnabled', 'Penal interest', [['ON', 'On'], ['OFF', 'Off']], 'Charged on overdue principal and interest; never added to the interest rate and never compounds.')}
+          {f.penalEnabled === 'ON' && field('penalRate', 'Penal interest rate (% a year)', { type: 'number', step: '0.0001', hint: 'Charged daily on the unpaid principal and interest, on the account\'s day-count basis.' })}
+          {f.penalEnabled === 'ON' && field('penalGrace', 'Penal interest: grace days', { type: 'number', hint: '0 = starts the day after the due date.' })}
+          {f.penalEnabled === 'ON' && field('penalCap', 'Penal interest: cap (% of the instalment)', { type: 'number', step: '0.01', hint: 'Most one instalment can collect. Empty = no cap.' })}
           {pick('status', 'Status', [['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']], 'Inactive products cannot be used for new accounts.')}
         </div>
         {err && <div className="banner banner-bad" role="alert">{err}</div>}

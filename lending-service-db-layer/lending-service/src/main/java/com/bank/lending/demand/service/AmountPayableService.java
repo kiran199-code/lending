@@ -38,6 +38,7 @@ public class AmountPayableService {
     private final DemandService demandService;
     private final PaymentPlanner planner;
     private final BusinessDateService businessDateService;
+    private final PenalInterestService penalService;
 
     @Transactional(readOnly = true)
     public AmountPayableResponse amountPayable(Long accountId, LocalDate asOf) {
@@ -54,15 +55,21 @@ public class AmountPayableService {
                 dueToday = dueToday.add(l.outstanding());
             }
         }
+        BigDecimal penal = lines.stream().map(AmountPayableResponse.DemandLine::penalOutstanding)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal total = overdue.add(dueToday);
         BigDecimal payable = total.subtract(account.getAdvanceBalance()).max(BigDecimal.ZERO);
-        long dpd = lines.isEmpty() ? 0 : Math.max(0, ChronoUnit.DAYS.between(lines.get(0).dueDate(), date));
+        // Days past due run from the oldest instalment that still has principal or interest unpaid, not from one that
+        // only owes penal interest.
+        long dpd = lines.stream()
+                .filter(l -> l.principalOutstanding().add(l.interestOutstanding()).signum() > 0)
+                .findFirst().map(l -> Math.max(0, ChronoUnit.DAYS.between(l.dueDate(), date))).orElse(0L);
 
         List<AmortizationScheduleEntry> ahead = demandService.undemandedEntries(accountId, date);
         AmountPayableResponse.NextInstallment next = ahead.isEmpty() ? null : toNext(ahead.get(0));
 
         return new AmountPayableResponse(accountId, date, account.getAccountStatus().name(), dpd, lines,
-                overdue, dueToday, BigDecimal.ZERO, account.getAdvanceBalance(), payable, next);
+                overdue, dueToday, penal, account.getAdvanceBalance(), payable, next);
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +101,7 @@ public class AmountPayableService {
     private List<PaymentWaterfall.Due> duesAsOf(LoanAccount account, LocalDate date) {
         List<PaymentWaterfall.Due> dues = new ArrayList<>();
         for (AmountPayableResponse.DemandLine l : demandLines(account, date)) {
-            dues.add(new PaymentWaterfall.Due(null, l.installmentNumber(), l.dueDate(), BigDecimal.ZERO,
+            dues.add(new PaymentWaterfall.Due(null, l.installmentNumber(), l.dueDate(), l.penalOutstanding(),
                     l.interestOutstanding(), l.principalOutstanding()));
         }
         return dues;
@@ -105,9 +112,12 @@ public class AmountPayableService {
         List<AmountPayableResponse.DemandLine> lines = new ArrayList<>();
         for (LoanDemand d : demandService.openDemands(accountId)) {
             if (!d.getDueDate().isAfter(date)) {
+                // Penal interest is owed for the days before the date: a payment on the date stops that day's charge.
+                BigDecimal penal = penalService.penalOutstanding(account, d, date.minusDays(1));
                 lines.add(new AmountPayableResponse.DemandLine(d.getInstallmentNumber(), d.getDueDate(),
                         d.getPrincipalDue(), d.getInterestDue(), d.getPrincipalPaid(), d.getInterestPaid(),
-                        d.principalOutstanding(), d.interestOutstanding(), d.outstanding(), d.getStatus().name(), true));
+                        d.principalOutstanding(), d.interestOutstanding(), penal,
+                        d.outstanding().add(penal), d.getStatus().name(), true));
             }
         }
         // Instalments that fell due but whose demand has not been raised yet still count.
@@ -122,7 +132,7 @@ public class AmountPayableService {
                 }
                 lines.add(new AmountPayableResponse.DemandLine(e.getInstallmentNumber(), e.getDueDate(),
                         e.getPrincipalComponent(), e.getInterestComponent(), BigDecimal.ZERO, BigDecimal.ZERO,
-                        e.getPrincipalComponent(), e.getInterestComponent(),
+                        e.getPrincipalComponent(), e.getInterestComponent(), BigDecimal.ZERO,
                         e.getPrincipalComponent().add(e.getInterestComponent()), "OPEN", false));
             }
         }

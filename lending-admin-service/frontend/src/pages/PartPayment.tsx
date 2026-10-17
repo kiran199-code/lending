@@ -72,7 +72,7 @@ export default function PartPayment() {
         <Card title="Posted">
           <KeyValues items={[
             ['Transaction', result.transactionId], ['Value date', date(result.valueDate)], ['Amount', money(result.amount)],
-            ['Principal', money(result.principalPaid)], ['Interest', money(result.interestPaid)], ['Channel', label(result.paymentChannel)],
+            ['Principal', money(result.principalPaid)], ['Interest', money(result.interestPaid)], ['Penal interest', money(result.penalInterestPaid ?? 0)], ['Channel', label(result.paymentChannel)],
             ['Status', <PaymentBadge status={result.paymentStatus} />],
           ]} />
         </Card>

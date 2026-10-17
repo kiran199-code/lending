@@ -58,6 +58,15 @@ public class LoanDemand {
     @Column(name = "interest_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal interestPaid = BigDecimal.ZERO;
 
+    /** Penal interest charged so far, to 4 decimals. What is owed is {@link #penalOutstanding()}. */
+    @Builder.Default
+    @Column(name = "penal_accrued", nullable = false, precision = 15, scale = 4)
+    private BigDecimal penalAccrued = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "penal_paid", nullable = false, precision = 15, scale = 2)
+    private BigDecimal penalPaid = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 12)
     private DemandStatus status;
@@ -85,8 +94,19 @@ public class LoanDemand {
         return interestDue.subtract(interestPaid);
     }
 
+    /** Principal and interest still owed (the penal base). Penal interest is not part of it. */
     public BigDecimal outstanding() {
         return principalOutstanding().add(interestOutstanding());
+    }
+
+    /** Penal interest owed: what has accrued, rounded to paise (half up), less what has been paid. Never negative. */
+    public BigDecimal penalOutstanding() {
+        return penalAccrued.setScale(2, java.math.RoundingMode.HALF_UP).subtract(penalPaid).max(BigDecimal.ZERO);
+    }
+
+    /** Everything still owed on the demand: principal, interest and penal interest. */
+    public BigDecimal totalOutstanding() {
+        return outstanding().add(penalOutstanding());
     }
 
     public enum DemandStatus { OPEN, PART_PAID, CLEARED }

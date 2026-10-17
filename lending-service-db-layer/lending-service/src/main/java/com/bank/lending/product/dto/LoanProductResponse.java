@@ -35,6 +35,10 @@ public record LoanProductResponse(
         BigDecimal maxBalloonPercent,
         BigDecimal stepUpPercent,
         BigDecimal maxStepUpPercent,
+        Boolean penalInterestEnabled,
+        BigDecimal penalInterestRate,
+        Integer penalGraceDays,
+        BigDecimal penalCapPercent,
         LoanProduct.Status status,
         Integer version,
         OffsetDateTime createdAt,
@@ -52,6 +56,7 @@ public record LoanProductResponse(
                 p.getMoratoriumMonths(), p.getMaxMoratoriumMonths(),
                 p.getBalloonPercent(), p.getMaxBalloonPercent(),
                 p.getStepUpPercent(), p.getMaxStepUpPercent(),
+                p.getPenalInterestEnabled(), p.getPenalInterestRate(), p.getPenalGraceDays(), p.getPenalCapPercent(),
                 p.getStatus(), p.getVersion(), p.getCreatedAt(), p.getUpdatedAt());
     }
 }

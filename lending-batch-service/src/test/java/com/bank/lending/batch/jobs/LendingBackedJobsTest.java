@@ -5,6 +5,7 @@ import com.bank.lending.batch.jobs.daily.DemandRaiseBatchJob;
 import com.bank.lending.batch.jobs.daily.DpdUpdateBatchJob;
 import com.bank.lending.batch.jobs.daily.GlPostingReconciliationBatchJob;
 import com.bank.lending.batch.jobs.daily.InterestAccrualBatchJob;
+import com.bank.lending.batch.jobs.daily.PenalInterestBatchJob;
 import com.bank.lending.batch.jobs.daily.NpaClassificationCheckBatchJob;
 import com.bank.lending.batch.jobs.daily.RateResetCheckDailyBatchJob;
 import com.bank.lending.batch.jobs.monthly.MonthEndGlCloseBatchJob;
@@ -42,6 +43,7 @@ class LendingBackedJobsTest {
         boolean statusChanged = true;
         String rateOutcome = "RESET";
         int demandsCreated = 2;
+        int penalAccruals = 3;
         final Deque<Integer> pendingCounts = new ArrayDeque<>();
         boolean failAll;
 
@@ -66,6 +68,15 @@ class LendingBackedJobsTest {
                 throw new LendingServiceException("down", 503, null);
             }
             return new DemandRaiseResult(accountId, demandsCreated);
+        }
+
+        @Override
+        public PenalAccrualResult accruePenalInterest(long accountId, LocalDate businessDate) {
+            calls.add("penal " + accountId + " " + businessDate);
+            if (failAll) {
+                throw new LendingServiceException("down", 503, null);
+            }
+            return new PenalAccrualResult(accountId, penalAccruals, BigDecimal.ONE);
         }
 
         @Override
@@ -123,6 +134,18 @@ class LendingBackedJobsTest {
         assertEquals(null, job.processor().process(10L));
         assertEquals(List.of("demands 9 2026-10-12", "demands 10 2026-10-12"), lending.calls);
         assertEquals("DEMAND_RAISE_DAILY", job.getJobName());
+    }
+
+    @Test
+    void penalInterestCallsLendingPerAccountAndOnlyPassesOnAccountsThatWereCharged() throws Exception {
+        FakeLending lending = new FakeLending();
+        PenalInterestBatchJob job = new PenalInterestBatchJob(null, lending);
+        context("{}");
+        assertEquals(Long.valueOf(11L), job.processor().process(11L));
+        lending.penalAccruals = 0;
+        assertEquals(null, job.processor().process(12L));
+        assertEquals(List.of("penal 11 2026-10-12", "penal 12 2026-10-12"), lending.calls);
+        assertEquals("PENAL_INTEREST_CALCULATION_DAILY", job.getJobName());
     }
 
     @Test

@@ -80,7 +80,8 @@ public final class AdminDtos {
 
     public record PaymentRow(Long transactionId, LocalDate valueDate, Long accountId, String accountNumber,
                              Integer installmentNumber, String type, BigDecimal amount, BigDecimal principalPaid,
-                             BigDecimal interestPaid, String channel, String status, String idempotencyKey) {
+                             BigDecimal interestPaid, BigDecimal penalInterestPaid, String channel, String status,
+                             String idempotencyKey) {
     }
 
     public record PaymentResponse(List<PaymentRow> rows, BigDecimal totalReceived, BigDecimal principalReceived,
@@ -207,6 +208,8 @@ public final class AdminDtos {
                              int moratoriumMonths, Integer maxMoratoriumMonths,
                              BigDecimal balloonPercent, BigDecimal maxBalloonPercent,
                              BigDecimal stepUpPercent, BigDecimal maxStepUpPercent,
+                             boolean penalInterestEnabled, BigDecimal penalInterestRate, int penalGraceDays,
+                             BigDecimal penalCapPercent,
                              String status, long accountCount, int version) {
     }
 
@@ -226,6 +229,8 @@ public final class AdminDtos {
                                Integer moratoriumMonths, Integer maxMoratoriumMonths,
                                BigDecimal balloonPercent, BigDecimal maxBalloonPercent,
                                BigDecimal stepUpPercent, BigDecimal maxStepUpPercent,
+                               Boolean penalInterestEnabled, BigDecimal penalInterestRate, Integer penalGraceDays,
+                               BigDecimal penalCapPercent,
                                String status, Integer expectedVersion) {
     }
 }

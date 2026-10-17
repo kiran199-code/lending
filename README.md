@@ -5,7 +5,7 @@ A retail lending platform: loan accounts, mortgage collateral, amortization, int
 | Module | What it is | Port (local / Render) |
 |---|---|---|
 | `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V14), owner of the business date | 8080 / 10000 |
-| `lending-batch-service` | Spring Batch + Quartz platform, 37 job slots (ten call lending-service, 27 still stubs), nightly end of day, Kafka producer | 8081 / 10000 |
+| `lending-batch-service` | Spring Batch + Quartz platform, 37 job slots (eleven call lending-service, 26 still stubs), nightly end of day, Kafka producer | 8081 / 10000 |
 | `lending-admin-service` | Read-only admin console: Spring Boot API + React UI in one container | 8082 / 10000 |
 | PostgreSQL 16 | One shared `lending` database (`public` and `batch` schemas) | 5432 |
 

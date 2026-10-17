@@ -37,6 +37,8 @@ public class ProductRepository {
                 rs.getInt("moratorium_months"), Sql.intOrNull(rs, "max_moratorium_months"),
                 rs.getBigDecimal("balloon_percent"), rs.getBigDecimal("max_balloon_percent"),
                 rs.getBigDecimal("step_up_percent"), rs.getBigDecimal("max_step_up_percent"),
+                rs.getBoolean("penal_interest_enabled"), rs.getBigDecimal("penal_interest_rate"),
+                rs.getInt("penal_grace_days"), rs.getBigDecimal("penal_cap_percent"),
                 rs.getString("status"), rs.getLong("account_count"), rs.getInt("version")));
     }
 }

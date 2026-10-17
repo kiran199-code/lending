@@ -28,12 +28,12 @@ public class PaymentRepository {
             rs.getLong("transaction_id"), Sql.date(rs, "value_date"), rs.getLong("account_id"),
             rs.getString("account_number"), Sql.intOrNull(rs, "installment_number"),
             rs.getString("transaction_type"), rs.getBigDecimal("amount"), rs.getBigDecimal("principal_paid"),
-            rs.getBigDecimal("interest_paid"), rs.getString("payment_channel"), rs.getString("payment_status"),
+            rs.getBigDecimal("interest_paid"), rs.getBigDecimal("penal_paid"), rs.getString("payment_channel"), rs.getString("payment_status"),
             rs.getString("idempotency_key"));
 
     private static final String PAYMENT_COLS = """
             t.transaction_id, t.value_date, t.account_id, a.account_number, t.installment_number,
-            t.transaction_type, t.amount, t.principal_paid, t.interest_paid, t.payment_channel,
+            t.transaction_type, t.amount, t.principal_paid, t.interest_paid, t.penal_paid, t.payment_channel,
             t.payment_status, t.idempotency_key
             """;
 

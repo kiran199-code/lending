@@ -33,7 +33,7 @@ class FlywayMigrationTest extends AbstractIntegrationTest {
                 "amortization_schedule", "interest_accrual", "emi_transaction",
                 "processed_request", "ledger_outbox", "loan_product", "benchmark_rate",
                 "business_date_state", "business_date_history", "non_working_day",
-                "loan_demand", "payment_allocation"
+                "loan_demand", "payment_allocation", "penal_interest"
         );
     }
 

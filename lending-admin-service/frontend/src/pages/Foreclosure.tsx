@@ -64,7 +64,7 @@ export default function Foreclosure() {
         <Card title="Foreclosed">
           <KeyValues items={[
             ['Transaction', result.transactionId], ['Date', date(result.valueDate)], ['Total paid', money(result.amount)],
-            ['Principal', money(result.principalPaid)], ['Interest', money(result.interestPaid)], ['Channel', label(result.paymentChannel)],
+            ['Principal', money(result.principalPaid)], ['Interest', money(result.interestPaid)], ['Penal interest', money(result.penalInterestPaid ?? 0)], ['Channel', label(result.paymentChannel)],
             ['Status', <PaymentBadge status={result.paymentStatus} />],
           ]} />
         </Card>

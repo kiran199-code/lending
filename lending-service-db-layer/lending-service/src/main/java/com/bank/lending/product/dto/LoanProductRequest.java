@@ -57,11 +57,42 @@ public record LoanProductRequest(
         BigDecimal stepUpPercent,
         @Schema(description = "STEP_UP_EMI only: highest step-up % an account may choose. Empty = no limit.")
         BigDecimal maxStepUpPercent,
+        @Schema(description = "Penal interest on overdue instalments. Omit all four penal fields to leave them as they are (new product: on, 24% a year, 0 grace days, no cap).")
+        Boolean penalInterestEnabled,
+        @Schema(description = "Penal interest rate, % a year, 0 to 99.9999. Default 24.")
+        BigDecimal penalInterestRate,
+        @Schema(description = "Days after the due date before penal interest starts. Default 0.")
+        Integer penalGraceDays,
+        @Schema(description = "Most penal interest one demand may collect, as a % of its principal + interest. Empty = no cap.")
+        BigDecimal penalCapPercent,
         @Schema(description = "Defaults to ACTIVE. An INACTIVE product cannot be used for new accounts.")
         LoanProduct.Status status,
         @Schema(description = "Update only: the version you loaded. If the product has changed since, the update is refused (409).")
         Integer expectedVersion
 ) {
+    /** Body without the penal interest fields (they are left as they are). */
+    public LoanProductRequest(String productCode, String productName, String description,
+                              LoanAccount.AccountType accountType, LoanAccount.RateType rateType,
+                              LoanAccount.ScheduleType scheduleType, LoanAccount.DayCountConvention dayCountConvention,
+                              String benchmarkRateRef, BigDecimal defaultInterestRate, BigDecimal defaultSpread,
+                              BigDecimal minInterestRate, BigDecimal maxInterestRate,
+                              BigDecimal minSpread, BigDecimal maxSpread,
+                              BigDecimal minSanctionedAmount, BigDecimal maxSanctionedAmount,
+                              Integer minTenureMonths, Integer maxTenureMonths,
+                              LoanAccount.RepaymentFrequency repaymentFrequency,
+                              List<LoanAccount.RepaymentFrequency> allowedRepaymentFrequencies,
+                              Integer moratoriumMonths, Integer maxMoratoriumMonths,
+                              BigDecimal balloonPercent, BigDecimal maxBalloonPercent,
+                              BigDecimal stepUpPercent, BigDecimal maxStepUpPercent,
+                              LoanProduct.Status status, Integer expectedVersion) {
+        this(productCode, productName, description, accountType, rateType, scheduleType, dayCountConvention,
+                benchmarkRateRef, defaultInterestRate, defaultSpread, minInterestRate, maxInterestRate,
+                minSpread, maxSpread, minSanctionedAmount, maxSanctionedAmount, minTenureMonths, maxTenureMonths,
+                repaymentFrequency, allowedRepaymentFrequencies, moratoriumMonths, maxMoratoriumMonths,
+                balloonPercent, maxBalloonPercent, stepUpPercent, maxStepUpPercent,
+                null, null, null, null, status, expectedVersion);
+    }
+
     /** Body without the schedule parameters (monthly, no moratorium / balloon / step-up). */
     public LoanProductRequest(String productCode, String productName, String description,
                               LoanAccount.AccountType accountType, LoanAccount.RateType rateType,

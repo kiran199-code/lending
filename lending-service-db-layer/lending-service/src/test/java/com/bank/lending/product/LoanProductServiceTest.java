@@ -52,4 +52,34 @@ class LoanProductServiceTest {
                 .isInstanceOf(InvalidAccountStateException.class)
                 .hasMessageContaining("changed by someone else");
     }
+
+    @Test
+    void penalSettingsAreAppliedTogetherWhenGivenAndKeptWhenOmitted() {
+        LoanProduct p = existing();
+        Mockito.when(repository.findByProductCode("PL01")).thenReturn(Optional.of(p));
+        Mockito.when(repository.saveAndFlush(p)).thenReturn(p);
+        assertThat(p.getPenalInterestEnabled()).isTrue();
+        assertThat(p.getPenalInterestRate()).isEqualByComparingTo("24");
+
+        service.update("PL01", new LoanProductRequest("PL01", "Personal Loan", null, LoanAccount.AccountType.UNSECURED,
+                LoanAccount.RateType.FIXED, null, null, null, new BigDecimal("10.5"), null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                Boolean.TRUE, new BigDecimal("18"), 5, new BigDecimal("10"), null, 3));
+        assertThat(p.getPenalInterestRate()).isEqualByComparingTo("18");
+        assertThat(p.getPenalGraceDays()).isEqualTo(5);
+        assertThat(p.getPenalCapPercent()).isEqualByComparingTo("10");
+
+        service.update("PL01", update("11", 3)); // no penal fields: left as they are
+        assertThat(p.getPenalInterestRate()).isEqualByComparingTo("18");
+        assertThat(p.getPenalGraceDays()).isEqualTo(5);
+
+        service.update("PL01", new LoanProductRequest("PL01", "Personal Loan", null, LoanAccount.AccountType.UNSECURED,
+                LoanAccount.RateType.FIXED, null, null, null, new BigDecimal("10.5"), null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                Boolean.FALSE, null, null, null, null, 3));
+        assertThat(p.getPenalInterestEnabled()).isFalse();
+        assertThat(p.getPenalInterestRate()).isEqualByComparingTo("24"); // missing rate falls back to the default
+        assertThat(p.getPenalGraceDays()).isZero();
+        assertThat(p.getPenalCapPercent()).isNull();
+    }
 }

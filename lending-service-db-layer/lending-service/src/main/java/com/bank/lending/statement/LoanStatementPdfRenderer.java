@@ -253,9 +253,9 @@ public class LoanStatementPdfRenderer {
             return;
         }
 
-        PdfPTable table = new PdfPTable(7);
+        PdfPTable table = new PdfPTable(8);
         table.setWidthPercentage(100);
-        table.setWidths(new float[]{14, 19, 9, 15, 14, 14, 15});
+        table.setWidths(new float[]{12, 16, 8, 13, 13, 13, 13, 12});
         table.setHeaderRows(1);
 
         headerCell(table, "Date", Element.ALIGN_LEFT);
@@ -264,6 +264,7 @@ public class LoanStatementPdfRenderer {
         headerCell(table, "Amount (" + currency + ")", Element.ALIGN_RIGHT);
         headerCell(table, "Towards principal", Element.ALIGN_RIGHT);
         headerCell(table, "Towards interest", Element.ALIGN_RIGHT);
+        headerCell(table, "Towards penal interest", Element.ALIGN_RIGHT);
         headerCell(table, "Paid via", Element.ALIGN_LEFT);
 
         int row = 0;
@@ -280,12 +281,14 @@ public class LoanStatementPdfRenderer {
                     Element.ALIGN_RIGHT, bg, INK, Font.NORMAL);
             bodyCell(table, p.getInterestPaid() != null ? fmt.number(p.getInterestPaid()) : "-",
                     Element.ALIGN_RIGHT, bg, INK, Font.NORMAL);
+            bodyCell(table, p.getPenalPaid() != null ? fmt.number(p.getPenalPaid()) : "-",
+                    Element.ALIGN_RIGHT, bg, INK, Font.NORMAL);
             bodyCell(table, channelLabel(p.getPaymentChannel()), Element.ALIGN_LEFT, bg, INK, Font.NORMAL);
         }
 
         totalCell(table, "Total received", 3, Element.ALIGN_LEFT);
         totalCell(table, fmt.number(data.totalPaid()), 1, Element.ALIGN_RIGHT);
-        totalCell(table, "", 3, Element.ALIGN_LEFT);
+        totalCell(table, "", 4, Element.ALIGN_LEFT);
 
         table.setSpacingAfter(10);
         document.add(table);

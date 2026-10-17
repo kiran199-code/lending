@@ -89,4 +89,26 @@ class LoanProductValidationTest {
         assertThatThrownBy(() -> validate(withSchedule(LoanAccount.ScheduleType.INTEREST_ONLY, null, null, 3, null, null)))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("INTEREST_ONLY");
     }
+
+    private static LoanProductRequest withPenal(String rate, Integer grace, String cap) {
+        return new LoanProductRequest("T1", "Test", null, LoanAccount.AccountType.UNSECURED, LoanAccount.RateType.FIXED,
+                null, null, null, new BigDecimal("10"), null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
+                Boolean.TRUE, rate == null ? null : new BigDecimal(rate), grace, cap == null ? null : new BigDecimal(cap),
+                null, null);
+    }
+
+    @Test
+    void penalInterestSettingsAreChecked() {
+        validate(withPenal("24", 0, null));
+        validate(withPenal("18.5", 5, "10"));
+        assertThatThrownBy(() -> validate(withPenal("100", 0, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("penalInterestRate");
+        assertThatThrownBy(() -> validate(withPenal("-1", 0, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("penalInterestRate");
+        assertThatThrownBy(() -> validate(withPenal("24", -1, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("penalGraceDays");
+        assertThatThrownBy(() -> validate(withPenal("24", 0, "0")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("penalCapPercent");
+    }
 }

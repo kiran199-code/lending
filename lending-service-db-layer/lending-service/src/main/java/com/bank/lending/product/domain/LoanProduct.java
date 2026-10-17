@@ -126,6 +126,25 @@ public class LoanProduct {
     @Column(name = "max_step_up_percent", precision = 5, scale = 2)
     private BigDecimal maxStepUpPercent;
 
+    /** Switch for penal interest on overdue instalments of accounts of this product. */
+    @Builder.Default
+    @Column(name = "penal_interest_enabled", nullable = false)
+    private Boolean penalInterestEnabled = Boolean.TRUE;
+
+    /** Penal interest rate, % a year, charged on the unpaid principal and interest of an overdue demand. */
+    @Builder.Default
+    @Column(name = "penal_interest_rate", nullable = false, precision = 6, scale = 4)
+    private BigDecimal penalInterestRate = new BigDecimal("24.0000");
+
+    /** Days after the due date before penal interest starts (0 = the day after the due date). */
+    @Builder.Default
+    @Column(name = "penal_grace_days", nullable = false)
+    private Integer penalGraceDays = 0;
+
+    /** Most penal interest one demand may collect, as a % of that demand's principal + interest. Null = no cap. */
+    @Column(name = "penal_cap_percent", precision = 6, scale = 2)
+    private BigDecimal penalCapPercent;
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)

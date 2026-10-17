@@ -1,11 +1,11 @@
 # Lending Platform
 
-A retail lending platform: loan accounts, mortgage collateral, amortization, interest accrual, EMI servicing, a ledger outbox, a loan product master, a 36-slot batch platform and an admin portal.
+A retail lending platform: loan accounts, mortgage collateral, amortization, interest accrual, EMI servicing, a ledger outbox, a loan product master, a 37-slot batch platform and an admin portal.
 
 | Module | What it is | Port (local / Render) |
 |---|---|---|
-| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V13), owner of the business date | 8080 / 10000 |
-| `lending-batch-service` | Spring Batch + Quartz platform, 36 job slots (nine call lending-service, 27 still stubs), nightly end of day, Kafka producer | 8081 / 10000 |
+| `lending-service-db-layer/lending-service` | Account-servicing REST API (Java 21, Spring Boot, PostgreSQL, Flyway V1-V14), owner of the business date | 8080 / 10000 |
+| `lending-batch-service` | Spring Batch + Quartz platform, 37 job slots (ten call lending-service, 27 still stubs), nightly end of day, Kafka producer | 8081 / 10000 |
 | `lending-admin-service` | Read-only admin console: Spring Boot API + React UI in one container | 8082 / 10000 |
 | PostgreSQL 16 | One shared `lending` database (`public` and `batch` schemas) | 5432 |
 

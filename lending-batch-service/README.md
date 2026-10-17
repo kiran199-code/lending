@@ -219,13 +219,14 @@ sent only when a username is set - lending-service has no auth today), connect a
 
 ## Business logic status
 
-Nine of the 36 jobs call lending-service; the other 27 are structurally complete (correct `job_name`, category, type, partitioning and framework wiring) but still stubs with
+Ten of the 37 jobs call lending-service; the other 27 are structurally complete (correct `job_name`, category, type, partitioning and framework wiring) but still stubs with
 `// TODO: business logic` markers and Javadoc describing what each needs to do.
 
 | Job | Calls |
 |---|---|
+| `DEMAND_RAISE_DAILY` | `POST /api/v1/loan-accounts/{id}/demands?businessDate=` (idempotent). Runs first in the daily chain (priority 5, seeded by V6): raises the principal + interest demand for every instalment due on or before the business date, back-fills accounts that pre-date demands, and covers ACTIVE and NPA accounts |
 | `INTEREST_ACCRUAL_DAILY` | `POST /api/v1/loan-accounts/{id}/interest-accruals?businessDate=` (idempotent) |
-| `DPD_UPDATE_DAILY`, `NPA_CLASSIFICATION_CHECK_DAILY` | `POST /api/v1/loan-accounts/{id}/delinquency-classification` (both use the same endpoint: DPD is not stored and the bands are fixed) |
+| `DPD_UPDATE_DAILY`, `NPA_CLASSIFICATION_CHECK_DAILY` | `POST /api/v1/loan-accounts/{id}/delinquency-classification` (both use the same endpoint; lending-service now stores `days_past_due` on the account, the bands are still fixed) |
 | `RATE_RESET_CHECK_DAILY`, `RATE_RESET_MONTHLY`, `QUARTERLY_RATE_RESET` | `POST /api/v1/loan-accounts/{id}/rate-reset`; rate from the `benchmark_rate` table. `job_params_json` must contain `benchmarkRateRef` (migration V4 seeds `OVERNIGHT_MIBOR` for the daily job) |
 | `GL_POSTING_RECONCILIATION_DAILY` | `ledger-outbox/push` until `ledger-outbox/pending` is empty; fails if entries stay PENDING (no trial-balance comparison - the ledger gateway is a stub) |
 | `MONTH_END_GL_CLOSE_MONTHLY` | fails if any outbox entry is PENDING (partial: no sub-ledger reconciliation or period lock) |

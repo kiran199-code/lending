@@ -135,7 +135,7 @@ public class ConfigCatalog {
                 new FixedRule("Storage", "Monthly partitions", "interest_accrual and emi_transaction: current month + 6 ahead, created at startup and at 02:30 IST on the 1st and 15th"),
                 new FixedRule("Admin console", "Overdue rule", "unpaid instalment with a due date before today in the business timezone; DPD buckets 1-30, 31-60, 61-90, 90+"),
                 new FixedRule("Admin console", "Excluded from portfolio figures", "PENDING_DISBURSEMENT, CLOSED, FORECLOSED, WRITTEN_OFF"),
-                new FixedRule("Batch", "Job set", "36 job slots; per-job settings live in batch.batch_job_config (editable on the Batch jobs tab)"));
+                new FixedRule("Batch", "Job set", "37 job slots; per-job settings live in batch.batch_job_config (editable on the Batch jobs tab)"));
     }
 
     // ---------------------------------------------------------------- helpers

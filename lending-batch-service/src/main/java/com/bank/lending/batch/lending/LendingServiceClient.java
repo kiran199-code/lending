@@ -66,6 +66,9 @@ public class LendingServiceClient {
         }
     }
 
+    public record DemandRaiseResult(Long accountId, int demandsCreated) {
+    }
+
     /** Business date as reported by lending-service. Dates are kept as ISO strings (no JavaTimeModule dependency). */
     public record BusinessDateInfo(String businessDate, String previousBusinessDate, String nextBusinessDate,
                                    String status, boolean workingDay, String systemDate) {
@@ -105,6 +108,16 @@ public class LendingServiceClient {
     public AccrualResult accrueInterest(long accountId, LocalDate businessDate) {
         return call("POST", "/api/v1/loan-accounts/" + accountId + "/interest-accruals?businessDate=" + businessDate,
                 null, null, AccrualResult.class);
+    }
+
+    /**
+     * POST /api/v1/loan-accounts/{id}/demands?businessDate= — raises a demand for every instalment due on or
+     * before the date that has none yet (idempotent: a second call creates nothing).
+     */
+    public DemandRaiseResult raiseDemands(long accountId, LocalDate businessDate) {
+        JsonNode r = call("POST", "/api/v1/loan-accounts/" + accountId + "/demands?businessDate=" + businessDate,
+                null, null, JsonNode.class);
+        return new DemandRaiseResult(accountId, r == null ? 0 : r.path("demandsCreated").asInt(0));
     }
 
     /** POST /api/v1/loan-accounts/{id}/delinquency-classification */

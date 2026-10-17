@@ -4,11 +4,13 @@ import com.bank.lending.admin.service.LendingAccountClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -63,6 +65,28 @@ public class AccountOperationsController {
                                   @RequestHeader(value = "Idempotency-Key", required = false) String key, Principal user) {
         payment(body, "valueDate");
         return client.payInstalment(accountId, body, actor(user), keyOrNew(key));
+    }
+
+    @Operation(summary = "What is payable on an account on a date: open demands oldest first, overdue, due today, advance")
+    @GetMapping("/accounts/{accountId}/amount-payable")
+    public JsonNode amountPayable(@PathVariable long accountId, @RequestParam(required = false) String asOf) {
+        if (asOf != null && !asOf.isBlank()) {
+            try {
+                LocalDate.parse(asOf);
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException("asOf must be a date in the form yyyy-MM-dd");
+            }
+        }
+        return client.amountPayable(accountId, asOf);
+    }
+
+    @Operation(summary = "Show how a payment would be applied (penal interest, interest, principal, advance) without posting it")
+    @PostMapping("/accounts/{accountId}/payments/preview")
+    public JsonNode previewPayment(@PathVariable long accountId, @RequestBody JsonNode body, Principal user) {
+        requireObject(body);
+        requireDate(body, "valueDate");
+        requirePositive(body, "amount");
+        return client.previewPayment(accountId, body, actor(user));
     }
 
     @Operation(summary = "Post a principal part-payment; the remaining schedule is regenerated")

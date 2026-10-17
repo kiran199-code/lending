@@ -23,12 +23,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/loan-accounts/{accountId}/payments")
 @RequiredArgsConstructor
-@Tag(name = "Payments", description = "EMI posting, part-payments, and foreclosure payoff")
+@Tag(name = "Payments", description = "Payments applied to what is due, part-payments, and foreclosure payoff")
 public class EmiPaymentController {
 
     private final EmiPaymentService emiPaymentService;
 
-    @Operation(summary = "Post a scheduled EMI payment (amount must match the exact EMI due)")
+    @Operation(summary = "Post a payment against what is due: any amount, applied oldest demand first (interest before principal); money left over is held as an advance")
     @PostMapping("/emi")
     public EmiTransactionResponse postEmi(
             @PathVariable Long accountId,
@@ -39,7 +39,7 @@ public class EmiPaymentController {
                 accountId, request.valueDate(), request.amount(), request.channel(), idempotencyKey));
     }
 
-    @Operation(summary = "Post an ad-hoc principal part-payment; regenerates the remaining schedule")
+    @Operation(summary = "Post a part-payment: pays what is due first, then reduces principal and regenerates the instalments not yet due")
     @PostMapping("/part-payment")
     public EmiTransactionResponse postPartPayment(
             @PathVariable Long accountId,
@@ -50,7 +50,7 @@ public class EmiPaymentController {
                 accountId, request.valueDate(), request.amount(), request.channel(), idempotencyKey));
     }
 
-    @Operation(summary = "Foreclose the account: pay off outstanding principal plus accrued interest and close it")
+    @Operation(summary = "Foreclose the account: pay off everything due, the remaining principal and accrued interest, and close it")
     @PostMapping("/foreclosure")
     public EmiTransactionResponse foreclose(
             @PathVariable Long accountId,

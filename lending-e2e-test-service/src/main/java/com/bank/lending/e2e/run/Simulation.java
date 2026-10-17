@@ -457,17 +457,17 @@ public final class Simulation {
         ApiResult after = admin.payments(s.accountId);
         int n0 = before.body().path("rows").size();
         int n1 = after.body().path("rows").size();
+        // Since demands and the payment waterfall, a short payment is accepted and applied to what is due (interest, then
+        // principal, oldest demand first). It is only wrong if it is neither a clean rejection nor exactly one new row.
         boolean rejected = res.clientError() && n0 == n1;
-        findings.check(rejected, "PAY-04", s.scenario.scenarioId(), s.accountNumber, day, "4xx and no new payment row",
-                res.brief() + " rows " + n0 + "->" + n1, "short payment not rejected cleanly");
+        boolean accepted = res.ok() && n1 == n0 + 1;
+        findings.check(rejected || accepted, "PAY-04", s.scenario.scenarioId(), s.accountNumber, day,
+                "2xx with one new payment row, or 4xx with none",
+                res.brief() + " rows " + n0 + "->" + n1, "short payment neither applied nor rejected cleanly");
         sb.append("short-pay=").append(res.status()).append(';');
         if (res.ok()) {
+            // The model assumes whole instalments, so it no longer tracks this account.
             s.diverged = true;
-            findings.notFound("CAP-PARTIAL-ALLOC", s.scenario.scenarioId(), s.accountNumber, day,
-                    "short payment was accepted - allocation rules for part-instalment payments are undocumented; account no longer modelled");
-        } else {
-            findings.notFound("CAP-PARTIAL-ALLOC", s.scenario.scenarioId(), s.accountNumber, day,
-                    "instalment payment must equal the exact amount due; there is no partial-payment allocation (HTTP " + res.status() + ")");
         }
     }
 

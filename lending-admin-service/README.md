@@ -67,7 +67,7 @@ Or the whole thing: `docker compose up --build lending-admin-service` from the r
 `GET /me` · `/dashboard` · `/accounts` · `/accounts/{id}` · `/accounts/by-number/{n}` · `/accounts/{id}/schedule?version=` ·
 `/accounts/{id}/accruals?from=&to=` · `/accounts/{id}/payments` · `/accounts/{id}/mortgage` · `/accounts/{id}/statement` ·
 `/upcoming-payments` · `/overdue` · `/overdue/buckets` · `/payments` · `/accruals/summary` · `/accruals?date=` ·
-`/ledger-outbox` · `/batch` · `/config` · `/config/batch-jobs` (GET, `PUT /{job}?apply=`, `POST /apply`). Account operations (POST, forwarded to lending-service): `/operations/accounts` · `/operations/accounts/{id}/disburse` · `/operations/accounts/{id}/payments/emi|part-payment|foreclosure` (optional `Idempotency-Key` header) · `/operations/accounts/bulk/create|disburse`. `/actuator/health` is open for health checks.
+`/ledger-outbox` · `/batch` · `/config` · `/config/batch-jobs` (GET, `PUT /{job}?apply=`, `POST /apply`). Account operations (POST, forwarded to lending-service): `/operations/accounts` · `/operations/accounts/{id}/disburse` · `/operations/accounts/{id}/payments/emi|part-payment|foreclosure|preview` (optional `Idempotency-Key` header) · `GET /operations/accounts/{id}/amount-payable?asOf=` · `/operations/accounts/bulk/create|disburse`. `/actuator/health` is open for health checks.
 
 ## Notes
 

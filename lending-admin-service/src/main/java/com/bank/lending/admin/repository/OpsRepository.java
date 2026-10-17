@@ -98,7 +98,7 @@ public class OpsRepository {
                 rs.getString("job_params_json"), Sql.ts(rs, "updated_at"));
     }
 
-    /** Every batch job's full configuration (all 36 rows), in run order. */
+    /** Every batch job's full configuration (all 37 rows), in run order. */
     public List<BatchJobConfigRow> batchJobConfigs() {
         return jdbc.query(JOB_CONFIG_SELECT + " ORDER BY priority, job_name", new MapSqlParameterSource(),
                 OpsRepository::jobConfig);

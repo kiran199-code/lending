@@ -197,6 +197,27 @@ export interface PaymentResult {
   transactionId: number; valueDate: string; accountId: number; installmentNumber: number | null;
   transactionType: string; amount: number; principalPaid: number | null; interestPaid: number | null;
   paymentChannel: string; paymentStatus: string; idempotencyKey: string;
+  /** How the payment was applied; absent on transactions read back from history. */
+  allocations?: AllocationLine[] | null; advanceBalance?: number | null;
+}
+
+/** One line of how a payment is (or would be) applied. component is PENALTY, INTEREST, PRINCIPAL or ADVANCE. */
+export interface AllocationLine { installmentNumber: number | null; component: string; amount: number }
+
+export interface DemandLine {
+  installmentNumber: number; dueDate: string; principalDue: number; interestDue: number; principalPaid: number;
+  interestPaid: number; principalOutstanding: number; interestOutstanding: number; outstanding: number;
+  status: string; raised: boolean;
+}
+export interface AmountPayable {
+  accountId: number; asOfDate: string; accountStatus: string; daysPastDue: number; demands: DemandLine[];
+  overdueAmount: number; dueTodayAmount: number; penalInterest: number; advanceBalance: number; amountPayable: number;
+  nextInstallment: { installmentNumber: number; dueDate: string; principal: number; interest: number; amount: number } | null;
+}
+export interface PaymentPreview {
+  accountId: number; valueDate: string; amount: number; paymentType: string; lines: AllocationLine[];
+  toPenalInterest: number; toInterest: number; toPrincipal: number; surplus: number; surplusTreatment: string | null;
+  allowed: boolean; message: string | null;
 }
 export interface BulkItemResult { index: number; outcome: string; accountId: number | null; accountNumber: string | null; accountStatus: string | null; message: string | null }
 export interface BulkResult { total: number; succeeded: number; failed: number; results: BulkItemResult[] }

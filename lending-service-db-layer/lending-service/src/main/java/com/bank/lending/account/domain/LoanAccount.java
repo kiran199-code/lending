@@ -109,6 +109,16 @@ public class LoanAccount {
     @Column(name = "account_status", nullable = false, length = 30)
     private AccountStatus accountStatus;
 
+    /** Days past due of the oldest unpaid instalment, stored by the classification run; 0 when nothing is overdue. */
+    @Builder.Default
+    @Column(name = "days_past_due", nullable = false)
+    private Integer daysPastDue = 0;
+
+    /** Money received that matches no demand yet; applied when the next instalment falls due. */
+    @Builder.Default
+    @Column(name = "advance_balance", nullable = false, precision = 15, scale = 2)
+    private BigDecimal advanceBalance = BigDecimal.ZERO;
+
     @Column(name = "mortgage_id")
     private Long mortgageId;
 

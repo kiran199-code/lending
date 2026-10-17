@@ -106,4 +106,23 @@ class AccountOperationsControllerTest {
         verify(client, never()).bulkCreate(any(), anyString());
         verify(client, never()).bulkDisburse(any(), anyString());
     }
+
+    @Test
+    void amountPayableChecksTheDateAndIsForwarded() {
+        controller.amountPayable(7L, "2026-10-12");
+        verify(client).amountPayable(7L, "2026-10-12");
+        assertThatThrownBy(() -> controller.amountPayable(7L, "12/10/2026"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("yyyy-MM-dd");
+    }
+
+    @Test
+    void previewNeedsADateAndAPositiveAmountThenIsForwarded() {
+        assertThatThrownBy(() -> controller.previewPayment(7L, json("{\"valueDate\":\"2026-10-12\",\"amount\":0}"), admin))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("greater than zero");
+        assertThatThrownBy(() -> controller.previewPayment(7L, json("{\"amount\":10}"), admin))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("valueDate");
+        JsonNode body = json("{\"valueDate\":\"2026-10-12\",\"amount\":1500.50}");
+        controller.previewPayment(7L, body, admin);
+        verify(client).previewPayment(7L, body, "admin");
+    }
 }

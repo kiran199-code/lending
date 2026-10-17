@@ -87,13 +87,14 @@ class MaintenanceServiceTest {
         assertThat(sql.getValue()).startsWith("TRUNCATE TABLE ").endsWith(" RESTART IDENTITY")
                 .doesNotContain("CASCADE");
         for (String table : List.of("loan_account", "amortization_schedule", "interest_accrual", "emi_transaction",
+                "loan_demand", "payment_allocation",
                 "mortgage", "mortgage_valuation_history", "ledger_outbox", "processed_request", "loan_product")) {
             assertThat(sql.getValue()).contains(table);
         }
         // The business date, holidays, benchmark rates and batch tables are never touched.
         assertThat(sql.getValue()).doesNotContain("business_date", "non_working_day", "benchmark_rate");
-        assertThat(r.deleted()).hasSize(9);
-        assertThat(r.totalRows()).isEqualTo(18L);
+        assertThat(r.deleted()).hasSize(11);
+        assertThat(r.totalRows()).isEqualTo(22L);
         assertThat(r.clearedBy()).isEqualTo("admin");
     }
 

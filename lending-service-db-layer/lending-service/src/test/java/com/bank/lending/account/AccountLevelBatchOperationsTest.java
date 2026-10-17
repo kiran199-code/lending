@@ -1,6 +1,7 @@
 package com.bank.lending.account;
 
 import com.bank.lending.account.domain.LoanAccount;
+import com.bank.lending.demand.repository.LoanDemandRepository;
 import com.bank.lending.account.dto.DelinquencyResultResponse;
 import com.bank.lending.account.dto.RateResetResultResponse;
 import com.bank.lending.account.repository.LoanAccountRepository;
@@ -38,7 +39,8 @@ class AccountLevelBatchOperationsTest {
 
     private final LoanAccountService service = new LoanAccountService(accounts, schedule, scheduleService,
             Mockito.mock(AccountNumberGenerator.class), Mockito.mock(LedgerOutboxService.class),
-            Mockito.mock(AccountTermsResolver.class), products, benchmarks, Mockito.mock(BusinessDateService.class));
+            Mockito.mock(AccountTermsResolver.class), products, benchmarks, Mockito.mock(BusinessDateService.class),
+            Mockito.mock(LoanDemandRepository.class));
 
     private LoanAccount account(LoanAccount.AccountStatus status) {
         LoanAccount a = LoanAccount.builder().accountId(1L).productId(10L).accountStatus(status)

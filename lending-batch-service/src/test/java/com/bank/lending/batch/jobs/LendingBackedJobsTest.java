@@ -1,6 +1,7 @@
 package com.bank.lending.batch.jobs;
 
 import com.bank.lending.batch.core.BatchJobContext;
+import com.bank.lending.batch.jobs.daily.DemandRaiseBatchJob;
 import com.bank.lending.batch.jobs.daily.DpdUpdateBatchJob;
 import com.bank.lending.batch.jobs.daily.GlPostingReconciliationBatchJob;
 import com.bank.lending.batch.jobs.daily.InterestAccrualBatchJob;
@@ -40,6 +41,7 @@ class LendingBackedJobsTest {
         String accrualOutcome = "POSTED";
         boolean statusChanged = true;
         String rateOutcome = "RESET";
+        int demandsCreated = 2;
         final Deque<Integer> pendingCounts = new ArrayDeque<>();
         boolean failAll;
 
@@ -55,6 +57,15 @@ class LendingBackedJobsTest {
                 throw new LendingServiceException("down", 503, null);
             }
             return new AccrualResult(accountId, accrualOutcome, BigDecimal.ONE, null);
+        }
+
+        @Override
+        public DemandRaiseResult raiseDemands(long accountId, LocalDate businessDate) {
+            calls.add("demands " + accountId + " " + businessDate);
+            if (failAll) {
+                throw new LendingServiceException("down", 503, null);
+            }
+            return new DemandRaiseResult(accountId, demandsCreated);
         }
 
         @Override
@@ -100,6 +111,18 @@ class LendingBackedJobsTest {
         lending.accrualOutcome = "ALREADY_POSTED";
         assertEquals(null, job.processor().process(43L));
         assertEquals(List.of("accrue 42 2026-10-12", "accrue 43 2026-10-12"), lending.calls);
+    }
+
+    @Test
+    void demandRaiseCallsLendingPerAccountAndOnlyPassesOnAccountsThatGotANewDemand() throws Exception {
+        FakeLending lending = new FakeLending();
+        DemandRaiseBatchJob job = new DemandRaiseBatchJob(null, lending);
+        context("{}");
+        assertEquals(Long.valueOf(9L), job.processor().process(9L));
+        lending.demandsCreated = 0;
+        assertEquals(null, job.processor().process(10L));
+        assertEquals(List.of("demands 9 2026-10-12", "demands 10 2026-10-12"), lending.calls);
+        assertEquals("DEMAND_RAISE_DAILY", job.getJobName());
     }
 
     @Test

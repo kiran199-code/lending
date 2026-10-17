@@ -11,6 +11,8 @@ import com.bank.lending.account.repository.LoanAccountRepository;
 import com.bank.lending.account.util.AccountNumberGenerator;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
+import com.bank.lending.demand.domain.LoanDemand;
+import com.bank.lending.demand.repository.LoanDemandRepository;
 import com.bank.lending.ledger.domain.LedgerOutboxEntry;
 import com.bank.lending.ledger.service.LedgerOutboxService;
 import com.bank.lending.product.domain.LoanProduct;
@@ -58,6 +60,7 @@ public class LoanAccountService {
     private final LoanProductRepository productRepository;
     private final BenchmarkRateService benchmarkRateService;
     private final BusinessDateService businessDateService;
+    private final LoanDemandRepository demandRepository;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -241,9 +244,13 @@ public class LoanAccountService {
             return true;
         }
 
+        // An instalment that already has a demand is what the borrower owes now, so only the ones still to fall due are re-priced.
+        java.util.Set<Integer> demanded = new java.util.HashSet<>(
+                demandRepository.findDemandedInstallmentNumbers(account.getAccountId()));
         List<AmortizationScheduleEntry> pending = scheduleRepository
                 .findByAccountIdAndScheduleVersionAndInstallmentStatus(account.getAccountId(), version, PENDING)
                 .stream()
+                .filter(e -> !demanded.contains(e.getInstallmentNumber()))
                 .sorted(Comparator.comparing(AmortizationScheduleEntry::getInstallmentNumber))
                 .toList();
         if (pending.isEmpty()) {
@@ -311,23 +318,37 @@ public class LoanAccountService {
                         && !e.getDueDate().isAfter(asOfDate))
                 .min(Comparator.comparing(AmortizationScheduleEntry::getInstallmentNumber));
 
-        if (oldestUnpaid.isEmpty()) {
-            if (account.getAccountStatus() != ACTIVE) {
+        // A demand that is still open counts even when its schedule row is in an older schedule version (a rate reset
+        // or part-payment writes a new version for the instalments not yet demanded only).
+        Optional<LocalDate> oldestOpenDemandDue = demandRepository
+                .findByAccountIdAndStatusNotOrderByInstallmentNumberAsc(account.getAccountId(), LoanDemand.DemandStatus.CLEARED)
+                .stream().filter(d -> !d.getDueDate().isAfter(asOfDate) && d.outstanding().signum() > 0)
+                .map(LoanDemand::getDueDate).min(Comparator.naturalOrder());
+        Optional<LocalDate> oldestUnpaidDue = oldestUnpaid.map(AmortizationScheduleEntry::getDueDate);
+        Optional<LocalDate> oldestDue = oldestUnpaidDue.isPresent() && oldestOpenDemandDue.isPresent()
+                ? Optional.of(oldestUnpaidDue.get().isBefore(oldestOpenDemandDue.get()) ? oldestUnpaidDue.get() : oldestOpenDemandDue.get())
+                : oldestUnpaidDue.isPresent() ? oldestUnpaidDue : oldestOpenDemandDue;
+
+        if (oldestDue.isEmpty()) {
+            if (account.getAccountStatus() != ACTIVE || account.getDaysPastDue() != 0) {
                 account.setAccountStatus(ACTIVE);
+                account.setDaysPastDue(0);
                 loanAccountRepository.save(account);
             }
             return new DelinquencyResultResponse(account.getAccountId(), asOfDate, 0, previous,
                     account.getAccountStatus(), previous != account.getAccountStatus(), false);
         }
 
-        long daysPastDue = ChronoUnit.DAYS.between(oldestUnpaid.get().getDueDate(), asOfDate);
+        long daysPastDue = ChronoUnit.DAYS.between(oldestDue.get(), asOfDate);
         LoanAccount.AccountStatus newStatus = classifyByDaysPastDue(daysPastDue);
-        if (newStatus != account.getAccountStatus()) {
+        int storedDaysPastDue = (int) Math.max(0, daysPastDue);
+        if (newStatus != account.getAccountStatus() || account.getDaysPastDue() != storedDaysPastDue) {
             account.setAccountStatus(newStatus);
+            account.setDaysPastDue(storedDaysPastDue);
             loanAccountRepository.save(account);
         }
 
-        if (oldestUnpaid.get().getInstallmentStatus() == PENDING && daysPastDue > 0) {
+        if (oldestUnpaid.isPresent() && oldestUnpaid.get().getInstallmentStatus() == PENDING && daysPastDue > 0) {
             oldestUnpaid.get().setInstallmentStatus(AmortizationScheduleEntry.InstallmentStatus.OVERDUE);
             scheduleRepository.save(oldestUnpaid.get());
         }

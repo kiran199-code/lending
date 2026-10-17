@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
 /**
- * Loan account operations: create, disburse, post an instalment, part-payment, foreclosure, and the two bulk calls.
+ * Loan account operations: create, disburse, read the amount payable, preview and post an instalment, part-payment, foreclosure, and the two bulk calls.
  * Every one is done by lending-service through its own validated API; this service never writes to the database
  * itself. Payments carry an Idempotency-Key, so sending the same request twice applies it once.
  */
@@ -55,6 +55,22 @@ public class LendingAccountClient {
 
     public JsonNode foreclose(long accountId, JsonNode body, String actor, String idempotencyKey) {
         return post("/api/v1/loan-accounts/" + accountId + "/payments/foreclosure", body, actor, idempotencyKey);
+    }
+
+    /** What the borrower owes on a date: open demands oldest first, overdue and due-today totals, advance held. */
+    public JsonNode amountPayable(long accountId, String asOf) {
+        require();
+        String path = "/api/v1/loan-accounts/" + accountId + "/amount-payable"
+                + (asOf == null || asOf.isBlank() ? "" : "?asOf=" + asOf);
+        return call(() -> client.get().uri(path)
+                .retrieve()
+                .onStatus(st -> st.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                .body(JsonNode.class));
+    }
+
+    /** How a payment would be applied; changes nothing. */
+    public JsonNode previewPayment(long accountId, JsonNode body, String actor) {
+        return post("/api/v1/loan-accounts/" + accountId + "/payments/preview", body, actor, null);
     }
 
     public JsonNode bulkCreate(JsonNode body, String actor) {

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Amount must match the exact EMI due for the next pending installment; otherwise use a part-payment. */
+/** Any positive amount: it is applied to what is due, oldest first; anything left over is held as an advance. */
 public record EmiPaymentRequest(
         @NotNull LocalDate valueDate,
         @NotNull @Positive BigDecimal amount,

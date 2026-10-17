@@ -41,6 +41,7 @@ public class MaintenanceService {
     /** Every table the clear empties, in the order they are reported. */
     static final List<String> TABLES = List.of(
             "loan_account", "amortization_schedule", "interest_accrual", "emi_transaction",
+            "loan_demand", "payment_allocation",
             "mortgage", "mortgage_valuation_history", "ledger_outbox", "processed_request", "loan_product");
 
     private final JdbcTemplate jdbc;

@@ -2,6 +2,7 @@ package com.bank.lending.batch.jobs.daily;
 
 import com.bank.lending.batch.core.BatchJobContext;
 import com.bank.lending.batch.core.BusinessBatchTasklet;
+import com.bank.lending.batch.core.JobParams;
 import com.bank.lending.batch.lending.LendingServiceClient;
 import com.bank.lending.batch.lending.LendingServiceClient.ReconciliationCheck;
 import com.bank.lending.batch.lending.LendingServiceClient.ReconciliationOutcome;
@@ -22,16 +23,22 @@ import java.util.stream.Collectors;
  * principal (not due and due), accrued and due interest, penal interest and advance equal what the demand, accrual and
  * account tables say. The result is stored (see the Reconciliation screen).
  *
- * <p>If anything differs the job fails with the failed checks in its message, which stops end of day on this date, so
- * the books are never rolled forward over a break. Fix the cause (retry or waive the posting exception, correct the
- * route or template) and run end of day again; the check is repeatable. When accounting is switched off in
- * lending-service the run still succeeds with nothing to compare.
+ * <p>If anything differs the failed checks are logged as a warning with the account-level detail and the job still
+ * completes, so end of day carries on; the stored result (Reconciliation screen) shows every difference and the next
+ * night's run checks again. Set the job parameter {@code "stopEndOfDay": true} (Batch jobs configuration,
+ * {@code job_params_json}) to make a difference fail the job instead, which stops end of day on this date so the books
+ * are never rolled forward over a break; fix the cause (retry or waive the posting exception, correct the route or
+ * template, run the opening balance for accounts that pre-date accounting) and run end of day again. When accounting is
+ * switched off in lending-service the run succeeds with nothing to compare.
  *
  * <p>Runs after every job that can post a journal (the last is CHARGES_FEE_APPLICATION_DAILY at priority 100) and
  * before the balance snapshot.
  */
 @Component
 public class AccountingReconciliationBatchJob implements BusinessBatchTasklet {
+
+    /** Job parameter: true makes a reconciliation difference fail the job (and so stop end of day). Default false. */
+    static final String STOP_END_OF_DAY = "stopEndOfDay";
 
     private static final Logger log = LoggerFactory.getLogger(AccountingReconciliationBatchJob.class);
 
@@ -53,8 +60,14 @@ public class AccountingReconciliationBatchJob implements BusinessBatchTasklet {
             if (!outcome.allPassed()) {
                 String failed = outcome.failed().stream().map(AccountingReconciliationBatchJob::describe)
                         .collect(Collectors.joining("; "));
-                throw new IllegalStateException("Accounting reconciliation failed for " + BatchJobContext.businessDate()
-                        + (failed.isEmpty() ? ": no checks were returned" : ": " + failed));
+                String message = "Accounting reconciliation failed for " + BatchJobContext.businessDate()
+                        + (failed.isEmpty() ? ": no checks were returned" : ": " + failed);
+                if (JobParams.current().booleanValue(STOP_END_OF_DAY, false)) {
+                    throw new IllegalStateException(message);
+                }
+                log.warn("{} (end of day continues; set \"{}\": true in the job parameters to stop on a difference)",
+                        message, STOP_END_OF_DAY);
+                return RepeatStatus.FINISHED;
             }
             log.info("Accounting reconciliation passed for {} ({} checks)", BatchJobContext.businessDate(),
                     outcome.checks().size());

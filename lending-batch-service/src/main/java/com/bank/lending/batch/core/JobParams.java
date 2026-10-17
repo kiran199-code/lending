@@ -71,6 +71,21 @@ public final class JobParams {
         return v;
     }
 
+    /** A true/false parameter; absent or blank gives the default. Anything other than true/false fails the job loudly. */
+    public boolean booleanValue(String key, boolean defaultValue) {
+        String v = string(key);
+        if (v == null) {
+            return defaultValue;
+        }
+        if (v.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (v.equalsIgnoreCase("false")) {
+            return false;
+        }
+        throw new IllegalStateException("job_params_json parameter '" + key + "' must be true or false: " + v);
+    }
+
     public int intValue(String key, int defaultValue) {
         Long v = longValue(key);
         return v == null ? defaultValue : Math.toIntExact(v);

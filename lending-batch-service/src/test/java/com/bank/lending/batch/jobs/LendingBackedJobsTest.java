@@ -283,16 +283,37 @@ class LendingBackedJobsTest {
     }
 
     @Test
-    void accountingReconciliationFailsEndOfDayAndNamesTheFailedChecks() {
+    void accountingReconciliationFailsEndOfDayAndNamesTheFailedChecksWhenToldToStop() {
         FakeLending lending = new FakeLending();
         lending.reconciled = false;
-        context("{}");
+        context("{\"stopEndOfDay\": true}");
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> new AccountingReconciliationBatchJob(lending).buildTasklet().execute(null, null));
         assertTrue(e.getMessage().contains("RECON_PENAL"));
         assertTrue(e.getMessage().contains("account 7"));
         assertTrue(e.getMessage().contains("2026-10-12"));
         assertTrue(!e.getMessage().contains("LEDGER_BALANCED"), "only failed checks are listed");
+    }
+
+    @Test
+    void accountingReconciliationDifferenceDoesNotStopEndOfDayByDefault() throws Exception {
+        FakeLending lending = new FakeLending();
+        lending.reconciled = false;
+        context("{}");
+        org.springframework.batch.repeat.RepeatStatus status =
+                new AccountingReconciliationBatchJob(lending).buildTasklet().execute(null, null);
+        assertEquals(org.springframework.batch.repeat.RepeatStatus.FINISHED, status);
+        assertEquals(List.of("reconcile 2026-10-12"), lending.calls);
+    }
+
+    @Test
+    void accountingReconciliationStopParameterMustBeABoolean() {
+        FakeLending lending = new FakeLending();
+        lending.reconciled = false;
+        context("{\"stopEndOfDay\": \"maybe\"}");
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> new AccountingReconciliationBatchJob(lending).buildTasklet().execute(null, null));
+        assertTrue(e.getMessage().contains("stopEndOfDay"));
     }
 
     @Test

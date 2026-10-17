@@ -21,12 +21,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -54,19 +53,18 @@ public class AccountingEventService {
     private final ExceptionRepository exceptions;
     private final AccountingSettings settings;
     private final ObjectMapper mapper;
-    private final TransactionTemplate nested;
+    private final JdbcTemplate jdbc;
 
     public AccountingEventService(AccountingConfigRepository configRepository, JournalRepository journals,
                                   CarryRepository carries, ExceptionRepository exceptions, AccountingSettings settings,
-                                  ObjectMapper mapper, PlatformTransactionManager transactionManager) {
+                                  ObjectMapper mapper, JdbcTemplate jdbc) {
         this.configRepository = configRepository;
         this.journals = journals;
         this.carries = carries;
         this.exceptions = exceptions;
         this.settings = settings;
         this.mapper = mapper;
-        this.nested = new TransactionTemplate(transactionManager);
-        this.nested.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
+        this.jdbc = jdbc;
     }
 
     /** Posts an event; any failure propagates and rolls the caller's transaction back. */
@@ -126,9 +124,31 @@ public class AccountingEventService {
         exceptions.resolve(exceptionId, "WAIVED", actor, note);
     }
 
-    /** Runs work in a savepoint of the caller's transaction, so a failure undoes only that work. A seam for tests. */
+    /**
+     * Runs work in a JDBC savepoint of the caller's transaction, so a failure undoes only that work. A seam for tests.
+     *
+     * <p>This takes the savepoint on the connection itself rather than asking Spring for a NESTED transaction: the
+     * application's transaction manager is JPA, whose dialect cannot create savepoints ("JpaDialect does not support
+     * savepoints"). All the accounting repositories use JdbcTemplate, which runs on the connection bound to the
+     * caller's transaction, so the savepoint covers exactly their writes.
+     */
     protected <T> T runNested(Supplier<T> work) {
-        return nested.execute(status -> work.get());
+        return jdbc.execute((ConnectionCallback<T>) con -> {
+            java.sql.Savepoint savepoint = con.setSavepoint();
+            T result;
+            try {
+                result = work.get();
+            } catch (RuntimeException e) {
+                try {
+                    con.rollback(savepoint);
+                } catch (java.sql.SQLException rollbackFailure) {
+                    e.addSuppressed(rollbackFailure);
+                }
+                throw e;
+            }
+            con.releaseSavepoint(savepoint);
+            return result;
+        });
     }
 
     // ----------------------------------------------------------------------------------------------- the engine

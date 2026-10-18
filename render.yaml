@@ -288,6 +288,16 @@ services:
           type: web
           name: lending-admin-service
           envVarKey: ADMIN_PASSWORD
+      # SECURED flow only (collateral and facility are created in LCM first). Set E2E_LCM_BASE_URL after the first sync.
+      - key: E2E_LCM_BASE_URL
+        sync: false   # public URL of lending-lcm-service
+      - key: E2E_LCM_USERNAME
+        value: lcm-service
+      - key: E2E_LCM_PASSWORD
+        fromService:
+          type: web
+          name: lending-lcm-service
+          envVarKey: LCM_SERVICE_PASSWORD
       - key: E2E_SERVER_BIND
         value: 0.0.0.0
       - key: E2E_SERVER_TOKEN

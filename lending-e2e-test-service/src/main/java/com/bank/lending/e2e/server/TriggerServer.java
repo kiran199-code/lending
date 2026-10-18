@@ -39,7 +39,8 @@ import java.util.stream.Stream;
  * <pre>
  *   GET  /                          web console (paste the token, press Dry run / Run)
  *   GET  /health                    liveness, no token
- *   POST /runs[?dryRun=true]        start a run (optional flat JSON of e2e.* overrides); one run at a time
+ *   POST /runs[?dryRun=true][&flow=secured]  start a run (optional flat JSON of e2e.* overrides); one run at a time.
+ *                                   flow=secured runs the SECURED flow (collateral and facility in LCM first); default is unsecured
  *   GET  /runs                      run ids found in the results directory
  *   GET  /runs/current              state of the current / last run, with the log tail
  *   GET  /runs/{runId}/{report|defects|audit|checks|batch|manifest|cleanup}
@@ -202,6 +203,9 @@ public final class TriggerServer {
                     || k.endsWith("username") || k.startsWith("e2e.server.") || k.equals("e2e.profile") || k.equals("e2e.output-dir"));
             String query = ex.getRequestURI().getQuery();
             boolean dry = query != null && query.contains("dryRun=true");
+            if (query != null && query.toLowerCase(java.util.Locale.ROOT).contains("flow=secured")) {
+                overrides.put("e2e.flow", "SECURED");
+            }
             E2eConfig cfg = E2eConfig.load(withBase(overrides));
             Map<String, Object> state = new LinkedHashMap<>();
             state.put("state", "RUNNING");

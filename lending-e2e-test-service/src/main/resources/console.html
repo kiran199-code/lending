@@ -21,10 +21,12 @@ a{color:var(--acc)}small{color:var(--mut)}
  <label class="f">Max simulated days<input id="days" type="number" min="1" placeholder="default 800"></label>
  <label class="f">Start date<input id="start" type="date"></label>
 </div>
+<p class="s"><small><b>Secured</b> buttons run the secured flow: they create the collateral and facility in LCM first, then the loan, disbursal and the end-of-day days (LCM must be configured for this service). The plain buttons run the unsecured flow, which never creates collateral. For the secured flow set <b>Start date</b> to today.</small></p>
 <p class="s"><small>Start date = simulated day 1. It must be <b>the platform's current business date or later</b> (the date only moves forward); leave it empty to use the
  server's built-in default, which is usually already in the past. A dry run reports the current business date.</small></p>
 <div class="row">
  <button onclick="start(true)">Dry run</button><button class="p" onclick="start(false)">Run</button>
+ <button onclick="start(true,true)">Secured dry run</button><button class="p" onclick="start(false,true)">Secured run</button>
  <button onclick="status()">Refresh status</button><button onclick="runs()">List runs</button>
 </div>
 <div class="row"><input id="rid" placeholder="run id (E2E-...)"><button onclick="open_('report')">Report</button><button onclick="open_('defects')">Defects</button>
@@ -36,8 +38,8 @@ const $=id=>document.getElementById(id), out=t=>$('out').textContent=t;
 const H=()=>({'X-E2E-Token':$('tok').value});
 async function call(path,opt={}){const r=await fetch(path,{...opt,headers:{...H(),...(opt.headers||{})}});const t=await r.text();
  try{return r.status+' '+JSON.stringify(JSON.parse(t),null,2)}catch(e){return r.status+'\n'+t}}
-async function start(dry){const b={};if($('acc').value)b.accounts=$('acc').value;if($('days').value)b['max-sim-days']=$('days').value;if($('start').value)b['start-date']=$('start').value;
- out(await call('/runs'+(dry?'?dryRun=true':''),{method:'POST',body:JSON.stringify(b)}));setTimeout(status,1500)}
+async function start(dry,sec){const b={};if($('acc').value)b.accounts=$('acc').value;if($('days').value)b['max-sim-days']=$('days').value;if($('start').value)b['start-date']=$('start').value;
+ out(await call('/runs?'+(dry?'dryRun=true&':'')+(sec?'flow=secured':''),{method:'POST',body:JSON.stringify(b)}));setTimeout(status,1500)}
 async function status(){out(await call('/runs/current'))}
 async function runs(){out(await call('/runs'))}
 async function open_(k){const id=$('rid').value.trim();if(!id)return out('Enter a run id (see List runs).');out(await call('/runs/'+id+'/'+k))}

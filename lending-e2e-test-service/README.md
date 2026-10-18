@@ -257,6 +257,8 @@ API (same token header): `POST /runs[?dryRun=true]` with optional JSON such as `
 `GET /runs`, `GET /runs/current`, `GET /runs/<id>/{report|defects|audit|checks|batch|manifest|cleanup}`,
 `POST /runs/<id>/teardown`.
 
+**Secured flow on Render.** The console has *Secured dry run* and *Secured run* buttons (API: `POST /runs?flow=secured`, add `&dryRun=true` for a dry run). The plain *Run* is the unsecured flow and never creates collateral or a facility. The service needs `E2E_LCM_BASE_URL` (the public URL of lending-lcm-service; `sync: false` in `render.yaml`, set it after the first sync) and `E2E_LCM_PASSWORD` (read from lending-lcm-service). lending-service must have `LENDING_LCM_MODE=live` and `LENDING_LCM_URL` set, product HL01 must exist (Maintenance -> Create base products), and the start date should be today.
+
 ## Open questions (each has a labelled, configurable default)
 
 | # | Question | Default used | Setting |

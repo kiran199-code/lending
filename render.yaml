@@ -46,6 +46,19 @@ services:
       # Remove it (or set "false") on anything that holds data you want to keep.
       - key: LENDING_RESET_ENABLED
         value: "true"
+      # Limits (LCM). Leave the mode "off" until lending-lcm-service is deployed and loaded, then "shadow", then "live".
+      - key: LENDING_LCM_MODE
+        value: "off"
+      # lending-lcm-service's public URL (Render dashboard > lending-lcm-service); set after the first sync.
+      - key: LENDING_LCM_URL
+        sync: false
+      - key: LENDING_LCM_USERNAME
+        value: lcm-service
+      - key: LENDING_LCM_PASSWORD
+        fromService:
+          type: web
+          name: lending-lcm-service
+          envVarKey: LCM_SERVICE_PASSWORD
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 
@@ -153,6 +166,82 @@ services:
           envVarKey: BATCH_ADMIN_PASSWORD
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  - type: web
+    name: lending-lcm-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-lcm-service/Dockerfile
+    dockerContext: ./lending-lcm-service
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: LCM_DB_SCHEMA
+        value: lcm
+      - key: LCM_SERVICE_USERNAME
+        value: lcm-service
+      - key: LCM_SERVICE_PASSWORD
+        generateValue: true   # lending-service reads it from here (LENDING_LCM_PASSWORD below)
+      - key: LCM_ENFORCE
+        value: "true"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  - type: web
+    name: lending-iam-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-iam-service/Dockerfile
+    dockerContext: ./lending-iam-service
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: IAM_DB_SCHEMA
+        value: iam
+      # Required. Base64 of 32 bytes. If Render's generated value is not accepted, replace it with the output of
+      # `openssl rand -base64 32` (mark it sync: false) and KEEP A COPY OUTSIDE RENDER: losing it makes every stored secret unreadable.
+      - key: IAM_ENCRYPTION_KEY
+        generateValue: true
+      # The service's own public URL, https://lending-iam-service-XXXX.onrender.com (no trailing slash). It becomes the
+      # token issuer, so set it after the first sync and before the first token is issued.
+      - key: IAM_ISSUER
+        sync: false
+      # First start only (creates the bootstrap administrator). Remove once two named administrators exist.
+      - key: IAM_BOOTSTRAP_USERNAME
+        value: bootstrap
+      - key: IAM_BOOTSTRAP_PASSWORD
+        sync: false
+      # Browser origins allowed to call the API (the admin portal's URL once it uses IAM).
+      - key: IAM_CORS_ORIGINS
+        sync: false
+      - key: IAM_BCRYPT_COST
+        value: "10"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx300m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 
   # End-to-end lifecycle test suite (lending-e2e-test-service), hosted so runs need no local machine.
   # Open its URL, paste E2E_SERVER_TOKEN (Environment tab), press Dry run, then Run. See

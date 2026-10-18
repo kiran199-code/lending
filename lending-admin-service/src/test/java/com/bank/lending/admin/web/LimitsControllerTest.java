@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Spring-free: the limit screens forward to LCM under the right path and name, and reject malformed input first. */
 class LimitsControllerTest {
 
-    record Call(HttpMethod method, String path, Map<String, ?> query, Object body, String actor) {}
+    record Call(HttpMethod method, String path, Map<String, Object> query, Object body, String actor) {}
 
     /** An LcmClient that records what it is asked instead of calling LCM. */
     static class Recording extends LcmClient {
@@ -34,7 +35,7 @@ class LimitsControllerTest {
 
         @Override
         public JsonNode exchange(HttpMethod method, String path, Map<String, ?> query, Object body, String actor) {
-            calls.add(new Call(method, path, query, body, actor));
+            calls.add(new Call(method, path, query == null ? new LinkedHashMap<>() : new LinkedHashMap<String, Object>(query), body, actor));
             return null;
         }
 

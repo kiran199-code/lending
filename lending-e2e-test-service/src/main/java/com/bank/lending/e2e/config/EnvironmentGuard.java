@@ -40,7 +40,7 @@ public final class EnvironmentGuard {
             }
         }
         List<String> urls = new java.util.ArrayList<>();
-        for (String key : List.of("e2e.lending.base-url", "e2e.batch.base-url", "e2e.admin.base-url")) {
+        for (String key : List.of("e2e.lending.base-url", "e2e.batch.base-url", "e2e.admin.base-url", "e2e.lcm.base-url")) {
             String u = cfg.get(key);
             if (u != null && !u.isEmpty()) {
                 urls.add(u);

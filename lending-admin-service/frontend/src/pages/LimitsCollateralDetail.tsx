@@ -93,7 +93,7 @@ function Overview({ c, onChanged }: { c: Collateral; onChanged: () => void }) {
             ['Charge', c.chargeRegistered ? `Registered ${date(c.chargeRegisteredOn)}${c.chargeRef ? ` (${c.chargeRef})` : ''}` : 'Not registered'],
             ['Prior charge', c.priorChargeAmount === null ? '-' : money(c.priorChargeAmount)],
             ['Insurance expires', date(c.insuranceExpiry)],
-            ['Mortgage in lending', c.lendingMortgageId ?? '-'], ['Source', c.source ?? '-'],
+            ['Bridged from lending mortgage', c.lendingMortgageId ?? '-'], ['Source', c.source ?? '-'],
           ]} />
         </Card>
         <div>

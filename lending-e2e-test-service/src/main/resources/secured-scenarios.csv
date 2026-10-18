@@ -1,0 +1,12 @@
+# Scenario matrix for the SECURED flow (collateral and facility in LCM first, then the loan, disbursal and end-of-day days).
+# Run with:  java -jar lending-e2e-test.jar secured --profile=local
+# The unsecured flow has its own file (scenarios.csv) and never runs these rows. Same columns as scenarios.csv.
+# Every row must carry the feature COLLATERAL (that is what makes it a secured scenario) and a MORTGAGE-type product (HL01).
+# behaviourParams may include horizonDays=N: simulate only the first N days of a long mortgage (closure is then not expected).
+# The first instalment falls one period after e2e.start-date, so ~95 days cover three instalments, a month end and a quarter end.
+scenarioId,cohort,weight,description,productCode,amount,tenureMonths,repaymentFrequency,interestRate,dayCount,moratoriumMonths,balloonPercent,stepUpPercent,behaviour,behaviourParams,observeDaysAfterLastDue,requiresFeatures
+S01,A,1,Secured: collateral then facility then loan then pays on time for three instalments,HL01,2500000,120,,,,,,,ON_TIME,horizonDays=95,0,COLLATERAL|ACCRUAL
+S02,A,1,Secured: pays 5 days late every month,HL01,1800000,120,,,,,,,LATE_PAY,lateDays=5;horizonDays=95,0,COLLATERAL|ACCRUAL|DPD
+S03,A,1,Secured: 10% part-payment after the first instalment then on time,HL01,3000000,120,,,,,,,PART_PAY_THEN_ON_TIME,afterInstalment=1;percent=10;horizonDays=95,0,COLLATERAL|ACCRUAL
+S04,B,1,Secured: misses instalment 2 and pays 40 days late - collateral must stay active,HL01,2200000,120,,,,,,,MISS_THEN_CURE,missInstalment=2;lateDays=40;horizonDays=100,0,COLLATERAL|ACCRUAL|DPD_PERSISTED
+S05,B,1,Secured: forecloses at instalment 2 - the facility must be free afterwards,HL01,2000000,120,,,,,,,FORECLOSE_AT,atInstalment=2,0,COLLATERAL|ACCRUAL

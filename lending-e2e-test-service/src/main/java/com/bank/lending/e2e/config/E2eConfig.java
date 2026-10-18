@@ -71,7 +71,32 @@ public final class E2eConfig {
         }
         cliOverrides.forEach(merged::setProperty);
         merged.setProperty("e2e.profile", profile);
+        applyFlowDefaults(merged, cliOverrides);
         return new E2eConfig(merged, profile);
+    }
+
+    /**
+     * The SECURED flow has its own scenario file, account count, cohort split and day limit (e2e.secured.*). They replace the
+     * general settings unless the general setting was given explicitly (CLI option, -D or E2E_ variable), so the two flows never
+     * share a scenario matrix by accident.
+     */
+    private static void applyFlowDefaults(Properties merged, Map<String, String> cli) {
+        if (!"SECURED".equalsIgnoreCase(merged.getProperty("e2e.flow", "UNSECURED").trim())) {
+            return;
+        }
+        String[][] pairs = {{"e2e.scenario-file", "e2e.secured.scenario-file"}, {"e2e.accounts", "e2e.secured.accounts"},
+                {"e2e.cohort-a-percent", "e2e.secured.cohort-a-percent"}, {"e2e.max-sim-days", "e2e.secured.max-sim-days"}};
+        for (String[] p : pairs) {
+            String dflt = merged.getProperty(p[1]);
+            if (dflt != null && !dflt.isBlank() && !explicit(cli, p[0])) {
+                merged.setProperty(p[0], dflt.trim());
+            }
+        }
+    }
+
+    private static boolean explicit(Map<String, String> cli, String key) {
+        String env = key.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
+        return cli.containsKey(key) || System.getProperty(key) != null || System.getenv(env) != null;
     }
 
     /** Env var names cannot carry '-', so match "e2e.batch.base.url" to the declared "e2e.batch.base-url". */

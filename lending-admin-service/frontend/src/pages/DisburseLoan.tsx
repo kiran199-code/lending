@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { send } from '../api';
+import { CollateralCard } from '../components/limits';
 import { AccountFacts, AccountFinder, BusinessDateBar, ConfirmModal, Field, Notice, addMonths, useAccount, useBusinessDate } from '../components/ops';
 import { Card, KeyValues, PageHeader, StatusBadge } from '../components/ui';
 import { date, label, money, pct } from '../format';
@@ -55,9 +56,7 @@ export default function DisburseLoan() {
       <AccountFinder finder={finder} hint="Only accounts that are pending disbursement can be disbursed." />
       {a && <AccountFacts a={a} />}
       {a && !pending && !result && <div className="banner banner-warn" role="status">This account is <StatusBadge status={a.accountStatus} />, so it cannot be disbursed again.</div>}
-      {a && a.accountType === 'MORTGAGE' && pending && (
-        <div className="banner banner-warn" role="status">This is a mortgage account. It needs a registered charge before it can be disbursed; lending-service refuses otherwise and its message is shown here.</div>
-      )}
+      {a && pending && <CollateralCard account={a} />}
       {a && pending && (
         <Card title="Disbursement">
           <form onSubmit={check}>

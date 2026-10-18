@@ -1,9 +1,11 @@
 import { ReactNode, useState, useSyncExternalStore } from 'react';
+import { Link } from 'react-router-dom';
 import { get, getActingAs, setActingAs, subscribeActingAs } from '../api';
 import { useAuth } from '../auth';
 import { label, money, Tone } from '../format';
 import { useLoad } from '../hooks';
-import type { Availability, Facility } from '../types';
+import DataTable from './DataTable';
+import type { Availability, CollateralCover, Facility } from '../types';
 import { ConfirmModal, Notice } from './ops';
 import { Badge, Card, ErrorBox, Loading } from './ui';
 
@@ -239,4 +241,81 @@ export function DecisionModal({ title, rows, note, setNote, confirmLabel, danger
     <ConfirmModal title={title} rows={rows} confirmLabel={confirmLabel} danger={danger} onConfirm={onConfirm} onClose={onClose}
       note={<label className="field wide"><span>Note (optional)</span><input value={note} onChange={e => setNote(e.target.value)} aria-label="Decision note" /></label>} />
   );
+}
+
+// ------------------------------------------------------------------ collateral cover (secured loans)
+
+/**
+ * Collateral is held only in the Limits & Collateral service. A secured (MORTGAGE-type) loan is disbursed only when that
+ * service reports ACTIVE collateral of the borrower allocated to the loan's facility, so this card shows exactly that answer.
+ * Unsecured loans do not show it.
+ */
+export function CollateralCard({ account }: {
+  account: { accountType: string; accountStatus: string; customerId: number; limitFacilityRef?: string | null };
+}) {
+  const ref = account.limitFacilityRef ?? '';
+  const secured = account.accountType === 'MORTGAGE';
+  const st = useLoad(() => get<{ enabled: boolean }>('/limits/status'), []);
+  const cover = useLoad(
+    () => (secured && ref !== '' && st.data?.enabled
+      ? get<CollateralCover>(`/limits/facilities/${encodeURIComponent(ref)}/collateral-cover`)
+      : Promise.resolve(null)),
+    [secured, ref, st.data?.enabled],
+  );
+  if (!secured) return null;
+  const pending = account.accountStatus === 'PENDING_DISBURSEMENT';
+  const actions = <Link className="btn" to="/limits/collateral">Collateral in limits</Link>;
+
+  let body: ReactNode;
+  if (st.loading && !st.data) {
+    body = <Loading what="Checking limit service" />;
+  } else if (st.data && !st.data.enabled) {
+    body = (
+      <div className="banner banner-warn" role="status">
+        Collateral is held in the Limits & Collateral service, which is not set up on this console, so its cover cannot be shown here.
+        lending-service refuses to disburse a secured loan unless that service confirms the collateral.
+      </div>
+    );
+  } else if (ref === '') {
+    body = (
+      <div className="banner banner-warn" role="status">
+        This is a secured loan with no limit facility, so there is nothing to check its collateral against and it cannot be disbursed.
+        {pending ? ' Attach the facility that holds its collateral in the Limit facility card.' : ''}
+      </div>
+    );
+  } else if (cover.error) {
+    body = <ErrorBox message={cover.error} onRetry={cover.reload} />;
+  } else if (cover.loading && !cover.data) {
+    body = <Loading what="Loading collateral cover" />;
+  } else if (cover.data) {
+    const c = cover.data;
+    const other = c.customerId !== account.customerId;
+    body = (
+      <>
+        <div className={c.covered && !other ? 'banner banner-good' : 'banner banner-warn'} role="status">
+          {c.covered
+            ? <>Facility {c.facilityRef} is backed by <strong>{c.items.length}</strong> active collateral{c.items.length === 1 ? '' : 's'}, covering <strong>{money(c.coveredValue)}</strong> of lendable value.</>
+            : <>Facility {c.facilityRef} has no ACTIVE collateral of customer {c.customerId} allocated to it{pending ? ', so lending-service will refuse to disburse this loan' : ''}. Register the collateral, record legal verification, valuation, charge and insurance, activate it, then allocate it to the facility.</>}
+          {other && <> The facility belongs to customer {c.customerId}, not to this loan's customer {account.customerId}.</>}
+        </div>
+        <DataTable
+          columns={[
+            { key: 'r', header: 'Collateral', render: i => <Link to={`/limits/collateral/${encodeURIComponent(i.collateralRef)}`}>{i.collateralRef}</Link> },
+            { key: 't', header: 'Type', render: i => label(i.collateralType) },
+            { key: 'a', header: 'Allocated to', render: i => i.allocatedTo },
+            { key: 'p', header: 'Share', align: 'right', render: i => `${i.allocationPct}%` },
+            { key: 'l', header: 'Lendable value', align: 'right', render: i => money(i.lendableValue) },
+            { key: 'c', header: 'Covers', align: 'right', render: i => <strong>{money(i.coveredValue)}</strong> },
+          ]}
+          rows={c.items} rowKey={i => `${i.collateralRef}-${i.allocatedTo}`} empty="No active collateral allocated" />
+        <p className="muted" style={{ marginBottom: 0 }}>
+          The check is that cover exists, not that it is large enough for the loan. Only the borrower's own collateral counts.
+          To limit the amount drawn by collateral value, use a drawing-power facility.
+        </p>
+      </>
+    );
+  } else {
+    body = null;
+  }
+  return <Card title="Collateral (held in limits)" actions={actions}>{body}</Card>;
 }

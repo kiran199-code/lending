@@ -129,7 +129,7 @@ public class ConfigCatalog {
                 new FixedRule("Schedule", "Instalment sizing", "reducing balance at the average rate per period under the day count; straight-line when the rate is 0; rounded to 2 decimals HALF_UP"),
                 new FixedRule("Schedule", "Reschedule", "after a part-payment or a floating rate reset the remaining instalments are rebuilt with the same type, a running moratorium carries on, and a step-up schedule stays in its current year"),
                 new FixedRule("Delinquency", "Classification bands (days past due)", "0 ACTIVE; 1-30 SMA-0; 31-60 SMA-1; 61-90 SMA-2; 91-365 Substandard; 366-1095 Doubtful; over 1095 Loss"),
-                new FixedRule("Mortgage", "LTV", "sanctioned amount / valuation x 100 (against the sanctioned amount, not outstanding principal)"),
+                new FixedRule("Secured loans", "Collateral", "held only in the Limits & Collateral service; a MORTGAGE-type loan is disbursed only when that service reports ACTIVE collateral of the same customer allocated to the loan's facility (existence of cover, not its amount) and lending.lcm.mode is live; no fail-open"),
                 new FixedRule("Idempotency", "Create account / EMI posting / accrual", "sanctionRefId; (accountId, Idempotency-Key); (accountId, businessDate)"),
                 new FixedRule("Bulk", "Items per bulk call", "200 maximum"),
                 new FixedRule("Storage", "Monthly partitions", "interest_accrual and emi_transaction: current month + 6 ahead, created at startup and at 02:30 IST on the 1st and 15th"),

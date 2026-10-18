@@ -35,7 +35,7 @@ public final class AdminDtos {
                                 BigDecimal sanctionedAmount, BigDecimal disbursedAmount, Integer tenureMonths,
                                 String rateType, BigDecimal interestRate, String benchmarkRateRef, BigDecimal spread,
                                 String dayCountConvention, BigDecimal emiAmount, LocalDate emiStartDate,
-                                Long mortgageId, Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                                Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt,
                                 Figures figures, String currencyCode, String branchCode, String limitFacilityRef) {
     }
 
@@ -90,19 +90,6 @@ public final class AdminDtos {
     }
 
     public record DailyAmount(LocalDate date, BigDecimal amount, long count) {
-    }
-
-    // ---------------------------------------------------------------- mortgage
-
-    public record ValuationRow(BigDecimal valuationAmount, LocalDate valuationDate, String valuerRef,
-                               String valuationType) {
-    }
-
-    public record MortgageDetail(Long mortgageId, Long accountId, String propertyType, String propertyAddress,
-                                 BigDecimal valuationAmount, LocalDate valuationDate, String valuerRef,
-                                 BigDecimal ltvRatio, String chargeStatus, String cersaiRegistrationRef,
-                                 String mortgageDeedRef, String insurancePolicyRef, String legalVerificationStatus,
-                                 List<ValuationRow> valuations) {
     }
 
     // ---------------------------------------------------------------- portfolio views

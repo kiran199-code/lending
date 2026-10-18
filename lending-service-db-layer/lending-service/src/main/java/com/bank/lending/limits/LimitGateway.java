@@ -103,6 +103,36 @@ public class LimitGateway {
         }
     }
 
+    // ------------------------------------------------------------------------------------------------ collateral
+
+    /**
+     * Secured loans (account type MORTGAGE) are disbursed only against collateral that LCM holds. LCM is the single source of
+     * truth for collateral, so this is enforced here whatever lending.lcm.fail-open says: a loan that must be secured is never
+     * released on a guess. The loan must carry a facility reference, lending.lcm.mode must be live, LCM must be reachable and
+     * it must report ACTIVE collateral of the same customer allocated to the facility (or to a parent facility).
+     * The check is about existence of cover, not its amount; use a drawing-power-governed facility to limit the amount.
+     * Throws {@link LimitRejectedException} (HTTP 422) when the loan is not covered and {@link LimitUnavailableException}
+     * (HTTP 503) when LCM could not be asked.
+     */
+    public void requireCollateral(Subject s) {
+        if (settings.mode() != LimitMode.LIVE) {
+            throw new LimitRejectedException("COLLATERAL_NOT_CHECKED", 422,
+                    "Account " + s.accountId() + " is a secured loan and collateral is held in LCM, but lending.lcm.mode is "
+                            + settings.mode().name().toLowerCase() + ". Set it to live before disbursing secured loans.");
+        }
+        if (!s.linked()) {
+            throw new LimitRejectedException("NO_FACILITY", 422,
+                    "Account " + s.accountId() + " is a secured loan and has no limit facility. Link it to the facility that "
+                            + "holds its collateral in LCM, then disburse.");
+        }
+        LimitClient.CoverResult cover = client.collateralCover(s.facilityRef());
+        if (!cover.covered()) {
+            throw new LimitRejectedException("COLLATERAL_NOT_COVERED", 422,
+                    "Account " + s.accountId() + " is a secured loan but facility " + s.facilityRef() + " has no ACTIVE collateral "
+                            + "of the borrower allocated to it in LCM. Register, activate and allocate the collateral first.");
+        }
+    }
+
     // ------------------------------------------------------------------------------------------------- disburse
 
     /** Call after the account's state has been validated and before anything is changed. */

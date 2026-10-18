@@ -52,3 +52,13 @@ batch-only path, recorded under "Deviations" in every report).
 
 None applied. Reply with the P-numbers you approve; P1 is the only one that turns most stub-driven failures green without
 inventing rules.
+
+## 5. Secured flow (added)
+
+Lending's own mortgage module is retired (endpoints, services and screens removed; the tables stay until a later release, see migration V20).
+LCM is the source of truth for collateral and facilities, and a MORTGAGE-type loan is disbursed only when LCM reports ACTIVE collateral allocated to its
+facility (`LimitGateway.requireCollateral`; refused with `COLLATERAL_NOT_CHECKED`, `NO_FACILITY` or `COLLATERAL_NOT_COVERED`, or 503 when LCM is down;
+it never fails open). The suite covers this with a separate `secured` flow (README, "The secured flow"; checks SEC-01..12, SETUP-03/04).
+
+Not covered yet: a second loan exceeding the facility limit, parent/child facilities, collateral amount adequacy (the gate checks existence only),
+and a run against the real services - the secured flow has so far run only against `mock/mock_platform.py`.

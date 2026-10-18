@@ -65,6 +65,7 @@ public final class Reporter {
         root.put("startedAt", facts.startedAt().toString());
         root.put("finishedAt", facts.finishedAt() == null ? "" : facts.finishedAt().toString());
         root.put("profile", cfg.profile());
+        root.put("flow", cfg.get("e2e.flow", "UNSECURED").toUpperCase());
         root.put("environment", cfg.get("e2e.env.name", ""));
         ObjectNode range = root.putObject("taggedIdRange");
         range.put("customerIdLow", ctx.rangeLow());
@@ -81,6 +82,13 @@ public final class Reporter {
             if (s.accountId != null) {
                 a.put("accountId", s.accountId);
                 a.put("accountNumber", s.accountNumber);
+            }
+            if (s.secured()) {
+                a.put("collateralRef", s.collateralRef);
+                a.put("facilityRef", s.facilityRef);
+                if (s.allocationId != null) {
+                    a.put("allocationId", s.allocationId);
+                }
             }
             a.put("finalStatus", s.lastStatus);
             a.put("closed", s.closed);
@@ -177,7 +185,9 @@ public final class Reporter {
 
     private static String report(E2eConfig cfg, RunContext ctx, Findings f, List<AccountSim> sims, RunFacts facts) {
         StringBuilder sb = new StringBuilder();
-        sb.append("# Lending lifecycle E2E run report\n\n");
+        boolean securedFlow = "SECURED".equalsIgnoreCase(cfg.get("e2e.flow", "UNSECURED"));
+        sb.append(securedFlow ? "# Lending lifecycle E2E run report - SECURED flow (collateral, facility, loan, end of day)\n\n"
+                : "# Lending lifecycle E2E run report - UNSECURED flow\n\n");
         sb.append("- Run id: `").append(ctx.runId()).append("`\n");
         sb.append("- Mode: ").append(facts.mode()).append("\n");
         sb.append("- Environment: ").append(cfg.get("e2e.env.name", "?")).append(" (profile ").append(cfg.profile()).append(")\n");

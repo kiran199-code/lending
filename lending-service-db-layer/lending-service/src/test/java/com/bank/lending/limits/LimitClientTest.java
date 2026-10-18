@@ -109,4 +109,33 @@ class LimitClientTest {
         assertThat(fx.lcm.calls.get(1).path()).isEqualTo("/api/v1/lcm/utilisations/close");
         assertThat(fx.lcm.calls.get(1).body()).contains("\"reason\":\"FORECLOSED\"");
     }
+
+    @Test
+    void collateralCoverIsAGetOnTheFacilityAndReadsCoveredValueAndItemCount() {
+        LimitFixture fx = fx();
+        fx.lcm.ok("/collateral-cover", "{\"covered\":true,\"coveredValue\":3375000.00,\"items\":[{\"collateralRef\":\"MORT-1\"},{\"collateralRef\":\"MORT-2\"}]}");
+
+        LimitClient.CoverResult r = fx.client.collateralCover("SANC-7");
+
+        assertThat(r.covered()).isTrue();
+        assertThat(r.coveredValue()).isEqualByComparingTo("3375000.00");
+        assertThat(r.items()).isEqualTo(2);
+        ScriptedTransport.Call c = fx.lcm.calls.get(0);
+        assertThat(c.method()).isEqualTo("GET");
+        assertThat(c.path()).isEqualTo("/api/v1/lcm/facilities/SANC-7/collateral-cover");
+        assertThat(c.key()).isNull();
+        assertThat(c.body()).isNull();
+    }
+
+    @Test
+    void collateralCoverOfAnEmptyAnswerIsNotCovered() {
+        LimitFixture fx = fx();
+        fx.lcm.ok("/collateral-cover", "{}");
+
+        LimitClient.CoverResult r = fx.client.collateralCover("SANC-7");
+
+        assertThat(r.covered()).isFalse();
+        assertThat(r.coveredValue()).isEqualByComparingTo("0");
+        assertThat(r.items()).isZero();
+    }
 }

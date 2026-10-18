@@ -2,9 +2,7 @@ package com.bank.lending.admin.repository;
 
 import com.bank.lending.admin.dto.AdminDtos.AccountDetail;
 import com.bank.lending.admin.dto.AdminDtos.AccountSummary;
-import com.bank.lending.admin.dto.AdminDtos.MortgageDetail;
 import com.bank.lending.admin.dto.AdminDtos.PageResponse;
-import com.bank.lending.admin.dto.AdminDtos.ValuationRow;
 import com.bank.lending.admin.service.BusinessDateSource;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -123,32 +121,8 @@ public class AccountRepository {
                 rs.getBigDecimal("disbursed_amount"), rs.getInt("tenure_months"), rs.getString("rate_type"),
                 rs.getBigDecimal("interest_rate"), rs.getString("benchmark_rate_ref"), rs.getBigDecimal("spread"),
                 rs.getString("day_count_convention"), rs.getBigDecimal("emi_amount"), Sql.date(rs, "emi_start_date"),
-                Sql.longOrNull(rs, "mortgage_id"), rs.getInt("version"), Sql.ts(rs, "created_at"),
+                rs.getInt("version"), Sql.ts(rs, "created_at"),
                 Sql.ts(rs, "updated_at"), null, rs.getString("currency_code"), rs.getString("branch_code"),
                 rs.getString("limit_facility_ref"));
-    }
-
-    public Optional<MortgageDetail> findMortgageByAccount(long accountId) {
-        Optional<MortgageDetail> base = jdbc.query("SELECT * FROM mortgage WHERE account_id = :id",
-                new MapSqlParameterSource("id", accountId), (rs, i) -> new MortgageDetail(
-                        rs.getLong("mortgage_id"), rs.getLong("account_id"), rs.getString("property_type"),
-                        rs.getString("property_address"), rs.getBigDecimal("valuation_amount"),
-                        Sql.date(rs, "valuation_date"), rs.getString("valuer_ref"), rs.getBigDecimal("ltv_ratio"),
-                        rs.getString("charge_status"), rs.getString("cersai_registration_ref"),
-                        rs.getString("mortgage_deed_ref"), rs.getString("insurance_policy_ref"),
-                        rs.getString("legal_verification_status"), List.of())).stream().findFirst();
-        return base.map(m -> {
-            List<ValuationRow> history = jdbc.query("""
-                    SELECT valuation_amount, valuation_date, valuer_ref, valuation_type
-                    FROM mortgage_valuation_history WHERE mortgage_id = :mid
-                    ORDER BY valuation_date DESC, valuation_id DESC
-                    """, new MapSqlParameterSource("mid", m.mortgageId()),
-                    (rs, i) -> new ValuationRow(rs.getBigDecimal("valuation_amount"), Sql.date(rs, "valuation_date"),
-                            rs.getString("valuer_ref"), rs.getString("valuation_type")));
-            return new MortgageDetail(m.mortgageId(), m.accountId(), m.propertyType(), m.propertyAddress(),
-                    m.valuationAmount(), m.valuationDate(), m.valuerRef(), m.ltvRatio(), m.chargeStatus(),
-                    m.cersaiRegistrationRef(), m.mortgageDeedRef(), m.insurancePolicyRef(),
-                    m.legalVerificationStatus(), history);
-        });
     }
 }

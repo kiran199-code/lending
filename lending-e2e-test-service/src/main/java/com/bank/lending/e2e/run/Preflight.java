@@ -63,8 +63,11 @@ public final class Preflight {
                 if (s.interestRate() != null) {
                     limit(warn, s, "rate", s.interestRate(), p.path("minInterestRate"), p.path("maxInterestRate"));
                 }
-                if ("MORTGAGE".equals(p.path("accountType").asText())) {
-                    warn.add(s.scenarioId() + ": product " + s.productCode() + " is a MORTGAGE product (needs a mortgage record) - not supported by this suite");
+                boolean mortgage = "MORTGAGE".equals(p.path("accountType").asText());
+                if (mortgage && !SecuredFlow.isSecured(s)) {
+                    warn.add(s.scenarioId() + ": product " + s.productCode() + " is a MORTGAGE product; the unsecured flow does not use it (run the secured flow)");
+                } else if (!mortgage && SecuredFlow.isSecured(s)) {
+                    warn.add(s.scenarioId() + ": product " + s.productCode() + " is not a MORTGAGE product, so a loan on it would not need collateral");
                 }
                 String freq = s.repaymentFrequency() != null ? s.repaymentFrequency() : p.path("repaymentFrequency").asText("MONTHLY");
                 boolean allowed = false;
@@ -122,6 +125,32 @@ public final class Preflight {
             ok.add("admin portal reachable (read-only verification surface)");
         }
         return new Report(ok, bad, warn);
+    }
+
+    /** Secured flow only: the Limits and Collateral service must be reachable with the service credential, and the actors must differ. */
+    public static void secured(E2eConfig cfg, com.bank.lending.e2e.client.LcmClient lcm, List<String> ok, List<String> bad) {
+        ApiResult types = lcm.collateralTypes();
+        if (!types.ok()) {
+            bad.add("Limits and Collateral service not reachable or credential rejected (GET /api/v1/lcm/collateral-types: " + types.brief()
+                    + "). Set e2e.lcm.base-url / E2E_LCM_PASSWORD (the password lending-lcm-service uses for LCM_SERVICE_PASSWORD).");
+        } else {
+            ok.add("Limits and Collateral service reachable (" + lcm.http().baseUrl() + "), " + types.body().size() + " collateral type(s)");
+            String wanted = cfg.get("e2e.secured.collateral-type", "");
+            if (!wanted.isBlank()) {
+                boolean found = false;
+                for (JsonNode t : types.body()) {
+                    found |= wanted.equalsIgnoreCase(t.path("typeCode").asText());
+                }
+                if (!found) {
+                    bad.add("e2e.secured.collateral-type=" + wanted + " is not a collateral type in LCM");
+                }
+            }
+        }
+        if (cfg.get("e2e.lcm.maker", "e2e-maker").equalsIgnoreCase(cfg.get("e2e.lcm.checker", "e2e-checker"))) {
+            bad.add("e2e.lcm.maker and e2e.lcm.checker must be different names");
+        }
+        ok.add("secured loans need lending-service to run with lending.lcm.mode=live (LENDING_LCM_MODE=live); the run checks this by trying to"
+                + " disburse before the collateral is allocated, which must be refused with COLLATERAL_NOT_COVERED");
     }
 
     /** Business-date readiness. Read-only: the date itself is only moved by the run, not by preflight / dry-run. */

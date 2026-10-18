@@ -19,7 +19,7 @@ export interface AccountDetail {
   accountType: string; accountStatus: string; sanctionedAmount: number; disbursedAmount: number | null;
   tenureMonths: number; rateType: string; interestRate: number; benchmarkRateRef: string | null;
   spread: number | null; dayCountConvention: string; emiAmount: number | null; emiStartDate: string | null;
-  mortgageId: number | null; version: number; createdAt: string; updatedAt: string; figures: Figures;
+  version: number; createdAt: string; updatedAt: string; figures: Figures;
   currencyCode: string; branchCode: string; limitFacilityRef: string | null;
 }
 
@@ -50,14 +50,6 @@ export interface PaymentRow {
 }
 export interface PaymentResponse {
   rows: PaymentRow[]; totalReceived: number; principalReceived: number; interestReceived: number; failed: number;
-}
-
-export interface ValuationRow { valuationAmount: number; valuationDate: string; valuerRef: string | null; valuationType: string }
-export interface MortgageDetail {
-  mortgageId: number; accountId: number; propertyType: string; propertyAddress: string; valuationAmount: number;
-  valuationDate: string; valuerRef: string | null; ltvRatio: number; chargeStatus: string;
-  cersaiRegistrationRef: string | null; mortgageDeedRef: string | null; insurancePolicyRef: string | null;
-  legalVerificationStatus: string | null; valuations: ValuationRow[];
 }
 
 export interface UpcomingRow {
@@ -280,6 +272,11 @@ export interface Availability {
   utilised: number; drawnTotal: number; reserved: number; consumed: number; available: number;
   effectiveAvailable: number; overLimit: boolean;
 }
+/** One ACTIVE collateral that backs a facility, as the Limits & Collateral service reports it. */
+export interface CoverItem {
+  collateralRef: string; collateralType: string; allocatedTo: string; allocationPct: number; lendableValue: number; coveredValue: number;
+}
+export interface CollateralCover { facilityRef: string; customerId: number; covered: boolean; coveredValue: number; items: CoverItem[] }
 export interface FacilityTree { facility: Availability; children: FacilityTree[] }
 export interface LimitTxn {
   id: number; facilityRef: string; originFacilityRef: string | null; txnType: string; amount: number;

@@ -110,6 +110,12 @@ public class LimitsController {
         return client.get("/facilities/" + ref(ref, "ref") + "/drawing-power", Map.of());
     }
 
+    @Operation(summary = "Does ACTIVE collateral of the facility's customer back this facility (directly or through a parent)?")
+    @GetMapping("/facilities/{ref}/collateral-cover")
+    public JsonNode collateralCover(@PathVariable String ref) {
+        return client.get("/facilities/" + ref(ref, "ref") + "/collateral-cover", Map.of());
+    }
+
     @Operation(summary = "Propose ACTIVATE, AMEND_LIMIT, EXTEND_EXPIRY, SUSPEND, REINSTATE, FREEZE or CLOSE")
     @PostMapping("/facilities/{ref}/changes")
     public JsonNode proposeChange(@PathVariable String ref, @RequestBody JsonNode body,

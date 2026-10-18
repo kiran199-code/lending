@@ -73,8 +73,8 @@ public class LoanAccountBulkController {
     @Operation(summary = "Disburse many loan accounts at once",
             description = "Disburses each account (full, or part when disbursedAmount is smaller than the sanctioned "
                     + "amount) and generates its repayment schedule. Leave disbursedAmount out for a full disbursement. "
-                    + "Accounts that are already active come back as ALREADY_ACTIVE. Mortgage accounts without a "
-                    + "registered charge fail with a message. Use the accountId values from the bulk create response. "
+                    + "Accounts that are already active come back as ALREADY_ACTIVE. Mortgage (secured) accounts "
+                    + "fail with a message unless LCM confirms active collateral allocated to their facility. Use the accountId values from the bulk create response. "
                     + "Maximum 200 items.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(
             mediaType = "application/json",

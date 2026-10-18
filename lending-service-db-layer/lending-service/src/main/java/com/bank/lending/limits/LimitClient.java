@@ -25,6 +25,9 @@ public class LimitClient {
 
     public record ReservationResult(String reservationRef, String status, String wouldReject) {}
 
+    /** What LCM says about the collateral backing a facility: any ACTIVE collateral of the same customer allocated to it or to a parent. */
+    public record CoverResult(boolean covered, BigDecimal coveredValue, int items) {}
+
     private final LimitTransport transport;
     private final LimitSettings settings;
 
@@ -71,6 +74,14 @@ public class LimitClient {
             throw new LimitUnavailableException("LCM reserve answered without a reservationRef");
         }
         return new ReservationResult(ref, text(r, "status"), text(r, "wouldReject"));
+    }
+
+    /** Does ACTIVE collateral of the facility's customer back this facility (directly or through a parent)? */
+    public CoverResult collateralCover(String facilityRef) {
+        JsonNode r = call("GET", "/api/v1/lcm/facilities/" + facilityRef + "/collateral-cover", null, null);
+        JsonNode value = r.path("coveredValue");
+        BigDecimal covered = value.isNumber() ? value.decimalValue() : BigDecimal.ZERO;
+        return new CoverResult(r.path("covered").asBoolean(false), covered, r.path("items").size());
     }
 
     public void confirm(String reservationRef, BigDecimal amount, String idempotencyKey) {

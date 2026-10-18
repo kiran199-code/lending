@@ -4,7 +4,6 @@ import com.bank.lending.admin.common.NotFoundException;
 import com.bank.lending.admin.dto.AdminDtos.AccountDetail;
 import com.bank.lending.admin.dto.AdminDtos.AccountSummary;
 import com.bank.lending.admin.dto.AdminDtos.AccrualResponse;
-import com.bank.lending.admin.dto.AdminDtos.MortgageDetail;
 import com.bank.lending.admin.dto.AdminDtos.PageResponse;
 import com.bank.lending.admin.dto.AdminDtos.PaymentResponse;
 import com.bank.lending.admin.dto.AdminDtos.ScheduleResponse;
@@ -89,12 +88,6 @@ public class AccountController {
     @GetMapping("/{accountId}/payments")
     public PaymentResponse payments(@PathVariable long accountId) {
         return inquiry.payments(accountId);
-    }
-
-    @Operation(summary = "Mortgage and valuation history (mortgage accounts only)")
-    @GetMapping("/{accountId}/mortgage")
-    public MortgageDetail mortgage(@PathVariable long accountId) {
-        return inquiry.mortgage(accountId);
     }
 
     @Operation(summary = "Customer PDF statement, fetched from lending-service")

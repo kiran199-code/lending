@@ -11,7 +11,15 @@ The mock keeps a platform business date like lending-service does (GET/PUT /api/
 refuses payments and accrual runs dated after it, and serves the batch EOD API (POST /eod/run, GET /eod/status).
 Set MOCK_ENFORCE_NO_FUTURE=0 to simulate lending-service with BUSINESS_DATE_ENFORCE_NO_FUTURE=false.
 
-Ports: lending 18080, batch 18081, admin 18082. Basic auth on batch/admin: batch-admin/x and admin/x.
+A fourth service, the Limits and Collateral service (LCM), listens on 18083 (Basic lcm-service/x, X-Actor required on writes). It models
+collateral (DRAFT -> ACTIVE after legal + approved valuation + charge + insurance), facilities (DRAFT -> ACTIVE by maker-checker),
+allocations, availability and collateral-cover, and lending-service's secured-loan rule: a MORTGAGE-type loan is disbursed only when
+its facility is covered by ACTIVE collateral. A drawing or repayment reaches LCM about a second after the loan call, like the real outbox.
+  MOCK_GATE=0        seeds a defect: the secured-loan rule is missing (SEC-06 must fail)
+  MOCK_LCM_MODE=off  lending-service with lending.lcm.mode=off (secured loans must be refused as COLLATERAL_NOT_CHECKED)
+  --mode bugs        also: a part-payment does not reduce the facility's utilisation (SEC-09 must fail)
+
+Ports: lending 18080, batch 18081, admin 18082, LCM 18083. Basic auth on batch/admin: batch-admin/x and admin/x.
 """
 import argparse, base64, json, os, threading, datetime as dt
 from decimal import Decimal as D, ROUND_HALF_UP
@@ -28,7 +36,7 @@ ACCRUALS = {}      # (id, date) -> dict
 OUTBOX = []
 BD = {"date": dt.date.today().isoformat(), "status": "OPEN"}     # the platform business date (owned by "lending-service")
 EOD = {"last": None}
-DAILY_JOBS = ["INTEREST_ACCRUAL_DAILY","PENAL_INTEREST_CALCULATION_DAILY","DPD_UPDATE_DAILY","NPA_CLASSIFICATION_CHECK_DAILY","SOD_EOD_BALANCING_DAILY",
+DAILY_JOBS = ["DEMAND_RAISE_DAILY","INTEREST_ACCRUAL_DAILY","PENAL_INTEREST_CALCULATION_DAILY","DPD_UPDATE_DAILY","NPA_CLASSIFICATION_CHECK_DAILY","SOD_EOD_BALANCING_DAILY",
               "GL_POSTING_RECONCILIATION_DAILY"]
 
 PRODUCTS = {
@@ -38,6 +46,7 @@ PRODUCTS = {
  "AB01": dict(name="Auto balloon", sched="BALLOON", dc="ACT_365", rate="9.5", amin=100000, amax=5000000, tmin=12, tmax=84, freqs=["MONTHLY"], mor=0, bal="30", step=None),
  "SU01": dict(name="Step-up", sched="STEP_UP_EMI", dc="ACT_365", rate="12.0", amin=50000, amax=3000000, tmin=12, tmax=84, freqs=["MONTHLY","QUARTERLY"], mor=0, bal=None, step="5"),
  "EM01": dict(name="Edu moratorium", sched="EMI", dc="THIRTY_360", rate="9.5", amin=100000, amax=5000000, tmin=24, tmax=144, freqs=["MONTHLY","QUARTERLY"], mor=12, bal=None, step=None),
+ "HL01": dict(name="Home loan", type="MORTGAGE", sched="EMI", dc="ACT_365", rate="8.75", amin=500000, amax=50000000, tmin=60, tmax=360, freqs=["MONTHLY"], mor=0, bal=None, step=None),
  "AL01": dict(name="Auto floating", sched="EMI", dc="ACT_365", rate="9.75", amin=100000, amax=5000000, tmin=12, tmax=84, freqs=["MONTHLY"], mor=0, bal=None, step=None, floating=True),
 }
 PERIOD = {"MONTHLY":1,"QUARTERLY":3,"HALF_YEARLY":6,"YEARLY":12}
@@ -133,7 +142,7 @@ def classify(dpd):
 
 def account_json(a):
     return {k: a[k] for k in ("accountId","accountNumber","customerId","sanctionRefId","productCode","sanctionedAmount","disbursedAmount","tenureMonths",
-            "scheduleType","rateType","interestRate","dayCountConvention","repaymentFrequency","moratoriumMonths","balloonPercent","stepUpPercent","emiAmount","emiStartDate","accountStatus","version")}
+            "scheduleType","rateType","interestRate","dayCountConvention","repaymentFrequency","moratoriumMonths","balloonPercent","stepUpPercent","emiAmount","emiStartDate","accountStatus","version","accountType","limitFacilityRef")}
 
 def txn(a, kind, amount, pp, ip, no, value_date, key):
     t = dict(transactionId=SEQ["txn"], valueDate=value_date, accountId=a["accountId"], installmentNumber=no, transactionType=kind, amount=str(amount),
@@ -179,17 +188,78 @@ def not_future(day):
     """lending-service refuses value dates after the business date."""
     return os.environ.get("MOCK_ENFORCE_NO_FUTURE", "1") == "0" or day <= BD["date"]
 
+# ---------------------------------------------------------------------------------------------------- LCM (Limits and Collateral)
+import time
+COLLATERAL = {}    # ref -> dict
+FACILITIES = {}    # ref -> dict
+ALLOCS = {}        # id -> dict
+VALS = {}          # id -> dict
+CHANGES = {}       # id -> dict
+LCM_Q = []         # (ready_at, facility, kind, amount)
+LSEQ = {"alloc": 0, "val": 0, "chg": 0}
+
+def lcm_later(fac, kind, amount):
+    LCM_Q.append((time.time() + 1.2, fac, kind, amount))
+
+def lcm_flush():
+    now = time.time(); keep = []
+    for ev in LCM_Q:
+        if ev[0] > now: keep.append(ev); continue
+        _, fac, kind, amt = ev; f = FACILITIES.get(fac)
+        if not f: continue
+        if kind == "draw": f["utilised"] += amt; f["drawnTotal"] += amt
+        elif kind == "repay": f["utilised"] = max(D(0), f["utilised"] - amt)
+        elif kind == "close": f["utilised"] = D(0)
+    LCM_Q[:] = keep
+
+def cover_of(fac):
+    f = FACILITIES[fac]; items = []
+    for al in ALLOCS.values():
+        c = COLLATERAL[al["collateralRef"]]
+        if al["facilityRef"] == fac and al["status"] == "ACTIVE" and c["status"] == "ACTIVE" and c["customerId"] == f["customerId"]:
+            lendable = c["lendableValue"]
+            items.append(dict(collateralRef=c["collateralRef"], collateralType=c["collateralType"], allocatedTo=fac, allocationPct=str(al["allocationPct"]),
+                              lendableValue=str(lendable), coveredValue=str(q(lendable * D(str(al["allocationPct"])) / 100))))
+    return dict(facilityRef=fac, customerId=f["customerId"], covered=bool(items), coveredValue=str(sum((D(i["coveredValue"]) for i in items), D(0))), items=items)
+
+def secured_gate(a):
+    """lending-service: a MORTGAGE-type loan is disbursed only against collateral LCM confirms. Returns (code, message) or None."""
+    if PRODUCTS[a["productCode"]].get("type") != "MORTGAGE" or os.environ.get("MOCK_GATE", "1") == "0": return None
+    mode = os.environ.get("MOCK_LCM_MODE", "live")
+    if mode != "live":
+        return ("COLLATERAL_NOT_CHECKED", "Account %s is a secured loan and collateral is held in LCM, but lending.lcm.mode is %s." % (a["accountId"], mode))
+    ref = a.get("limitFacilityRef")
+    if not ref: return ("NO_FACILITY", "Account %s is a secured loan and has no limit facility." % a["accountId"])
+    lcm_flush()
+    if not cover_of(ref)["covered"]:
+        return ("COLLATERAL_NOT_COVERED", "Account %s is a secured loan but facility %s has no ACTIVE collateral of the borrower allocated to it in LCM." % (a["accountId"], ref))
+    return None
+
+def unmet(c):
+    out = []
+    if c["legalStatus"] != "VERIFIED": out.append("LEGAL_NOT_VERIFIED")
+    if not any(v["status"] == "APPROVED" for v in VALS.values() if v["collateralRef"] == c["collateralRef"]): out.append("NO_CURRENT_VALUATION")
+    if c["requiresCharge"] and not c["chargeRegistered"]: out.append("CHARGE_NOT_REGISTERED")
+    if c["requiresInsurance"] and not (c["insuranceExpiry"] and c["insuranceExpiry"] > dt.date.today().isoformat()): out.append("INSURANCE_MISSING_OR_EXPIRED")
+    return out
+
+def cview(c):
+    return {k: v for k, v in c.items() if k not in ("requiresCharge", "requiresInsurance")} | dict(unmetForActivation=unmet(c) if c["status"] == "DRAFT" else [])
+
+def fview(f):
+    return {k: (str(v) if isinstance(v, D) else v) for k, v in f.items()}
+
 class H(BaseHTTPRequestHandler):
     svc = "lending"
     def log_message(self, *a): pass
     def _send(self, code, obj):
-        b = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Type","application/json"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+        b = json.dumps(obj, default=str).encode(); self.send_response(code); self.send_header("Content-Type","application/json"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
     def _auth(self):
         if self.svc == "lending": return True
         h = self.headers.get("Authorization","")
         if not h.startswith("Basic "): self._send(401, {"error":"auth"}); return False
         u = base64.b64decode(h[6:]).decode().split(":")[0]
-        if u != ("batch-admin" if self.svc == "batch" else "admin"): self._send(401, {"error":"auth"}); return False
+        if u != {"batch": "batch-admin", "admin": "admin", "lcm": "lcm-service"}[self.svc]: self._send(401, {"error":"auth"}); return False
         return True
     def _body(self):
         n = int(self.headers.get("Content-Length") or 0)
@@ -229,29 +299,37 @@ class H(BaseHTTPRequestHandler):
             BD["date"] = (d(BD["date"]) + dt.timedelta(days=1)).isoformat(); BD["status"] = "OPEN"
             return self._send(200, dict(businessDate=BD["date"], status=BD["status"]))
         if p == "/api/v1/loan-products":
-            return self._send(200, [dict(productCode=c, status="ACTIVE", accountType="UNSECURED", minSanctionedAmount=v["amin"], maxSanctionedAmount=v["amax"],
+            return self._send(200, [dict(productCode=c, status="ACTIVE", accountType=v.get("type", "UNSECURED"), minSanctionedAmount=v["amin"], maxSanctionedAmount=v["amax"],
                     minTenureMonths=v["tmin"], maxTenureMonths=v["tmax"], minInterestRate=5, maxInterestRate=20, repaymentFrequency="MONTHLY",
                     allowedRepaymentFrequencies=v["freqs"]) for c, v in PRODUCTS.items()])
         if p == "/api/v1/loan-accounts" and m == "POST":
             b = self._body(); pr = PRODUCTS.get(b.get("productCode"))
             if not pr: return self._send(404, {"error":"unknown product"})
             if not (pr["amin"] <= b["sanctionedAmount"] <= pr["amax"]): return self._send(400, {"error":"amount outside product limits"})
+            if b.get("limitFacilityRef") and b["limitFacilityRef"] not in FACILITIES:
+                return self._send(422, {"message": "Limit check failed [NOT_FOUND]: Facility not found: " + b["limitFacilityRef"]})
             SEQ["acct"] += 1; i = SEQ["acct"]
             a = dict(accountId=i, accountNumber="LN%08d" % i, customerId=b["customerId"], sanctionRefId=b["sanctionRefId"], productCode=b["productCode"],
                      sanctionedAmount=b["sanctionedAmount"], disbursedAmount=None, tenureMonths=b["tenureMonths"], scheduleType=pr["sched"],
                      rateType="FLOATING" if pr.get("floating") else "FIXED", interestRate=str(b.get("interestRate", pr["rate"])),
                      dayCountConvention=b.get("dayCountConvention", pr["dc"]), repaymentFrequency=b.get("repaymentFrequency", pr["freqs"][0]),
                      moratoriumMonths=b.get("moratoriumMonths", pr["mor"]), balloonPercent=b.get("balloonPercent", pr["bal"]), stepUpPercent=b.get("stepUpPercent", pr["step"]),
-                     emiAmount=None, emiStartDate=None, accountStatus="PENDING_DISBURSEMENT", version=0, schedule=[], txns=[], created=dt.datetime.now())
+                     emiAmount=None, emiStartDate=None, accountStatus="PENDING_DISBURSEMENT", version=0,
+                     accountType=pr.get("type", "UNSECURED"), limitFacilityRef=b.get("limitFacilityRef"), schedule=[], txns=[], created=dt.datetime.now())
             ACCOUNTS[i] = a; return self._send(201, account_json(a))
         if len(parts) >= 4 and parts[:3] == ["api","v1","loan-accounts"] and parts[3].isdigit():
             a = ACCOUNTS[int(parts[3])]; rest = parts[4:]
             if not rest and m == "GET": return self._send(200, account_json(a))
             if rest == ["disburse"]:
-                b = self._body(); a["disbursedAmount"] = str(b["disbursedAmount"]); first = d(b["firstEmiDueDate"]); a["emiStartDate"] = b["firstEmiDueDate"]
+                b = self._body()
+                if a["accountStatus"] == "PENDING_DISBURSEMENT":
+                    refused = secured_gate(a)
+                    if refused: return self._send(422, {"status": 422, "message": "Limit check failed [%s]: %s" % refused})
+                a["disbursedAmount"] = str(b["disbursedAmount"]); first = d(b["firstEmiDueDate"]); a["emiStartDate"] = b["firstEmiDueDate"]
                 n = a["tenureMonths"]//PERIOD[a["repaymentFrequency"]]
                 a["schedule"], a["emiAmount"] = build_schedule(a, D(a["disbursedAmount"]), first, n)
                 a["accountStatus"] = "ACTIVE"; a["openPrincipal"] = a["disbursedAmount"]; OUTBOX.append(a["accountNumber"])
+                if a.get("limitFacilityRef"): lcm_later(a["limitFacilityRef"], "draw", D(a["disbursedAmount"]))
                 return self._send(200, account_json(a))
             if rest == ["schedule"]: return self._send(200, a["schedule"])
             if rest[:1] == ["payments"] and m == "GET": return self._send(200, a["txns"])
@@ -270,6 +348,7 @@ class H(BaseHTTPRequestHandler):
                     pp, ip = D(r["principalComponent"]), D(r["interestComponent"])
                     if MODE == "bugs" and a["productCode"] == "PL01" and r["installmentNumber"] == 2: pp, ip = pp+D(10), ip-D(10)
                     t = txn(a, "EMI", due, pp, ip, r["installmentNumber"], b["valueDate"], key)
+                    if a.get("limitFacilityRef"): lcm_later(a["limitFacilityRef"], "repay", D(r["principalComponent"]))
                     if all(x["installmentStatus"] == "PAID" for x in a["schedule"]): a["accountStatus"] = "CLOSED"
                     else: a["accountStatus"] = "ACTIVE" if not any(x["installmentStatus"] == "OVERDUE" for x in a["schedule"]) else a["accountStatus"]
                     IDEM[key] = t; return self._send(200, t)
@@ -282,21 +361,104 @@ class H(BaseHTTPRequestHandler):
                     if paid: paid[-1]["outstandingBalance"] = str(newp)
                     else: a["openPrincipal"] = str(newp)
                     a["schedule"] = paid + rows; a["emiAmount"] = emi
-                    t = txn(a, "PART_PAYMENT", amt, amt, D(0), None, b["valueDate"], key); IDEM[key] = t; return self._send(200, t)
+                    t = txn(a, "PART_PAYMENT", amt, amt, D(0), None, b["valueDate"], key); IDEM[key] = t
+                    if a.get("limitFacilityRef") and MODE != "bugs": lcm_later(a["limitFacilityRef"], "repay", amt)
+                    return self._send(200, t)
                 if kind == "foreclosure":
                     o = outstanding(a); a["accountStatus"] = "FORECLOSED"
                     acc = sum(D(x["accruedAmount"]) for (i, _), x in ACCRUALS.items() if i == a["accountId"])
                     paid_i = sum(D(t["interestPaid"]) for t in a["txns"]); ip = max(q(acc - paid_i), D(0))
                     for r in a["schedule"]: r["installmentStatus"] = "PAID"
-                    t = txn(a, "FORECLOSURE", o + ip, o, ip, None, b["foreclosureDate"], key); IDEM[key] = t; return self._send(200, t)
+                    t = txn(a, "FORECLOSURE", o + ip, o, ip, None, b["foreclosureDate"], key); IDEM[key] = t
+                    if a.get("limitFacilityRef"): lcm_later(a["limitFacilityRef"], "close", D(0))
+                    return self._send(200, t)
         if p == "/api/v1/interest-accruals/run" and not not_future(qs["businessDate"]): return self._send(400, {"error": "future business date"})
         if p == "/api/v1/interest-accruals/run": run_accrual(qs["businessDate"]); return self._send(200, {"status":"COMPLETED"})
         if p == "/api/v1/loan-accounts/delinquency-classifications": run_dpd(self._body()["asOfDate"]); return self._send(200, {"status":"COMPLETED"})
         self._send(404, {"error":"no route " + p})
+    # ------------------------------------------------------------------ lcm
+    def _lcm(self, m, p, qs):
+        base = "/api/v1/lcm"
+        if not p.startswith(base): return self._send(404, {"error": "no route " + p})
+        r = p[len(base):].strip("/").split("/"); actor = self.headers.get("X-Actor")
+        if m != "GET" and not actor: return self._send(400, {"code": "ACTOR_REQUIRED", "message": "X-Actor header is required"})
+        lcm_flush()
+        def err(code, status, msg): return self._send(status, {"code": code, "message": msg})
+        if r == ["collateral-types"]:
+            return self._send(200, [dict(typeCode="GOLD", requiresCharge=False, requiresInsurance=False),
+                                    dict(typeCode="RESIDENTIAL_PROPERTY", requiresCharge=True, requiresInsurance=True)])
+        if r[0] == "collateral":
+            if len(r) == 1 and m == "POST":
+                b = self._body(); ref = b.get("collateralRef") or "COL-%d" % (len(COLLATERAL) + 1)
+                if ref in COLLATERAL: return err("COLLATERAL_EXISTS", 409, "exists")
+                typ = b["collateralType"]
+                COLLATERAL[ref] = dict(collateralRef=ref, customerId=b["customerId"], collateralType=typ, description=b["description"], currencyCode=b["currencyCode"],
+                    status="DRAFT", legalStatus="PENDING", chargeRegistered=False, chargeRef=None, insuranceExpiry=None, lendableValue=D(0), latestValuation=None,
+                    requiresCharge=typ == "RESIDENTIAL_PROPERTY", requiresInsurance=typ == "RESIDENTIAL_PROPERTY")
+                return self._send(201, cview(COLLATERAL[ref]))
+            c = COLLATERAL[r[1]]
+            if len(r) == 2 and m == "GET": return self._send(200, cview(c))
+            op = r[2]
+            if op == "legal-verification": c["legalStatus"] = self._body()["status"]; return self._send(200, cview(c))
+            if op == "charge": c["chargeRegistered"] = True; c["chargeRef"] = self._body().get("chargeRef"); return self._send(200, cview(c))
+            if op == "insurance": c["insuranceExpiry"] = self._body()["expiry"]; return self._send(200, cview(c))
+            if op == "valuations" and m == "POST":
+                b = self._body(); LSEQ["val"] += 1
+                VALS[LSEQ["val"]] = dict(id=LSEQ["val"], collateralRef=c["collateralRef"], marketValue=D(str(b["marketValue"])), status="PENDING", maker=actor, checker=None)
+                return self._send(201, {k: (str(v) if isinstance(v, D) else v) for k, v in VALS[LSEQ["val"]].items()})
+            if op == "activate":
+                u = unmet(c)
+                if u: return err("ACTIVATION_REQUIREMENTS_NOT_MET", 422, "Cannot activate %s: %s" % (c["collateralRef"], ", ".join(u)))
+                c["status"] = "ACTIVE"; return self._send(200, cview(c))
+            if op == "release":
+                if any(al["status"] == "ACTIVE" for al in ALLOCS.values() if al["collateralRef"] == c["collateralRef"]): return err("HAS_ALLOCATIONS", 422, "active allocations")
+                c["status"] = "RELEASED"; return self._send(200, cview(c))
+            if op == "allocations" and m == "POST":
+                b = self._body()
+                if c["status"] != "ACTIVE": return err("COLLATERAL_NOT_ACTIVE", 422, "collateral is %s" % c["status"])
+                if b["facilityRef"] not in FACILITIES: return err("NOT_FOUND", 404, "Facility not found")
+                LSEQ["alloc"] += 1
+                ALLOCS[LSEQ["alloc"]] = dict(id=LSEQ["alloc"], collateralRef=c["collateralRef"], facilityRef=b["facilityRef"], allocationPct=D(str(b["allocationPct"])), status="ACTIVE")
+                return self._send(201, {k: (str(v) if isinstance(v, D) else v) for k, v in ALLOCS[LSEQ["alloc"]].items()})
+            if op == "allocations" and m == "GET":
+                return self._send(200, [{k: (str(v) if isinstance(v, D) else v) for k, v in al.items()} for al in ALLOCS.values() if al["collateralRef"] == c["collateralRef"]])
+        if r[0] == "valuations" and r[2] == "approve":
+            v = VALS[int(r[1])]
+            if actor == v["maker"]: return err("MAKER_CHECKER", 409, "The maker cannot approve their own valuation")
+            v["status"] = "APPROVED"; v["checker"] = actor; c = COLLATERAL[v["collateralRef"]]
+            c["lendableValue"] = q(v["marketValue"] * D("0.7")); return self._send(200, {"id": v["id"], "status": "APPROVED"})
+        if r[0] == "allocations" and r[2] == "release":
+            ALLOCS[int(r[1])]["status"] = "RELEASED"; return self._send(200, {"id": int(r[1]), "status": "RELEASED"})
+        if r[0] == "facilities":
+            if len(r) == 1 and m == "POST":
+                b = self._body(); ref = b.get("facilityRef") or "FAC-%d" % (len(FACILITIES) + 1)
+                if ref in FACILITIES: return err("FACILITY_EXISTS", 409, "exists")
+                FACILITIES[ref] = dict(facilityRef=ref, customerId=b["customerId"], facilityType=b["facilityType"], status="DRAFT", sanctionedAmount=D(str(b["sanctionedAmount"])),
+                                       currencyCode=b["currencyCode"], revolving=b["revolving"], dpGoverned=b["dpGoverned"], utilised=D(0), drawnTotal=D(0), reserved=D(0))
+                return self._send(201, fview(FACILITIES[ref]))
+            if r[1] == "changes" and len(r) == 4 and r[3] == "approve":
+                ch = CHANGES[int(r[2])]
+                if actor == ch["maker"]: return err("MAKER_CHECKER", 409, "The maker cannot approve their own change")
+                ch["status"] = "APPROVED"; ch["checker"] = actor
+                FACILITIES[ch["facilityRef"]]["status"] = {"ACTIVATE": "ACTIVE", "CLOSE": "CLOSED"}[ch["changeType"]]
+                return self._send(200, ch)
+            f = FACILITIES[r[1]]
+            if len(r) == 2: return self._send(200, fview(f))
+            if r[2] == "changes" and m == "POST":
+                b = self._body(); LSEQ["chg"] += 1
+                CHANGES[LSEQ["chg"]] = dict(id=LSEQ["chg"], facilityRef=f["facilityRef"], changeType=b["changeType"], status="PENDING", maker=actor, checker=None)
+                return self._send(201, CHANGES[LSEQ["chg"]])
+            if r[2] == "availability":
+                cons = f["utilised"] if f["revolving"] else f["drawnTotal"]
+                return self._send(200, dict(facilityRef=f["facilityRef"], status=f["status"], currencyCode=f["currencyCode"], sanctionedAmount=str(f["sanctionedAmount"]),
+                    utilised=str(f["utilised"]), drawnTotal=str(f["drawnTotal"]), reserved=str(f["reserved"]), consumed=str(cons),
+                    available=str(f["sanctionedAmount"] - cons - f["reserved"]), effectiveAvailable=str(max(D(0), f["sanctionedAmount"] - cons - f["reserved"])), overLimit=False))
+            if r[2] == "collateral-cover": return self._send(200, cover_of(r[1]))
+        self._send(404, {"error": "no route " + p})
     # ------------------------------------------------------------------ batch
     def _batch(self, m, p, qs):
         parts = p.strip("/").split("/")
-        jobs = ["INTEREST_ACCRUAL_DAILY","PENAL_INTEREST_CALCULATION_DAILY","DPD_UPDATE_DAILY","NPA_CLASSIFICATION_CHECK_DAILY","SOD_EOD_BALANCING_DAILY",
+        jobs = ["DEMAND_RAISE_DAILY","INTEREST_ACCRUAL_DAILY","PENAL_INTEREST_CALCULATION_DAILY","DPD_UPDATE_DAILY","NPA_CLASSIFICATION_CHECK_DAILY","SOD_EOD_BALANCING_DAILY",
                 "GL_POSTING_RECONCILIATION_DAILY","EMI_BILLING_GENERATION_MONTHLY","INTEREST_CAPITALIZATION_MONTHLY","PROVISIONING_CALCULATION_MONTHLY"]
         if p == "/api/v1/batch-admin/jobs": return self._send(200, [dict(jobName=j, enabled=True) for j in jobs])
         if len(parts) == 6 and parts[4] and parts[5] == "trigger" and m == "POST":
@@ -354,6 +516,6 @@ def serve(port, svc):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--mode", default="impl", choices=["impl","stubs","bugs"]); ap.add_argument("--base", type=int, default=18080)
     a = ap.parse_args(); MODE = a.mode
-    serve(a.base, "lending"); serve(a.base+1, "batch"); serve(a.base+2, "admin")
-    print("mock platform (%s) on %d/%d/%d" % (MODE, a.base, a.base+1, a.base+2), flush=True)
+    serve(a.base, "lending"); serve(a.base+1, "batch"); serve(a.base+2, "admin"); serve(a.base+3, "lcm")
+    print("mock platform (%s) on %d/%d/%d, LCM on %d" % (MODE, a.base, a.base+1, a.base+2, a.base+3), flush=True)
     threading.Event().wait()

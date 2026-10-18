@@ -185,14 +185,16 @@ public class LoanAccountService {
             throw new InvalidAccountStateException(
                     "Account " + accountId + " is not pending disbursement (status=" + account.getAccountStatus() + ")");
         }
-        if (account.getAccountType() == LoanAccount.AccountType.MORTGAGE && account.getMortgageId() == null) {
-            throw new InvalidAccountStateException(
-                    "Mortgage account " + accountId + " has no registered mortgage charge linked yet");
+
+        // Secured loans: the collateral lives in LCM, the single source of truth. Refused unless LCM confirms ACTIVE collateral
+        // of this customer allocated to the loan's facility (never fail-open, and independent of whether the amount fits).
+        LimitGateway.Subject limitSubject = limitSubject(account);
+        if (account.getAccountType() == LoanAccount.AccountType.MORTGAGE) {
+            limits.requireCollateral(limitSubject);
         }
 
         // Limits: reserve before anything changes, so a refusal leaves the account untouched. No-op unless the account
         // has a facility and lending.lcm.mode is shadow or live.
-        LimitGateway.Subject limitSubject = limitSubject(account);
         LocalDate businessDate = limitSubject.linked() ? businessDateService.currentDate() : null;
         LimitGateway.Ticket ticket = limits.reserveForDisbursement(limitSubject, disbursedAmount, businessDate);
         if (ticket.reservationRef() != null) {

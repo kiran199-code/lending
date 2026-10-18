@@ -5,7 +5,6 @@ import com.bank.lending.admin.dto.AdminDtos.AccountDetail;
 import com.bank.lending.admin.dto.AdminDtos.AccrualResponse;
 import com.bank.lending.admin.dto.AdminDtos.AccrualRow;
 import com.bank.lending.admin.dto.AdminDtos.Figures;
-import com.bank.lending.admin.dto.AdminDtos.MortgageDetail;
 import com.bank.lending.admin.dto.AdminDtos.PaymentResponse;
 import com.bank.lending.admin.dto.AdminDtos.PaymentRow;
 import com.bank.lending.admin.dto.AdminDtos.ScheduleResponse;
@@ -53,7 +52,7 @@ public class AccountInquiryService {
         return new AccountDetail(a.accountId(), a.accountNumber(), a.customerId(), a.sanctionRefId(), a.productCode(),
                 a.accountType(), a.accountStatus(), a.sanctionedAmount(), a.disbursedAmount(), a.tenureMonths(),
                 a.rateType(), a.interestRate(), a.benchmarkRateRef(), a.spread(), a.dayCountConvention(),
-                a.emiAmount(), a.emiStartDate(), a.mortgageId(), a.version(), a.createdAt(), a.updatedAt(), figures,
+                a.emiAmount(), a.emiStartDate(), a.version(), a.createdAt(), a.updatedAt(), figures,
                 a.currencyCode(), a.branchCode(), a.limitFacilityRef());
     }
 
@@ -86,12 +85,6 @@ public class AccountInquiryService {
             }
         }
         return new PaymentResponse(rows, total, principal, interest, failed);
-    }
-
-    public MortgageDetail mortgage(long accountId) {
-        requireAccount(accountId);
-        return accounts.findMortgageByAccount(accountId)
-                .orElseThrow(() -> new NotFoundException("Account " + accountId + " has no mortgage"));
     }
 
     private void requireAccount(long accountId) {

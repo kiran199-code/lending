@@ -148,4 +148,10 @@ public class CollateralController {
                                          @RequestParam(value = "asOf", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
         return service.drawingPowerView(ref, asOf);
     }
+
+    @GetMapping("/facilities/{ref}/collateral-cover")
+    @Operation(summary = "Active collateral of the customer allocated to this facility or a parent: does collateral back it? (lcm.facility.read)")
+    public CoverView cover(@PathVariable("ref") String ref) {
+        return service.cover(ref);
+    }
 }

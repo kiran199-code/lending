@@ -74,6 +74,13 @@ public final class Simulation {
     private boolean rerunChecked;
     private long batchTriggers;
     private final List<String> truncated = new ArrayList<>();
+    private SecuredFlow secured; // set only for the secured flow; null = unsecured flow
+
+    /** Switches on the collateral / facility steps for scenarios marked COLLATERAL. */
+    public Simulation withSecuredFlow(SecuredFlow flow) {
+        this.secured = flow;
+        return this;
+    }
 
     public Simulation(E2eConfig cfg, RunContext ctx, Findings findings, LendingClient lending, BatchClient batch,
                       AdminReadClient admin, List<AccountSim> sims, Consumer<String> log) {
@@ -128,7 +135,7 @@ public final class Simulation {
         Path dir = ctx.outputDir();
         audit = new AuditWriter(dir.resolve("audit-trail.csv"), List.of("runId", "dayNo", "businessDate", "scenarioId", "cohort",
                 "accountNumber", "accountId", "events", "modelOutstanding", "sysOutstanding", "modelDpd", "expectedStatus",
-                "sysStatus", "expectedAccrual", "sysAccrual", "sysAccrualPrincipal", "cumSysAccrued", "failedChecksToday"));
+                "sysStatus", "expectedAccrual", "sysAccrual", "sysAccrualPrincipal", "cumSysAccrued", "failedChecksToday", "facilityUtilised"));
         batchLog = new AuditWriter(dir.resolve("batch-runs.csv"), List.of("runId", "businessDate", "job", "triggerHttp", "status",
                 "exitCode", "executionId", "read", "write", "skip", "elapsedMs", "timedOut"));
         try {
@@ -170,6 +177,11 @@ public final class Simulation {
     private void setupOne(AccountSim s, LocalDate start) {
         {
             Scenario sc = s.scenario;
+            boolean isSecured = secured != null && SecuredFlow.isSecured(sc);
+            if (isSecured && !secured.prepare(s, start)) {
+                s.setupFailed = true;
+                return;
+            }
             ObjectNode body = Http.MAPPER.createObjectNode();
             body.put("customerId", s.customerId);
             body.put("sanctionRefId", s.sanctionRefId);
@@ -184,6 +196,9 @@ public final class Simulation {
             }
             putIf(body, "balloonPercent", sc.balloonPercent());
             putIf(body, "stepUpPercent", sc.stepUpPercent());
+            if (isSecured) {
+                body.put("limitFacilityRef", s.facilityRef);
+            }
             ApiResult created = lending.createAccount(body);
             if (!findings.check(created.ok() && created.body().hasNonNull("accountId"), "SETUP-01", sc.scenarioId(), s.label(), start,
                     "2xx with accountId", created.brief(), "create account failed")) {
@@ -196,7 +211,26 @@ public final class Simulation {
             String freq = acc.path("repaymentFrequency").asText("MONTHLY");
             int period = ScheduleInvariants.periodMonths(freq);
             LocalDate firstDue = start.plusMonths((long) period * cfg.getInt("e2e.disburse.first-due-in-periods"));
-            ApiResult disb = lending.disburse(s.accountId, sc.amount(), firstDue);
+            ApiResult disb = null;
+            if (isSecured) {
+                ApiResult[] wrong = new ApiResult[1];
+                SecuredFlow.Disbursal d = secured.refuseUntilCovered(s, start, lending, sc.amount(), firstDue, wrong);
+                if (d == SecuredFlow.Disbursal.ACCEPTED) {
+                    disb = wrong[0]; // already disbursed by mistake: carry on with what the platform did
+                }
+                if (!secured.cover(s, start)) {
+                    s.setupFailed = true;
+                    return;
+                }
+            }
+            if (disb == null) {
+                disb = lending.disburse(s.accountId, sc.amount(), firstDue);
+            }
+            if (isSecured) {
+                findings.check(disb.ok() && "ACTIVE".equals(disb.body().path("accountStatus").asText()), "SEC-07", sc.scenarioId(),
+                        s.accountNumber, start, "200 and ACTIVE after the collateral was allocated to " + s.facilityRef, disb.brief(),
+                        "a secured loan with active, allocated collateral could not be disbursed");
+            }
             if (!findings.check(disb.ok(), "SETUP-02", sc.scenarioId(), s.accountNumber, start, "2xx", disb.brief(), "disbursal failed")) {
                 s.setupFailed = true;
                 return;
@@ -211,6 +245,9 @@ public final class Simulation {
                     dec(d, "balloonPercent"), dec(d, "stepUpPercent"), firstDue);
             s.modelOutstanding = s.terms.disbursed();
             s.openingOutstanding = s.terms.disbursed();
+            if (isSecured) {
+                secured.afterDisbursal(s, start, s.terms.disbursed());
+            }
             ApiResult sched = lending.schedule(s.accountId);
             if (sched.ok() && sched.body().isArray()) {
                 s.rows = ScheduleInvariants.rows(sched.body());
@@ -229,6 +266,11 @@ public final class Simulation {
                 return;
             }
             s.endDate = computeEnd(s);
+            int horizon = sc.intParam("horizonDays", 0);
+            if (horizon > 0 && start.plusDays(horizon).isBefore(s.endDate)) {
+                s.endDate = start.plusDays(horizon); // a short window on a long loan; closure is not expected inside it
+                s.horizonCapped = true;
+            }
             statusSeen(s, d.path("accountStatus").asText("ACTIVE"));
         }
     }
@@ -909,10 +951,12 @@ public final class Simulation {
                 s.lastAccrualRows++;
             }
         }
+        String facilityUtilised = secured != null && s.secured() ? secured.daily(s, day) : "";
         audit.row(List.of(ctx.runId(), dayNo, day, sid, s.scenario.cohort(), s.accountNumber, s.accountId, events,
                 s.modelOutstanding, sysOut == null ? "" : sysOut, dpd, expectedStatus == null ? "(closed)" : expectedStatus, status,
                 expAccrual == null ? "" : expAccrual, sysAccrual == null ? "" : sysAccrual,
-                sysAccrualPrincipal == null ? "" : sysAccrualPrincipal, s.cumulativeAccrued, findings.failuresToday(sid, s.accountNumber, day)));
+                sysAccrualPrincipal == null ? "" : sysAccrualPrincipal, s.cumulativeAccrued, findings.failuresToday(sid, s.accountNumber, day),
+                facilityUtilised));
     }
 
     private void arrearsMarked(AccountSim s, LocalDate day, String sid) {
@@ -950,7 +994,7 @@ public final class Simulation {
             }
             String sid = s.scenario.scenarioId();
             LocalDate day = lastDay;
-            boolean shouldClose = switch (s.scenario.behaviour()) {
+            boolean shouldClose = !s.horizonCapped && switch (s.scenario.behaviour()) {
                 case STOP_PAYING, RESTRUCTURE_AFTER_NPA -> false;
                 default -> true;
             };

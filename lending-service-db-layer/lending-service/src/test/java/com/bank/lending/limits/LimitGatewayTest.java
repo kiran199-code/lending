@@ -117,6 +117,80 @@ class LimitGatewayTest {
         open.gateway.checkOnCreate("SANC-7", AMOUNT, "INR", "ONLINE", DAY); // does not throw
     }
 
+    // ------------------------------------------------------------------------------------ secured loans
+
+    /** The LCM-style code of the refusal {@code body} throws; fails the test if it throws something else or nothing. */
+    private static String refusalCode(Runnable body) {
+        try {
+            body.run();
+        } catch (LimitRejectedException e) {
+            return e.code();
+        }
+        throw new AssertionError("expected a LimitRejectedException");
+    }
+
+    private static final String COVER = "/api/v1/lcm/facilities/SANC-7/collateral-cover";
+
+    @Test
+    void aSecuredLoanIsRefusedUnlessLimitsAreLive() {
+        for (String mode : new String[]{"off", "shadow"}) {
+            LimitFixture fx = new LimitFixture(mode);
+
+            assertThatThrownBy(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))
+                    .isInstanceOf(LimitRejectedException.class)
+                    .hasMessageContaining("lending.lcm.mode");
+            assertThat(refusalCode(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))).isEqualTo("COLLATERAL_NOT_CHECKED");
+            assertThat(fx.lcm.calls).isEmpty();
+        }
+    }
+
+    @Test
+    void aSecuredLoanWithoutAFacilityIsRefusedWithoutAskingLcm() {
+        LimitFixture fx = new LimitFixture("live");
+
+        assertThat(refusalCode(() -> fx.gateway.requireCollateral(LimitFixture.UNLINKED))).isEqualTo("NO_FACILITY");
+        assertThat(fx.lcm.calls).isEmpty();
+    }
+
+    @Test
+    void aSecuredLoanIsRefusedWhenLcmHoldsNoActiveCollateralForItsFacility() {
+        LimitFixture fx = new LimitFixture("live");
+        fx.lcm.ok(COVER, "{\"facilityRef\":\"SANC-7\",\"customerId\":9,\"covered\":false,\"coveredValue\":0,\"items\":[]}");
+
+        assertThatThrownBy(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))
+                .isInstanceOf(LimitRejectedException.class)
+                .hasMessageContaining("SANC-7");
+        assertThat(refusalCode(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))).isEqualTo("COLLATERAL_NOT_COVERED");
+        assertThat(fx.lcm.callsTo(COVER).get(0).method()).isEqualTo("GET");
+    }
+
+    @Test
+    void aSecuredLoanPassesWhenLcmReportsActiveCollateralAllocatedToTheFacility() {
+        LimitFixture fx = new LimitFixture("live");
+        fx.lcm.ok(COVER, "{\"facilityRef\":\"SANC-7\",\"customerId\":9,\"covered\":true,\"coveredValue\":5625000.00,"
+                + "\"items\":[{\"collateralRef\":\"MORT-1\",\"allocationPct\":100}]}");
+
+        fx.gateway.requireCollateral(LimitFixture.LINKED); // does not throw
+    }
+
+    @Test
+    void aSecuredLoanIsRefusedWhenLcmCannotBeAskedEvenIfFailOpenIsSet() {
+        LimitFixture fx = new LimitFixture("live", true, 0, 3);
+        fx.lcm.on(COVER, new java.io.IOException("down"));
+
+        assertThatThrownBy(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))
+                .isInstanceOf(LimitUnavailableException.class);
+    }
+
+    @Test
+    void anUnknownFacilityIsReportedByLcmAsARefusal() {
+        LimitFixture fx = new LimitFixture("live");
+        fx.lcm.error(COVER, 404, "NOT_FOUND", "Facility not found: SANC-7");
+
+        assertThatThrownBy(() -> fx.gateway.requireCollateral(LimitFixture.LINKED))
+                .isInstanceOf(LimitRejectedException.class).hasMessageContaining("not found");
+    }
+
     // ----------------------------------------------------------------------------------------- disbursement
 
     @Test

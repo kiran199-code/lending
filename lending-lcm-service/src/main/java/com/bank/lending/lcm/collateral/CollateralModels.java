@@ -24,4 +24,7 @@ public final class CollateralModels {
     }
 
     public record Allocation(long id, long collateralId, long facilityId, BigDecimal allocationPct, String status) {}
+
+    /** One ACTIVE allocation of ACTIVE collateral that covers a facility (directly or through a parent). */
+    public record CoverRow(String collateralRef, String facilityRef, BigDecimal allocationPct) {}
 }

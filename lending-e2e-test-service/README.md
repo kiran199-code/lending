@@ -36,6 +36,8 @@ export E2E_BATCH_PASSWORD=...  E2E_ADMIN_PASSWORD=...         # credentials: env
 java -jar target/lending-e2e-test.jar guard    --profile=local   # prints ALLOWED / REFUSED and exits
 java -jar target/lending-e2e-test.jar dry-run  --profile=local   # read-only: connectivity, product limits, plan, estimate
 java -jar target/lending-e2e-test.jar run      --profile=local   # the real thing
+java -jar target/lending-e2e-test.jar secured-dry-run --profile=local   # SECURED flow: read-only checks (needs the LCM service)
+java -jar target/lending-e2e-test.jar secured         --profile=local   # SECURED flow: collateral, facility, loan, disbursal, EOD days
 java -jar target/lending-e2e-test.jar teardown E2E-261101093000-A1B --profile=local
 java -jar target/lending-e2e-test.jar serve    --profile=local   # optional REST trigger on :8090
 ```
@@ -137,10 +139,59 @@ business date, so after end of day (when the date is D+1) the suite expects the 
 | Accrual (daily) | row exists per active account; amount = principal x rate / basis (independent day-count maths); principal used = test ledger; none after closure; accrued vs interest paid at closure |
 | Payment | accepted at the exact amount and applied to the oldest unpaid instalment; principal/interest split = schedule; idempotent replay; short payment rejected without state change; history = what the test posted; part-payment reschedules; foreclosure closes |
 | Balance / status | outstanding principal = test ledger every day; zero at closure; fully-paid -> CLOSED; legal transitions; status = bucket of independently computed DPD; ladder without skipped buckets; cured -> ACTIVE; NPA family from the threshold; OVERDUE marking; admin DPD follows the platform business date |
+| Secured flow | SEC-01..12: collateral DRAFT then ACTIVE, early activation refused, facility maker-checker, allocation and cover, disbursal refused without cover and accepted with it, facility utilised = test-ledger outstanding every day, nothing utilised after closure, collateral stays ACTIVE (secured flow only) |
 | Capabilities | evidence from the services' OpenAPI documents: penal interest, provisioning, NPA interest suspension, ledger, restructure, write-off, cure rule, configurable thresholds, business date -> `NOT FOUND` (or `SKIPPED` when no OpenAPI is readable) |
 
 Schedule correctness is asserted as **properties** (and with day-count maths written independently of lending-service), not
 by copying the product's algorithm, so a defect cannot hide behind an identical defect on the test side.
+
+## The secured flow (collateral and facility first)
+
+Lending no longer holds collateral. The Limits and Collateral Management service (LCM) is the single source of truth, and a
+MORTGAGE-type loan cannot be disbursed unless LCM reports ACTIVE collateral allocated to the loan's facility. The suite therefore has a
+**separate secured flow**; the unsecured flow (`run`) is unchanged and never runs the secured scenarios.
+
+```bash
+java -jar target/lending-e2e-test.jar secured-dry-run --profile=local   # read-only: services, LCM, HL01 product, plan
+java -jar target/lending-e2e-test.jar secured         --profile=local   # the real thing
+```
+
+Per account the flow does, in this order:
+
+1. **Collateral** is registered in LCM (DRAFT). Activating it too early must be refused (SEC-02). Legal status VERIFIED, an approved valuation, the
+   charge and the insurance expiry are then recorded; the collateral becomes ACTIVE (SEC-03). Valuations and facility changes are
+   maker-checker: `e2e.lcm.maker` proposes and a different `e2e.lcm.checker` approves (SEC-12).
+2. **Facility** (a single OVERALL facility per customer) is created and activated the same way (SEC-04).
+3. **Loan** is created through lending on the secured product (HL01). Disbursal is first tried **before** the collateral is allocated and must be
+   refused with `COLLATERAL_NOT_COVERED`, leaving the account PENDING_DISBURSEMENT (SEC-06).
+4. The collateral is **allocated** to the facility and `collateral-cover` must report it (SEC-05). Disbursal now succeeds (SEC-07) and
+   the facility shows the amount utilised and drawn with nothing left reserved (SEC-08).
+5. **Simulated days** run exactly as in the unsecured flow (business date, payments, part-payments, end of day through the batch service). Every day
+   the facility's utilised amount must equal the outstanding principal of the independent test ledger (SEC-09), and the collateral must still
+   be ACTIVE (SEC-11). After closure or foreclosure the facility utilised must be zero (SEC-10).
+
+Settings (all optional, shown with defaults; `E2E_` environment names follow the usual rule):
+
+| Setting | Meaning |
+|---|---|
+| `e2e.lcm.base-url`, `e2e.lcm.username`, `e2e.lcm.password` | the LCM service (local profile: `http://localhost:8084`). The password comes from the environment only |
+| `e2e.lcm.maker`, `e2e.lcm.checker` | the two `X-Actor` names for maker-checker; they must differ. They are typed names, not authenticated users |
+| `e2e.secured.scenario-file` | `classpath:secured-scenarios.csv` (S01 on-time, S02 late, S03 part-payment, S04, S05; all on HL01 with feature COLLATERAL) |
+| `e2e.secured.accounts`, `e2e.secured.cohort-a-percent`, `e2e.secured.max-sim-days` | replace the unsecured values for this flow only; a setting you give explicitly always wins |
+
+Things to know before running it:
+
+* **LCM judges validity against its own wall clock**, while the platform business date is simulated. A valuation cannot be dated in the future and
+  insurance must expire after today, so run with `--start-date=<today>` (the helper script and the mock do) and keep the facility expiry beyond
+  the last simulated day. `horizonDays=N` in a scenario limits a long mortgage to its first N days (closure is then not expected).
+* The suite needs `lending.lcm.mode=live` on lending-service. With any other mode the gate refuses every secured disbursal and SEC-06/07 fail.
+* The gate checks that cover **exists**, not that it is large enough, and only the same customer's collateral counts. The suite does not test
+  "a second loan exceeds the facility limit" yet.
+* A single OVERALL facility is used; parent/child and sub-limit hierarchies are not exercised.
+* **Teardown** forecloses the loans, releases the allocations and closes the facility and collateral in LCM through its API, and emits a second script,
+  `cleanup-<runId>-lcm.sql` (schema `lcm`, scoped to `<runId>-F<n>` / `<runId>-C<n>`), plus a `limit_outbox` delete in the lending cleanup script.
+  If `e2e.lcm.base-url` is not set at teardown, the collateral and facility refs are printed and left for you.
+* The production guard also checks the LCM host.
 
 ## Outputs (`results/<runId>/`)
 
@@ -243,10 +294,10 @@ API (same token header): `POST /runs[?dryRun=true]` with optional JSON such as `
 
 ## Testing the suite itself
 
-* `mvn test`: 36 unit tests (day counts, DPD model, schedule invariants, production guard, scenario loader, teardown SQL, end-of-day result mapping).
+* `mvn test`: 51 unit tests: day counts, DPD model, schedule invariants, production guard, scenario loader, teardown SQL, end-of-day result mapping, and (new) the secured flow's scenario file, defaults, product resolution, catalogue, guard and LCM cleanup SQL. They were last run with a minimal JUnit stand-in, not Maven.
 * `mock/mock_platform.py`: a stand-in for the three services used to test the tests (it keeps a business date, refuses value dates
   after it, and serves the EOD API like the real services; `MOCK_ENFORCE_NO_FUTURE=0` makes it behave like
-  `BUSINESS_DATE_ENFORCE_NO_FUTURE=false`). `--mode impl` is a healthy platform,
+  `BUSINESS_DATE_ENFORCE_NO_FUTURE=false`). `--mode impl` is a healthy platform (it also serves a mock LCM on 18083 for the secured flow; `MOCK_GATE=0` removes the collateral gate and `MOCK_LCM_MODE=off` simulates lending not running in live mode, so the SEC checks can be seen to fail),
   `--mode stubs` mirrors today's batch behaviour, `--mode bugs` seeds defects the suite must catch. It is a development aid and
   is not part of any deliverable image.
 

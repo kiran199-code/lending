@@ -29,13 +29,22 @@ public final class ProductResolver {
     private ProductResolver() {
     }
 
+    /** The unsecured flow: only ACTIVE unsecured products are usable. */
     public static Result resolve(JsonNode products, List<Scenario> planned, boolean autoFallback) {
+        return resolve(products, planned, autoFallback, false);
+    }
+
+    /**
+     * {@code secured=false}: the unsecured flow, MORTGAGE products are not usable. {@code secured=true}: the secured flow, only
+     * ACTIVE MORTGAGE products are usable (a secured loan on an unsecured product would not need collateral, so it would prove nothing).
+     */
+    public static Result resolve(JsonNode products, List<Scenario> planned, boolean autoFallback, boolean secured) {
         List<Scenario> out = new ArrayList<>();
         List<String> notes = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
         List<JsonNode> usable = new ArrayList<>();
         for (JsonNode p : products) {
-            if (isUsable(p)) {
+            if (isUsable(p, secured)) {
                 usable.add(p);
             }
         }
@@ -43,12 +52,13 @@ public final class ProductResolver {
             Scenario sc = planned.get(i);
             String tag = "#" + (i + 1) + " " + sc.scenarioId();
             JsonNode own = find(products, sc.productCode());
-            if (own != null && isUsable(own)) {
+            if (own != null && isUsable(own, secured)) {
                 out.add(fit(sc, own, false, tag, notes));
                 continue;
             }
             String why = own == null ? "product " + sc.productCode() + " does not exist"
-                    : "product " + sc.productCode() + " is " + (own.path("status").asText().equals("ACTIVE") ? "a MORTGAGE product" : own.path("status").asText());
+                    : "product " + sc.productCode() + " is " + (own.path("status").asText().equals("ACTIVE")
+                    ? (secured ? "not a MORTGAGE (secured) product" : "a MORTGAGE product") : own.path("status").asText());
             JsonNode alt = autoFallback ? closest(usable, sc) : null;
             if (alt == null) {
                 out.add(null);
@@ -61,8 +71,8 @@ public final class ProductResolver {
         return new Result(out, notes, skipped);
     }
 
-    private static boolean isUsable(JsonNode p) {
-        return "ACTIVE".equals(p.path("status").asText()) && !"MORTGAGE".equals(p.path("accountType").asText());
+    private static boolean isUsable(JsonNode p, boolean secured) {
+        return "ACTIVE".equals(p.path("status").asText()) && secured == "MORTGAGE".equals(p.path("accountType").asText());
     }
 
     /** The usable product that needs the fewest changes to the plan: inside its limits first, then plain EMI, then fixed rate. */

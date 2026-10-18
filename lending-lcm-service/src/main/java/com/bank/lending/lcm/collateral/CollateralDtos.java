@@ -63,4 +63,10 @@ public final class CollateralDtos {
     public record TypeConfigView(
             String typeCode, String description, BigDecimal defaultHaircutPct, BigDecimal maxLtvPct, int valuationValidityDays,
             boolean requiresCharge, boolean requiresInsurance) {}
+
+    /** What backs a facility: collateral of the same customer that is ACTIVE and ACTIVE-allocated to the facility or a parent. */
+    public record CoverItem(String collateralRef, String collateralType, String allocatedTo, BigDecimal allocationPct, BigDecimal lendableValue,
+                            BigDecimal coveredValue) {}
+
+    public record CoverView(String facilityRef, long customerId, boolean covered, BigDecimal coveredValue, List<CoverItem> items) {}
 }

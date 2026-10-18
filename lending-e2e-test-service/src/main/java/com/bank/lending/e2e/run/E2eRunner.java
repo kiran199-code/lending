@@ -2,6 +2,7 @@ package com.bank.lending.e2e.run;
 
 import com.bank.lending.e2e.client.AdminReadClient;
 import com.bank.lending.e2e.client.BatchClient;
+import com.bank.lending.e2e.client.LcmClient;
 import com.bank.lending.e2e.client.LendingClient;
 import com.bank.lending.e2e.config.E2eConfig;
 import com.bank.lending.e2e.config.EnvironmentGuard;
@@ -63,7 +64,26 @@ public final class E2eRunner {
                 Duration.ofMillis(cfg.getLong("e2e.batch.poll-interval-ms")));
         AdminReadClient admin = new AdminReadClient(adminHttp);
 
-        List<Scenario> matrix = ScenarioLoader.load(cfg.require("e2e.scenario-file"));
+        // Two separate flows: the unsecured flow (default) and the secured flow (collateral and facility in LCM first).
+        // A scenario belongs to exactly one of them; the other flow leaves it out.
+        boolean securedFlow = "SECURED".equalsIgnoreCase(cfg.get("e2e.flow", "UNSECURED"));
+        LcmClient lcm = null;
+        if (securedFlow) {
+            Http lcmHttp = http(cfg, "e2e.lcm.base-url", "e2e.lcm.username", "e2e.lcm.password");
+            if (lcmHttp == null) {
+                throw new IllegalStateException("e2e.lcm.base-url must be set for the secured flow (the Limits and Collateral service)");
+            }
+            lcm = new LcmClient(lcmHttp);
+        }
+        List<Scenario> allRows = ScenarioLoader.load(cfg.require("e2e.scenario-file"));
+        List<Scenario> matrix = allRows.stream().filter(sc -> SecuredFlow.isSecured(sc) == securedFlow).toList();
+        if (matrix.size() < allRows.size()) {
+            log.accept((allRows.size() - matrix.size()) + " scenario row(s) belong to the " + (securedFlow ? "unsecured" : "secured")
+                    + " flow and are left out of this " + (securedFlow ? "secured" : "unsecured") + " run");
+        }
+        if (matrix.isEmpty()) {
+            throw new IllegalStateException("e2e.scenario-file has no " + (securedFlow ? "secured (COLLATERAL)" : "unsecured") + " scenarios");
+        }
         List<Scenario> expanded = ScenarioLoader.expand(matrix, cfg.getInt("e2e.accounts"), cfg.getInt("e2e.cohort-a-percent"));
 
         // Fit the plan to the products that exist, so a missing sample product never stops the run: the account is moved to the
@@ -74,7 +94,7 @@ public final class E2eRunner {
         List<AccountSim> sims = new ArrayList<>();
         if (productList.ok()) {
             boolean auto = !"SKIP".equalsIgnoreCase(cfg.get("e2e.products.fallback", "AUTO"));
-            ProductResolver.Result res = ProductResolver.resolve(productList.body(), expanded, auto);
+            ProductResolver.Result res = ProductResolver.resolve(productList.body(), expanded, auto, securedFlow);
             planNotes.addAll(res.notes());
             res.skipped().forEach(m -> planNotes.add("SKIPPED " + m));
             resolved = new ArrayList<>();
@@ -93,10 +113,16 @@ public final class E2eRunner {
 
         Preflight.Report pre0 = Preflight.run(cfg, lending, batch, admin, resolved);
         List<String> problems = new ArrayList<>(pre0.problems());
-        if (productList.ok() && sims.isEmpty()) {
-            problems.add("no account can be planned: there is no ACTIVE unsecured loan product. Create products first (admin portal: Maintenance -> Create base products, or Products -> New product).");
+        List<String> okList = new ArrayList<>(pre0.ok());
+        if (securedFlow) {
+            Preflight.secured(cfg, lcm, okList, problems);
         }
-        Preflight.Report pre = new Preflight.Report(pre0.ok(), problems, pre0.warnings());
+        if (productList.ok() && sims.isEmpty()) {
+            problems.add(securedFlow
+                    ? "no account can be planned: there is no ACTIVE MORTGAGE (secured) loan product. Create it first (admin portal: Maintenance -> Create base products creates HL01, or Products -> New product)."
+                    : "no account can be planned: there is no ACTIVE unsecured loan product. Create products first (admin portal: Maintenance -> Create base products, or Products -> New product).");
+        }
+        Preflight.Report pre = new Preflight.Report(okList, problems, pre0.warnings());
         log.accept("Preflight: " + pre.ok().size() + " ok, " + pre.problems().size() + " problem(s), " + pre.warnings().size()
                 + " warning(s), " + planNotes.size() + " plan change(s)");
         pre.ok().forEach(m -> log.accept("  ok    " + m));
@@ -129,6 +155,9 @@ public final class E2eRunner {
         }
 
         Simulation sim = new Simulation(cfg, ctx, findings, lending, batch, admin, sims, log);
+        if (securedFlow) {
+            sim.withSecuredFlow(new SecuredFlow(cfg, ctx, findings, lcm, log));
+        }
         Reporter.RunFacts partial = new Reporter.RunFacts("RUN", started, null, 0, cfg.getDate("e2e.start-date"), null, 0, caps, pre.ok(), deviations);
         Reporter.write(cfg, ctx, findings, sims, partial); // manifest exists even if the run crashes
         try {

@@ -58,11 +58,23 @@ public final class AccountSim {
     public int lastAccrualRows;
     public final Map<String, String> notes = new LinkedHashMap<>();
 
+    // secured flow (collateral and facility held in the Limits & Collateral service); all null/false for an unsecured account
+    public String collateralRef;
+    public String facilityRef;
+    public Long allocationId;
+    public BigDecimal facilityAmount;
+    public boolean limitDiverged;                // LCM utilisation stopped following the loan; later days do not wait for it
+    public boolean horizonCapped;                // the scenario stops at horizonDays, before the loan's last instalment
+
     public AccountSim(int index, Scenario scenario, long customerId, long sanctionRefId) {
         this.index = index;
         this.scenario = scenario;
         this.customerId = customerId;
         this.sanctionRefId = sanctionRefId;
+    }
+
+    public boolean secured() {
+        return collateralRef != null;
     }
 
     public boolean active() {

@@ -40,9 +40,9 @@ Swagger UI: `/swagger-ui.html`. Health: `/actuator/health`.
 
 ## API in one paragraph
 
-49 endpoints under `/api/v1/lcm`: `facilities` (create, search, read, availability, tree, transactions, changes,
+50 endpoints under `/api/v1/lcm`: `facilities` (create, search, read, availability, tree, transactions, changes,
 excess), `utilisations` (check, reserve, confirm, release, repay, close, positions), `collateral` and `valuations` and
-`allocations`, `facilities/{ref}/drawing-power`, `monitoring` (sweep, breaches, integrity), `events` (pull feed),
+`allocations`, `facilities/{ref}/drawing-power`, `facilities/{ref}/collateral-cover` (is the facility backed by ACTIVE collateral of the same customer allocated to it or a parent; lending-service calls it before disbursing a mortgage-type loan), `monitoring` (sweep, breaches, integrity), `events` (pull feed),
 `bridge/lending` and `portal`. Every endpoint carries its future IAM permission code in its OpenAPI summary; the full
 list is in the IAM catalogue file delivered with this module.
 

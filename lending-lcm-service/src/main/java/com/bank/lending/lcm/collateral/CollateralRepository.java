@@ -257,4 +257,21 @@ public class CollateralRepository {
                         rs.getBoolean("requires_insurance"), rs.getObject("insurance_expiry", LocalDate.class)),
                 facilityId);
     }
+
+    /**
+     * ACTIVE allocations of ACTIVE collateral owned by {@code customerId} to any of the given facilities (a facility and its
+     * parents). Collateral of another customer is ignored: it cannot back this customer's loan here.
+     */
+    public List<CoverRow> coverRows(List<Long> facilityIds, long customerId) {
+        if (facilityIds.isEmpty()) return List.of();
+        String marks = String.join(",", java.util.Collections.nCopies(facilityIds.size(), "?"));
+        List<Object> args = new ArrayList<>(facilityIds);
+        args.add(customerId);
+        return jdbc.query("SELECT c.collateral_ref, f.facility_ref, a.allocation_pct FROM collateral_allocation a "
+                + "JOIN collateral c ON c.id = a.collateral_id JOIN facility f ON f.id = a.facility_id "
+                + "WHERE a.facility_id IN (" + marks + ") AND a.status = 'ACTIVE' AND c.status = 'ACTIVE' AND c.customer_id = ? "
+                + "ORDER BY a.id",
+                (rs, i) -> new CoverRow(rs.getString("collateral_ref"), rs.getString("facility_ref"), rs.getBigDecimal("allocation_pct")),
+                args.toArray());
+    }
 }

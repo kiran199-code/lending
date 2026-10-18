@@ -3,6 +3,8 @@
 checkId,area,severity,title,expectation
 SETUP-01,Account,HIGH,Account creation accepted,POST /loan-accounts returns 201 for a scenario that is inside product limits
 SETUP-02,Account,HIGH,Disbursal accepted,POST /disburse returns 200 and the account becomes ACTIVE with a schedule
+SETUP-03,Account,HIGH,Account set-up completed without an unexpected error,every set-up step ran; an unexpected exception is recorded here and the run carries on with the other accounts
+SETUP-04,Account,HIGH,Secured set-up possible,LCM has a collateral type and the collateral / facility set-up steps could be started
 SCH-01,Schedule,CRITICAL,Schedule is internally consistent for the account terms,count/dates/interest(day count)/balance roll/closing zero/type rules
 SCH-02,Schedule,HIGH,Account EMI amount equals first scheduled instalment,loan_account.emiAmount matches schedule (EMI-type products)
 BAT-01,Batch,HIGH,Batch job trigger accepted,POST /batch-admin/jobs/{job}/trigger accepted for the simulated business date
@@ -47,3 +49,15 @@ CAP-THRESHOLDS,Capability,MEDIUM,DPD / NPA thresholds are configurable,threshold
 CAP-BIZDATE,Capability,MEDIUM,Business-date / EOD rollover service,a platform business date and an end-of-day rollover exist in the OpenAPI documents
 LED-01,Ledger,MEDIUM,Ledger outbox event exists for disbursal and payments,at least one outbox row per account and per payment event
 ENV-01,Environment,HIGH,Partition / data-window problems,calls for the simulated dates succeed (interest_accrual and emi_transaction partitions exist for them)
+SEC-01,Secured,HIGH,Collateral registered in LCM as DRAFT,POST /lcm/collateral returns 201 and status DRAFT
+SEC-02,Secured,MEDIUM,Collateral cannot be activated while requirements are open,activate before legal / valuation / charge / insurance is refused with ACTIVATION_REQUIREMENTS_NOT_MET
+SEC-03,Secured,CRITICAL,Collateral becomes ACTIVE once every requirement is met,legal VERIFIED + approved valuation + charge + insurance then activate gives ACTIVE
+SEC-04,Secured,HIGH,Facility created and activated by maker-checker,facility DRAFT then ACTIVE after a different user approves ACTIVATE
+SEC-05,Secured,HIGH,Collateral allocated to the facility and reported as cover,allocation 201 and GET collateral-cover covered=true listing the collateral
+SEC-06,Secured,CRITICAL,Secured loan is refused without active collateral,disburse before allocation is refused with COLLATERAL_NOT_COVERED and the account stays PENDING_DISBURSEMENT
+SEC-07,Secured,CRITICAL,Secured loan is disbursed once collateral is allocated,disburse after allocation returns 200 and the account is ACTIVE
+SEC-08,Secured,HIGH,Disbursement shows on the facility,facility utilised = drawn = disbursed amount and nothing left reserved
+SEC-09,Secured,CRITICAL,Facility utilisation follows the loan every day,facility utilised = outstanding principal of the test ledger after payments and part-payments
+SEC-10,Secured,HIGH,A closed loan leaves nothing utilised,after closure or foreclosure the facility utilised = 0
+SEC-11,Secured,HIGH,Collateral behind a live loan stays ACTIVE,the collateral is not released or suspended by end of day or monitoring while a loan uses it
+SEC-12,Secured,MEDIUM,Maker-checker is enforced in LCM,the user who proposed a valuation or a facility change cannot approve it

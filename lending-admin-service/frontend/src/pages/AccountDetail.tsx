@@ -4,14 +4,14 @@ import { download, get, send } from '../api';
 import { useAuth } from '../auth';
 import { DailyArea } from '../components/charts';
 import DataTable, { Col } from '../components/DataTable';
-import { AvailabilityLine, FacilityBadge, FacilityPicker, NoticeBanner, useAction } from '../components/limits';
+import { AvailabilityLine, CollateralCard, FacilityBadge, FacilityPicker, NoticeBanner, useAction } from '../components/limits';
 import { ConfirmModal } from '../components/ops';
-import { Card, Empty, ErrorBox, InstallmentBadge, KeyValues, Kpi, Loading, PageHeader, PaymentBadge, StatusBadge, Tabs } from '../components/ui';
+import { Card, ErrorBox, InstallmentBadge, KeyValues, Kpi, Loading, PageHeader, PaymentBadge, StatusBadge, Tabs } from '../components/ui';
 import { date, dateTime, downloadCsv, label, money, pct } from '../format';
 import { useLoad } from '../hooks';
-import type { AccountDetail as Detail, AccrualResponse, Availability, AccrualRow, MortgageDetail, PaymentResponse, PaymentRow, ScheduleResponse, ScheduleRow } from '../types';
+import type { AccountDetail as Detail, AccrualResponse, Availability, AccrualRow, PaymentResponse, PaymentRow, ScheduleResponse, ScheduleRow } from '../types';
 
-type TabId = 'overview' | 'schedule' | 'accruals' | 'payments' | 'mortgage';
+type TabId = 'overview' | 'schedule' | 'accruals' | 'payments';
 
 export default function AccountDetail() {
   const { id } = useParams();
@@ -30,7 +30,6 @@ export default function AccountDetail() {
     { id: 'schedule', label: 'Amortization' },
     { id: 'accruals', label: 'Accruals' },
     { id: 'payments', label: 'Payments' },
-    ...(a.accountType === 'MORTGAGE' ? [{ id: 'mortgage' as TabId, label: 'Mortgage' }] : []),
   ];
 
   async function statement() {
@@ -46,7 +45,7 @@ export default function AccountDetail() {
       <p className="crumb"><Link to="/accounts">Accounts</Link> / {a.accountNumber}</p>
       <PageHeader
         title={<>{a.accountNumber} <StatusBadge status={a.accountStatus} /></>}
-        sub={`Customer ${a.customerId} | ${a.productCode} ${a.accountType === 'MORTGAGE' ? 'mortgage' : 'unsecured'} loan | account id ${a.accountId}`}
+        sub={`Customer ${a.customerId} | ${a.productCode} ${a.accountType === 'MORTGAGE' ? 'secured (mortgage)' : 'unsecured'} loan | account id ${a.accountId}`}
         actions={
           <>
             <button className="btn" onClick={reload}>Refresh</button>
@@ -60,7 +59,6 @@ export default function AccountDetail() {
       {tab === 'schedule' && <Schedule id={a.accountId} accountNumber={a.accountNumber} />}
       {tab === 'accruals' && <Accruals id={a.accountId} />}
       {tab === 'payments' && <Payments id={a.accountId} accountNumber={a.accountNumber} />}
-      {tab === 'mortgage' && <Mortgage id={a.accountId} />}
     </>
   );
 }
@@ -86,6 +84,7 @@ function Overview({ a, onChanged }: { a: Detail; onChanged: () => void }) {
         <p className="muted">{f.installmentsPaid} of {f.installmentsTotal || a.tenureMonths} instalments paid ({progress}%)</p>
       </Card>
       <FacilityCard a={a} onChanged={onChanged} />
+      <CollateralCard account={a} />
       <div className="grid-2">
         <Card title="Loan terms">
           <KeyValues items={[
@@ -110,7 +109,6 @@ function Overview({ a, onChanged }: { a: Detail; onChanged: () => void }) {
             ['Limit facility', a.limitFacilityRef ? <Link key="lf" to={`/limits/facilities/${encodeURIComponent(a.limitFacilityRef)}`}>{a.limitFacilityRef}</Link> : 'None'],
             ['Type', label(a.accountType)],
             ['Status', <StatusBadge key="s" status={a.accountStatus} />],
-            ['Mortgage id', a.mortgageId ?? '-'],
             ['Created', dateTime(a.createdAt)],
             ['Last updated', dateTime(a.updatedAt)],
           ]} />
@@ -315,50 +313,6 @@ function Payments({ id, accountNumber }: { id: number; accountNumber: string }) 
       </div>
       <Card title="Payment history" actions={<button className="btn" onClick={exportCsv}>Export CSV</button>}>
         <DataTable columns={cols} rows={data.rows} rowKey={r => r.transactionId} empty="No payments received yet" />
-      </Card>
-    </>
-  );
-}
-
-// ------------------------------------------------------------------ mortgage
-
-function Mortgage({ id }: { id: number }) {
-  const { data, error, loading, reload } = useLoad(() => get<MortgageDetail>(`/accounts/${id}/mortgage`), [id]);
-  if (loading && !data) return <Loading what="Loading mortgage" />;
-  if (error) return error.includes('no mortgage') ? <Empty>No mortgage has been registered for this account yet.</Empty> : <ErrorBox message={error} onRetry={reload} />;
-  if (!data) return null;
-  return (
-    <>
-      <div className="grid-2">
-        <Card title="Property and charge">
-          <KeyValues items={[
-            ['Property type', label(data.propertyType)],
-            ['Address', data.propertyAddress],
-            ['Valuation', money(data.valuationAmount)],
-            ['Valued on', date(data.valuationDate)],
-            ['Valuer', data.valuerRef ?? '-'],
-            ['LTV ratio', pct(data.ltvRatio)],
-          ]} />
-        </Card>
-        <Card title="Security status">
-          <KeyValues items={[
-            ['Charge status', label(data.chargeStatus)],
-            ['CERSAI registration', data.cersaiRegistrationRef ?? '-'],
-            ['Mortgage deed', data.mortgageDeedRef ?? '-'],
-            ['Insurance policy', data.insurancePolicyRef ?? '-'],
-            ['Legal verification', label(data.legalVerificationStatus)],
-          ]} />
-        </Card>
-      </div>
-      <Card title="Valuation history">
-        <DataTable
-          columns={[
-            { key: 'd', header: 'Date', render: r => date(r.valuationDate) },
-            { key: 'a', header: 'Valuation', align: 'right', render: r => money(r.valuationAmount) },
-            { key: 't', header: 'Type', render: r => label(r.valuationType) },
-            { key: 'v', header: 'Valuer', render: r => r.valuerRef ?? '-' },
-          ]}
-          rows={data.valuations} rowKey={r => `${r.valuationDate}-${r.valuationAmount}`} empty="No revaluations recorded" />
       </Card>
     </>
   );

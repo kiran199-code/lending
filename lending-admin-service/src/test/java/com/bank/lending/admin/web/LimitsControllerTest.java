@@ -91,6 +91,16 @@ class LimitsControllerTest {
     }
 
     @Test
+    void collateralCoverIsAReadOfTheFacilityAndTheReferenceIsChecked() {
+        controller.collateralCover("SANC-900001");
+        assertThat(lcm.last().method()).isEqualTo(HttpMethod.GET);
+        assertThat(lcm.last().path()).isEqualTo("/facilities/SANC-900001/collateral-cover");
+
+        assertThatThrownBy(() -> controller.collateralCover("../x")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(lcm.calls).hasSize(1);
+    }
+
+    @Test
     void searchFiltersAreForwardedAndEmptyOnesAreNull() {
         controller.facilities(101L, "ACTIVE", null);
         assertThat(lcm.last().path()).isEqualTo("/facilities");

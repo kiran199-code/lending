@@ -272,6 +272,27 @@ public class CollateralService implements DrawingPowerProvider {
                 "drawingPower", drawingPower(f.id(), LocalDate.now(clock))));
     }
 
+    /**
+     * Whether the loans drawn on a facility are backed by collateral: ACTIVE collateral of the facility's customer with an ACTIVE
+     * allocation to the facility or to a parent facility. {@code coveredValue} is the lendable value times each allocation share;
+     * it is information, the yes/no answer is {@code covered}.
+     */
+    @Transactional(readOnly = true)
+    public CoverView cover(String facilityRef) {
+        Facility f = facilities.getByRef(facilityRef);
+        List<CoverRow> rows = repo.coverRows(facilities.chainIds(f.id()), f.customerId());
+        BigDecimal total = BigDecimal.ZERO;
+        java.util.ArrayList<CoverItem> items = new java.util.ArrayList<>();
+        for (CoverRow r : rows) {
+            CollateralView v = view(repo.getByRef(r.collateralRef()));
+            BigDecimal covered = v.lendableValue() == null ? BigDecimal.ZERO
+                    : Money.scale(v.lendableValue().multiply(r.allocationPct()).divide(Money.HUNDRED, 2, java.math.RoundingMode.HALF_UP));
+            total = total.add(covered);
+            items.add(new CoverItem(r.collateralRef(), v.collateralType(), r.facilityRef(), r.allocationPct(), v.lendableValue(), covered));
+        }
+        return new CoverView(f.facilityRef(), f.customerId(), !items.isEmpty(), Money.scale(total), items);
+    }
+
     // ---------------------------------------------------------------- view helpers
 
     List<String> unmet(Collateral c) {

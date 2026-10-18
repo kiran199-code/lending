@@ -14,6 +14,8 @@ import java.util.Map;
  * <pre>
  *   java -jar lending-e2e-test.jar run        [--profile=sit] [--accounts=20] [--key=value ...]
  *   java -jar lending-e2e-test.jar dry-run    [...]      read-only: guard, connectivity, scenario/product fit, plan
+ *   java -jar lending-e2e-test.jar secured    [...]      SECURED flow: collateral, facility, loan, disbursal, end-of-day days
+ *   java -jar lending-e2e-test.jar secured-dry-run [...] read-only checks for the secured flow
  *   java -jar lending-e2e-test.jar teardown   &lt;runId&gt; [...]
  *   java -jar lending-e2e-test.jar guard      [...]      print the production-guard verdict and exit
  *   java -jar lending-e2e-test.jar serve      [...]      REST trigger (POST /runs)
@@ -34,10 +36,11 @@ public final class Main {
 
     static int run(String[] args) {
         if (args.length == 0 || args[0].equals("help") || args[0].equals("--help")) {
-            System.out.println("usage: run | dry-run | teardown <runId> | guard | serve   [--profile=local|dev|sit|uat] [--accounts=N] [--<e2e.key>=value]");
+            System.out.println("usage: run | dry-run (unsecured flow) | secured | secured-dry-run (secured flow) | teardown <runId> | guard | serve   [--profile=local|dev|sit|uat] [--accounts=N] [--<e2e.key>=value]");
             return 0;
         }
         String cmd = args[0];
+        boolean securedCmd = cmd.equals("secured") || cmd.equals("secured-dry-run");
         Map<String, String> overrides = new LinkedHashMap<>();
         String positional = null;
         for (int i = 1; i < args.length; i++) {
@@ -50,6 +53,9 @@ public final class Main {
             }
         }
         try {
+            if (securedCmd) {
+                overrides.put("e2e.flow", "SECURED");
+            }
             E2eConfig cfg = E2eConfig.load(overrides);
             switch (cmd) {
                 case "guard": {
@@ -58,8 +64,10 @@ public final class Main {
                     return v.allowed() ? 0 : 3;
                 }
                 case "dry-run":
+                case "secured-dry-run":
+                case "secured":
                 case "run": {
-                    E2eRunner.Outcome o = new E2eRunner(cfg, System.out::println).execute(cmd.equals("dry-run"));
+                    E2eRunner.Outcome o = new E2eRunner(cfg, System.out::println).execute(cmd.endsWith("dry-run"));
                     System.out.println(o.summary());
                     return o.exitCode();
                 }

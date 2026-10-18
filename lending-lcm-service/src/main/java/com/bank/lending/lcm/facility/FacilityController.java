@@ -67,6 +67,12 @@ public class FacilityController {
         return service.reject(id, Actor.required(actor), req == null ? null : req.note());
     }
 
+    @GetMapping("/excess-requests")
+    @Operation(summary = "List temporary excess requests of all facilities, e.g. status=PENDING (lcm.facility.read)")
+    public List<ExcessView> excessRequests(@RequestParam(value = "status", required = false) String status) {
+        return service.excessByStatus(status);
+    }
+
     @PostMapping("/excess/{id}/approve")
     @Operation(summary = "Approve a temporary excess as checker (lcm.excess.approve)")
     public ExcessView approveExcess(@PathVariable("id") long id, @RequestHeader(value = "X-Actor", required = false) String actor) {

@@ -73,6 +73,17 @@ public class LendingAccountClient {
         return post("/api/v1/loan-accounts/" + accountId + "/payments/preview", body, actor, null);
     }
 
+    /** Attaches, changes or clears the limit facility of an account that is pending disbursement. */
+    public JsonNode linkLimitFacility(long accountId, JsonNode body, String actor) {
+        require();
+        return call(() -> client.put().uri("/api/v1/loan-accounts/{id}/limit-facility", accountId)
+                .header("X-Actor", actor == null ? "admin-portal" : actor)
+                .contentType(MediaType.APPLICATION_JSON).body(body)
+                .retrieve()
+                .onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                .body(JsonNode.class));
+    }
+
     public JsonNode bulkCreate(JsonNode body, String actor) {
         return post("/api/v1/loan-accounts/bulk/create", body, actor, null);
     }

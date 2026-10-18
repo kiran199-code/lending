@@ -99,6 +99,11 @@ public class CollateralService implements DrawingPowerProvider {
         return repo.valuations(ref);
     }
 
+    @Transactional(readOnly = true)
+    public List<ValuationView> valuationsByStatus(String status) {
+        return repo.valuationsByStatus(status);
+    }
+
     @Transactional
     public ValuationView approveValuation(long id, String checker) {
         return decideValuation(id, checker, true);

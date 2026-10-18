@@ -8,6 +8,7 @@ import com.bank.lending.account.dto.RateResetResultResponse;
 import com.bank.lending.account.dto.DelinquencyClassificationRequest;
 import com.bank.lending.account.dto.DisburseRequest;
 import com.bank.lending.account.dto.FloatingRateResetRequest;
+import com.bank.lending.account.dto.LimitFacilityLinkRequest;
 import com.bank.lending.account.dto.LoanAccountResponse;
 import com.bank.lending.account.service.LoanAccountService;
 import com.bank.lending.common.dto.BatchOperationResponse;
@@ -23,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -117,6 +119,13 @@ public class LoanAccountController {
     public LoanAccountResponse disburse(@PathVariable Long accountId, @Valid @RequestBody DisburseRequest request) {
         return LoanAccountResponse.from(
                 loanAccountService.disburse(accountId, request.disbursedAmount(), request.firstEmiDueDate()));
+    }
+
+    @Operation(summary = "Attach, change or clear the limit (LCM) facility of an account that is still pending disbursement",
+            description = "Checked against LCM like at creation when lending.lcm.mode is shadow or live. A blank facilityRef clears the link.")
+    @PutMapping("/{accountId}/limit-facility")
+    public LoanAccountResponse linkLimitFacility(@PathVariable Long accountId, @Valid @RequestBody LimitFacilityLinkRequest request) {
+        return LoanAccountResponse.from(loanAccountService.linkLimitFacility(accountId, request.facilityRef()));
     }
 
     @Operation(summary = "Reset one floating-rate account from the benchmark rate in force on a business date (idempotent; used by the rate-reset batch jobs)")

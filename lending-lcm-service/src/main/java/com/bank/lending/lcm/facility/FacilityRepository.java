@@ -242,6 +242,13 @@ public class FacilityRepository {
         return jdbc.query(EXCESS_SELECT + "WHERE f.facility_ref = ? ORDER BY e.id DESC", EXCESS_MAP, facilityRef);
     }
 
+    public List<ExcessView> listExcessByStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return jdbc.query(EXCESS_SELECT + "ORDER BY e.id DESC LIMIT 200", EXCESS_MAP);
+        }
+        return jdbc.query(EXCESS_SELECT + "WHERE e.status = ? ORDER BY e.id DESC LIMIT 200", EXCESS_MAP, status);
+    }
+
     public void decideExcess(long id, String status, String checker) {
         jdbc.update("UPDATE facility_excess SET status = ?, checker = ?, decided_at = now() WHERE id = ?", status, checker, id);
     }

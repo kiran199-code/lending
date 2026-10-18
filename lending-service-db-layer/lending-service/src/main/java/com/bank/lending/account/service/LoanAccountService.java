@@ -85,7 +85,8 @@ public class LoanAccountService {
         String facilityRef = request.limitFacilityRef() == null || request.limitFacilityRef().isBlank()
                 ? null : request.limitFacilityRef().trim();
         if (facilityRef != null) {
-            limits.checkOnCreate(facilityRef, request.sanctionedAmount(), currencyCode, branchCode, businessDateService.currentDate());
+            limits.checkOnCreate(facilityRef, request.sanctionedAmount(), currencyCode, branchCode, businessDateService.currentDate(),
+                    request.customerId());
         }
 
         LoanAccount account = LoanAccount.builder()
@@ -127,6 +128,28 @@ public class LoanAccountService {
             }
         }
         throw lastFailure;
+    }
+
+    /**
+     * Attaches, changes or clears (blank reference) the limit facility of an account that has not been disbursed yet.
+     * After disbursement the facility cannot be changed here: LCM would not know the outstanding amount, which is what
+     * the bridge load and scripts/link_lending_accounts.sql are for. The facility is checked like at creation
+     * (it must exist, be usable, and belong to the account's customer) when limits are in shadow or live mode.
+     */
+    @Transactional
+    public LoanAccount linkLimitFacility(Long accountId, String facilityReference) {
+        LoanAccount account = getById(accountId);
+        if (account.getAccountStatus() != PENDING_DISBURSEMENT) {
+            throw new InvalidAccountStateException("The limit facility can only be changed before disbursement (status="
+                    + account.getAccountStatus() + "). For disbursed accounts use the LCM bridge load.");
+        }
+        String ref = facilityReference == null || facilityReference.isBlank() ? null : facilityReference.trim();
+        if (ref != null) {
+            limits.checkOnCreate(ref, account.getSanctionedAmount(), account.getCurrencyCode(), account.getBranchCode(),
+                    businessDateService.currentDate(), account.getCustomerId());
+        }
+        account.setLimitFacilityRef(ref);
+        return loanAccountRepository.save(account);
     }
 
     @Transactional(readOnly = true)

@@ -16,7 +16,13 @@ public final class UtilisationDtos {
             @NotNull @Positive BigDecimal amount,
             @NotBlank String currency,
             String branchCode,
-            LocalDate businessDate) {}
+            LocalDate businessDate,
+            Long customerId) {
+        /** Without a customer (older callers): no customer comparison. */
+        public CheckRequest(String facilityRef, BigDecimal amount, String currency, String branchCode, LocalDate businessDate) {
+            this(facilityRef, amount, currency, branchCode, businessDate, null);
+        }
+    }
 
     public record CheckResponse(
             boolean allowed, String rejectionCode, String message, String limitingFacilityRef, BigDecimal effectiveAvailable) {}

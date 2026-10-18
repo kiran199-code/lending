@@ -34,8 +34,17 @@ public class LimitClient {
     }
 
     public CheckResult check(String facilityRef, BigDecimal amount, String currency, String branch, LocalDate businessDate) {
+        return check(facilityRef, amount, currency, branch, businessDate, null);
+    }
+
+    /** With a customer id LCM also confirms the facility belongs to that customer (answer CUSTOMER_MISMATCH otherwise). */
+    public CheckResult check(String facilityRef, BigDecimal amount, String currency, String branch, LocalDate businessDate,
+                             Long customerId) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("facilityRef", facilityRef);
+        if (customerId != null) {
+            body.put("customerId", customerId);
+        }
         body.put("amount", amount);
         body.put("currency", currency);
         body.put("branchCode", branch);

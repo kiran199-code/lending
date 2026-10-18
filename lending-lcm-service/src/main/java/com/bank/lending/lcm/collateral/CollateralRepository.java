@@ -170,6 +170,15 @@ public class CollateralRepository {
                 + "WHERE c.collateral_ref = ? ORDER BY v.valuation_date DESC, v.id DESC", VIEW_VAL, collateralRef);
     }
 
+    public List<ValuationView> valuationsByStatus(String status) {
+        String sql = "SELECT v.id, c.collateral_ref, v.valuation_date, v.market_value, v.forced_sale_value, v.valuer_ref, v.source, v.status, "
+                + "v.maker, v.checker, v.created_at FROM collateral_valuation v JOIN collateral c ON c.id = v.collateral_id ";
+        if (status == null || status.isBlank()) {
+            return jdbc.query(sql + "ORDER BY v.id DESC LIMIT 200", VIEW_VAL);
+        }
+        return jdbc.query(sql + "WHERE v.status = ? ORDER BY v.id DESC LIMIT 200", VIEW_VAL, status);
+    }
+
     public Optional<ValuationView> valuationView(long id) {
         List<ValuationView> l = jdbc.query("SELECT v.id, c.collateral_ref, v.valuation_date, v.market_value, v.forced_sale_value, v.valuer_ref, "
                 + "v.source, v.status, v.maker, v.checker, v.created_at FROM collateral_valuation v JOIN collateral c ON c.id = v.collateral_id "

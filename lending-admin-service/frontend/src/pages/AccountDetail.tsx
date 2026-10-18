@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { download, get } from '../api';
+import { download, get, send } from '../api';
 import { useAuth } from '../auth';
 import { DailyArea } from '../components/charts';
 import DataTable, { Col } from '../components/DataTable';
+import { AvailabilityLine, FacilityBadge, FacilityPicker, NoticeBanner, useAction } from '../components/limits';
+import { ConfirmModal } from '../components/ops';
 import { Card, Empty, ErrorBox, InstallmentBadge, KeyValues, Kpi, Loading, PageHeader, PaymentBadge, StatusBadge, Tabs } from '../components/ui';
 import { date, dateTime, downloadCsv, label, money, pct } from '../format';
 import { useLoad } from '../hooks';
-import type { AccountDetail as Detail, AccrualResponse, AccrualRow, MortgageDetail, PaymentResponse, PaymentRow, ScheduleResponse, ScheduleRow } from '../types';
+import type { AccountDetail as Detail, AccrualResponse, Availability, AccrualRow, MortgageDetail, PaymentResponse, PaymentRow, ScheduleResponse, ScheduleRow } from '../types';
 
 type TabId = 'overview' | 'schedule' | 'accruals' | 'payments' | 'mortgage';
 
@@ -54,7 +56,7 @@ export default function AccountDetail() {
       />
       {pdfError && <ErrorBox message={pdfError} />}
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
-      {tab === 'overview' && <Overview a={a} />}
+      {tab === 'overview' && <Overview a={a} onChanged={reload} />}
       {tab === 'schedule' && <Schedule id={a.accountId} accountNumber={a.accountNumber} />}
       {tab === 'accruals' && <Accruals id={a.accountId} />}
       {tab === 'payments' && <Payments id={a.accountId} accountNumber={a.accountNumber} />}
@@ -65,7 +67,7 @@ export default function AccountDetail() {
 
 // ------------------------------------------------------------------ overview
 
-function Overview({ a }: { a: Detail }) {
+function Overview({ a, onChanged }: { a: Detail; onChanged: () => void }) {
   const f = a.figures;
   const progress = f.installmentsTotal ? Math.round((f.installmentsPaid / f.installmentsTotal) * 100) : 0;
   return (
@@ -83,6 +85,7 @@ function Overview({ a }: { a: Detail }) {
         </div>
         <p className="muted">{f.installmentsPaid} of {f.installmentsTotal || a.tenureMonths} instalments paid ({progress}%)</p>
       </Card>
+      <FacilityCard a={a} onChanged={onChanged} />
       <div className="grid-2">
         <Card title="Loan terms">
           <KeyValues items={[
@@ -104,6 +107,7 @@ function Overview({ a }: { a: Detail }) {
             ['Sanction reference', a.sanctionRefId],
             ['Product', a.productCode],
             ['Currency / branch', `${a.currencyCode} / ${a.branchCode}`],
+            ['Limit facility', a.limitFacilityRef ? <Link key="lf" to={`/limits/facilities/${encodeURIComponent(a.limitFacilityRef)}`}>{a.limitFacilityRef}</Link> : 'None'],
             ['Type', label(a.accountType)],
             ['Status', <StatusBadge key="s" status={a.accountStatus} />],
             ['Mortgage id', a.mortgageId ?? '-'],
@@ -113,6 +117,67 @@ function Overview({ a }: { a: Detail }) {
         </Card>
       </div>
     </>
+  );
+}
+
+// ------------------------------------------------------------------ limit facility
+
+/**
+ * The facility this loan draws on. Until the loan is disbursed it can be attached, changed or cleared here; after
+ * disbursement the outstanding amount is already counted against the facility, so moving it is not offered.
+ */
+function FacilityCard({ a, onChanged }: { a: Detail; onChanged: () => void }) {
+  const ref = a.limitFacilityRef;
+  const av = useLoad(() => (ref ? get<Availability>(`/limits/facilities/${encodeURIComponent(ref)}/availability`) : Promise.resolve(null)), [ref]);
+  const act = useAction();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(ref ?? '');
+  const [confirming, setConfirming] = useState(false);
+  const pending = a.accountStatus === 'PENDING_DISBURSEMENT';
+  const next = value.trim();
+
+  async function save() {
+    await send('PUT', `/operations/accounts/${a.accountId}/limit-facility`, { facilityRef: next });
+    setConfirming(false);
+    setEditing(false);
+    act.setNotice({ tone: 'good', text: next ? `Account linked to ${next}.` : 'Facility link removed.' });
+    onChanged();
+  }
+
+  return (
+    <Card title="Limit facility" actions={pending && !editing ? <button className="btn" onClick={() => { setValue(ref ?? ''); setEditing(true); act.setNotice(null); }}>{ref ? 'Change facility' : 'Attach facility'}</button> : undefined}>
+      <NoticeBanner notice={act.notice} />
+      {!editing && (
+        <>
+          {ref ? (
+            <p style={{ marginTop: 0 }}>
+              <Link to={`/limits/facilities/${encodeURIComponent(ref)}`}><strong>{ref}</strong></Link>{' '}
+              {av.data && <FacilityBadge status={av.data.status} />}
+            </p>
+          ) : (
+            <p style={{ marginTop: 0 }}>This loan is not linked to a limit facility, so no limit is checked or consumed for it.</p>
+          )}
+          {ref && av.data && <AvailabilityLine a={av.data} />}
+          {ref && av.error && <p className="muted">Availability not shown: {av.error}</p>}
+          {!pending && <p className="muted" style={{ marginBottom: 0 }}>The link can only be changed while the account is pending disbursement. After disbursement its outstanding amount is already counted against the facility.</p>}
+        </>
+      )}
+      {editing && (
+        <>
+          <FacilityPicker customerId={String(a.customerId)} value={value} amount={a.sanctionedAmount} onChange={setValue} disabled={act.busy} />
+          <p className="muted">Leave empty to remove the link. The facility must belong to customer {a.customerId}; lending-service checks this and that the amount fits.</p>
+          <div className="filters">
+            <button className="btn btn-primary" disabled={act.busy || next === (ref ?? '')} onClick={() => setConfirming(true)}>Review</button>
+            <button className="btn" disabled={act.busy} onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </>
+      )}
+      {confirming && (
+        <ConfirmModal title={next ? 'Link this account to the facility?' : 'Remove the facility link?'}
+          rows={[['Account', a.accountNumber], ['Customer', a.customerId], ['Sanctioned', money(a.sanctionedAmount)], ['From', ref ?? 'None'], ['To', next || 'None']]}
+          confirmLabel={next ? 'Save link' : 'Remove link'} onConfirm={save} onClose={() => setConfirming(false)} />
+      )}
+    </Card>
   );
 }
 

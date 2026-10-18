@@ -54,6 +54,11 @@ public class UtilisationService {
     @Transactional(readOnly = true)
     public CheckResponse check(CheckRequest r) {
         Facility leaf = facilities.getByRef(r.facilityRef());
+        if (r.customerId() != null && r.customerId() != leaf.customerId()) {
+            // A facility belongs to one customer; linking another customer's loan to it would draw down the wrong limit.
+            return new CheckResponse(false, "CUSTOMER_MISMATCH", "Facility " + leaf.facilityRef()
+                    + " belongs to customer " + leaf.customerId() + ", not customer " + r.customerId(), leaf.facilityRef(), null);
+        }
         LocalDate asOf = r.businessDate() != null ? r.businessDate() : LocalDate.now(clock);
         List<Level> chain = facilityService.chainLevels(leaf.id(), asOf, false);
         Rejection rej = AvailabilityCalculator.firstRejection(chain, Money.scale(r.amount()), r.currency(), r.branchCode(), asOf);

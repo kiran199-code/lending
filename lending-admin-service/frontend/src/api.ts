@@ -22,6 +22,25 @@ export function clearAuth() {
 }
 function token() { return getAuth() ?? memoryToken; }
 
+// The name typed on the limit screens as "acting as". It is sent in X-Acting-As and recorded by LCM as maker or checker.
+// It is NOT authenticated: the console has one login. Real separation of duties comes with IAM.
+const ACTING_KEY = 'lending-admin-acting-as';
+let memoryActing = '';
+const actingListeners = new Set<() => void>();
+export function getActingAs(): string {
+  try { return sessionStorage.getItem(ACTING_KEY) ?? memoryActing; } catch { return memoryActing; }
+}
+export function setActingAs(name: string) {
+  memoryActing = name;
+  try { sessionStorage.setItem(ACTING_KEY, name); } catch { /* storage blocked */ }
+  actingListeners.forEach(l => l());
+}
+/** For useSyncExternalStore: lets every screen re-render when the acting-as name changes. */
+export function subscribeActingAs(listener: () => void): () => void {
+  actingListeners.add(listener);
+  return () => { actingListeners.delete(listener); };
+}
+
 let onUnauthorized: () => void = () => {};
 export function setUnauthorizedHandler(fn: () => void) { onUnauthorized = fn; }
 
@@ -41,6 +60,8 @@ async function request(path: string, params?: Params, init?: { method: string; b
   const t = token();
   const headers: Record<string, string> = t ? { Authorization: `Basic ${t}` } : {};
   if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
+  const acting = getActingAs().trim();
+  if (acting && path.startsWith('/limits')) headers['X-Acting-As'] = acting;
   if (init?.headers) Object.assign(headers, init.headers);
   const res = await fetch(`/api/admin${path}${qs(params)}`, {
     method: init?.method ?? 'GET',

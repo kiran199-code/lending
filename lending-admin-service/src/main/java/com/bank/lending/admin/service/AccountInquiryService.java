@@ -54,7 +54,7 @@ public class AccountInquiryService {
                 a.accountType(), a.accountStatus(), a.sanctionedAmount(), a.disbursedAmount(), a.tenureMonths(),
                 a.rateType(), a.interestRate(), a.benchmarkRateRef(), a.spread(), a.dayCountConvention(),
                 a.emiAmount(), a.emiStartDate(), a.mortgageId(), a.version(), a.createdAt(), a.updatedAt(), figures,
-                a.currencyCode(), a.branchCode());
+                a.currencyCode(), a.branchCode(), a.limitFacilityRef());
     }
 
     /** version == null gives the combined view; otherwise exactly that schedule version. */

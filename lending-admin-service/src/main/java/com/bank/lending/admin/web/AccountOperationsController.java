@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,6 +49,13 @@ public class AccountOperationsController {
         requirePositive(body, "sanctionedAmount");
         requirePositive(body, "tenureMonths");
         return client.createAccount(body, actor(user));
+    }
+
+    @Operation(summary = "Attach, change or clear the limit facility of an account that is still pending disbursement")
+    @PutMapping("/accounts/{accountId}/limit-facility")
+    public JsonNode linkLimitFacility(@PathVariable long accountId, @RequestBody JsonNode body, Principal user) {
+        requireObject(body);
+        return client.linkLimitFacility(accountId, body, actor(user));
     }
 
     @Operation(summary = "Disburse a sanctioned account, in full or in part, and generate its schedule")

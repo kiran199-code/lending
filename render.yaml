@@ -130,6 +130,12 @@ services:
     dockerContext: ./lending-admin-service
     healthCheckPath: /actuator/health
     envVars:
+      - key: LCM_SERVICE_URL
+        sync: false             # https://lending-lcm-service-XXXX.onrender.com (enables the Limits & collateral screens)
+      - key: LCM_SERVICE_USERNAME
+        value: lcm-service
+      - key: LCM_SERVICE_PASSWORD
+        fromService: { type: web, name: lending-lcm-service, envVarKey: LCM_SERVICE_PASSWORD }
       - key: SERVER_PORT
         value: "10000"
       - key: DB_HOST

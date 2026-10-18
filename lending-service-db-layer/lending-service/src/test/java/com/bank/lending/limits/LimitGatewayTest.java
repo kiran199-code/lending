@@ -60,6 +60,24 @@ class LimitGatewayTest {
     }
 
     @Test
+    void liveStopsAFacilityOfAnotherCustomerAndSendsTheCustomerId() {
+        LimitFixture fx = new LimitFixture("live");
+        fx.lcm.ok(CHECK, "{\"allowed\":false,\"rejectionCode\":\"CUSTOMER_MISMATCH\",\"message\":\"belongs to customer 5\"}");
+
+        assertThatThrownBy(() -> fx.gateway.checkOnCreate("SANC-7", AMOUNT, "INR", "ONLINE", DAY, 9L))
+                .isInstanceOf(LimitRejectedException.class).hasMessageContaining("customer");
+        assertThat(fx.lcm.callsTo(CHECK).get(0).body()).contains("\"customerId\":9");
+    }
+
+    @Test
+    void shadowOnlyLogsAFacilityOfAnotherCustomer() {
+        LimitFixture fx = new LimitFixture("shadow");
+        fx.lcm.ok(CHECK, "{\"allowed\":false,\"rejectionCode\":\"CUSTOMER_MISMATCH\",\"message\":\"belongs to customer 5\"}");
+
+        fx.gateway.checkOnCreate("SANC-7", AMOUNT, "INR", "ONLINE", DAY, 9L); // does not throw
+    }
+
+    @Test
     void anAmountShortfallAtCreationIsOnlyAdvisory() {
         LimitFixture fx = new LimitFixture("live");
         fx.lcm.ok(CHECK, "{\"allowed\":false,\"rejectionCode\":\"LIMIT_EXCEEDED\",\"message\":\"not enough yet\"}");

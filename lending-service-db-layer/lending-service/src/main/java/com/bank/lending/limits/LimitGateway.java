@@ -37,7 +37,7 @@ public class LimitGateway {
 
     /** LCM answers to a create-time check that mean the facility itself cannot be used. The amount codes are advisory then: a sanction is not a drawdown. */
     static final Set<String> CREATE_BLOCKING = Set.of("FACILITY_NOT_ACTIVE", "FACILITY_NOT_EFFECTIVE", "FACILITY_EXPIRED",
-            "CURRENCY_MISMATCH", "BRANCH_NOT_ALLOWED");
+            "CURRENCY_MISMATCH", "BRANCH_NOT_ALLOWED", "CUSTOMER_MISMATCH");
 
     /** The loan account, reduced to what limits need. */
     public record Subject(long accountId, String facilityRef, String currency, String branch) {
@@ -71,12 +71,18 @@ public class LimitGateway {
 
     /** Before an account is created against a facility. Throws only in live mode. */
     public void checkOnCreate(String facilityRef, BigDecimal sanctionedAmount, String currency, String branch, LocalDate businessDate) {
+        checkOnCreate(facilityRef, sanctionedAmount, currency, branch, businessDate, null);
+    }
+
+    /** As above, and when {@code customerId} is given the facility must belong to that customer. */
+    public void checkOnCreate(String facilityRef, BigDecimal sanctionedAmount, String currency, String branch, LocalDate businessDate,
+                              Long customerId) {
         if (!settings.enabled() || facilityRef == null || facilityRef.isBlank()) {
             return;
         }
         boolean live = settings.mode() == LimitMode.LIVE;
         try {
-            LimitClient.CheckResult r = client.check(facilityRef, sanctionedAmount, currency, branch, businessDate);
+            LimitClient.CheckResult r = client.check(facilityRef, sanctionedAmount, currency, branch, businessDate, customerId);
             if (r.allowed()) {
                 return;
             }

@@ -5,6 +5,7 @@ export interface AccountSummary {
   accountType: string; accountStatus: string; sanctionedAmount: number; disbursedAmount: number | null;
   interestRate: number; tenureMonths: number; emiAmount: number | null; nextDueDate: string | null;
   daysPastDue: number; createdAt: string; currencyCode: string; branchCode: string;
+  limitFacilityRef: string | null;
 }
 
 export interface Figures {
@@ -19,7 +20,7 @@ export interface AccountDetail {
   tenureMonths: number; rateType: string; interestRate: number; benchmarkRateRef: string | null;
   spread: number | null; dayCountConvention: string; emiAmount: number | null; emiStartDate: string | null;
   mortgageId: number | null; version: number; createdAt: string; updatedAt: string; figures: Figures;
-  currencyCode: string; branchCode: string;
+  currencyCode: string; branchCode: string; limitFacilityRef: string | null;
 }
 
 export interface ScheduleRow {
@@ -194,7 +195,7 @@ export interface LoanAccountResult {
   accountType: string; sanctionedAmount: number; disbursedAmount: number | null; tenureMonths: number;
   scheduleType: string; rateType: string; interestRate: number; repaymentFrequency: string;
   emiAmount: number | null; emiStartDate: string | null; accountStatus: string;
-  currencyCode?: string; branchCode?: string;
+  currencyCode?: string; branchCode?: string; limitFacilityRef?: string | null;
 }
 /** What lending-service returns for an instalment, part-payment or foreclosure. */
 export interface PaymentResult {
@@ -255,3 +256,63 @@ export interface ReconciliationCheck {
 }
 export interface Reconciliation { businessDate: string; allPassed: boolean; checks: ReconciliationCheck[] }
 export interface PostOutcome { status: string; journalId: number | null; journalNo: string | null; note: string | null }
+
+// ------------------------------------------------------------------ limits and collateral (lending-lcm-service)
+
+export interface Facility {
+  facilityRef: string; customerId: number; parentRef: string | null; facilityType: string; productCode: string | null;
+  currencyCode: string; branchCode: string | null; revolving: boolean; dpGoverned: boolean;
+  sanctionedAmount: number; maxSingleAmount: number | null; status: string;
+  effectiveFrom: string | null; expiryDate: string | null; sanctionRefId: number | null; source: string | null;
+  utilised: number; drawnTotal: number; reserved: number; createdBy: string | null; approvedBy: string | null;
+}
+export interface FacilityChange {
+  id: number; facilityRef: string; changeType: string; payload: string | null; reason: string | null; status: string;
+  maker: string; checker: string | null; decisionNote: string | null; createdAt: string; decidedAt: string | null;
+}
+export interface FacilityExcess {
+  id: number; facilityRef: string; amount: number; validFrom: string; validTo: string; reason: string; status: string;
+  maker: string; checker: string | null; createdAt: string; decidedAt: string | null;
+}
+export interface Availability {
+  facilityRef: string; status: string; currencyCode: string; revolving: boolean; dpGoverned: boolean;
+  sanctionedAmount: number; activeExcess: number; drawingPower: number | null; effectiveLimit: number;
+  utilised: number; drawnTotal: number; reserved: number; consumed: number; available: number;
+  effectiveAvailable: number; overLimit: boolean;
+}
+export interface FacilityTree { facility: Availability; children: FacilityTree[] }
+export interface LimitTxn {
+  id: number; facilityRef: string; originFacilityRef: string | null; txnType: string; amount: number;
+  dReserved: number; dUtilised: number; dDrawnTotal: number; referenceType: string | null; referenceId: string | null;
+  actor: string | null; createdAt: string;
+}
+export interface Valuation {
+  id: number; collateralRef: string; valuationDate: string; marketValue: number; forcedSaleValue: number | null;
+  valuerRef: string | null; source: string | null; status: string; maker: string; checker: string | null; createdAt: string;
+}
+export interface Collateral {
+  collateralRef: string; customerId: number; collateralType: string; description: string; currencyCode: string; status: string;
+  legalStatus: string; chargeRegistered: boolean; chargeRef: string | null; chargeRegisteredOn: string | null;
+  priorChargeAmount: number | null; insuranceExpiry: string | null; haircutPct: number; maxLtvPct: number;
+  lendingMortgageId: number | null; source: string | null; latestValuation: Valuation | null;
+  eligibleValue: number | null; lendableValue: number | null; unmetForActivation: string[];
+}
+export interface CollateralAllocation {
+  id: number; collateralRef: string; facilityRef: string; allocationPct: number; status: string; createdBy: string | null;
+  createdAt: string; releasedAt: string | null;
+}
+export interface DpContribution {
+  collateralRef: string; allocationPct: number; baseValue: number; haircutPct: number; priorCharge: number | null;
+  eligibleValue: number; maxLtvPct: number; lendableValue: number; contribution: number; zeroReason: string | null;
+}
+export interface DrawingPower { facilityRef: string; asOf: string; dpGoverned: boolean; drawingPower: number | null; contributions: DpContribution[] }
+export interface CollateralType {
+  typeCode: string; description: string; defaultHaircutPct: number; maxLtvPct: number; valuationValidityDays: number;
+  requiresCharge: boolean; requiresInsurance: boolean;
+}
+export interface Breach {
+  id: number; breachType: string; severity: string; facilityRef: string | null; collateralRef: string | null; detail: string;
+  status: string; acknowledgedBy: string | null; detectedAt: string; closedAt: string | null;
+}
+export interface SweepResult { asOf: string; reservationsExpired: number; facilitiesExpired: number; breachesOpened: number; breachesClosed: number }
+export interface Integrity { ok: boolean; differences: string[] }

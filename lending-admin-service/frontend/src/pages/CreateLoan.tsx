@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { get, send } from '../api';
+import { FacilityPicker } from '../components/limits';
 import { BusinessDateBar, ConfirmModal, Field, Notice, useBusinessDate } from '../components/ops';
 import { Card, ErrorBox, KeyValues, Loading, PageHeader, StatusBadge } from '../components/ui';
 import { label, money, money0, pct } from '../format';
@@ -14,9 +15,9 @@ const freqName = (v: string) => label(v).replace('_', '-');
 interface Form {
   customerId: string; sanctionRefId: string; productCode: string; amount: string; tenure: string;
   rate: string; spread: string; frequency: string; moratorium: string; balloon: string; stepUp: string;
-  currencyCode: string; branchCode: string;
+  currencyCode: string; branchCode: string; limitFacilityRef: string;
 }
-const EMPTY: Form = { customerId: '', sanctionRefId: '', productCode: '', amount: '', tenure: '', rate: '', spread: '', frequency: '', moratorium: '', balloon: '', stepUp: '', currencyCode: '', branchCode: '' };
+const EMPTY: Form = { customerId: '', sanctionRefId: '', productCode: '', amount: '', tenure: '', rate: '', spread: '', frequency: '', moratorium: '', balloon: '', stepUp: '', currencyCode: '', branchCode: '', limitFacilityRef: '' };
 
 export default function CreateLoan() {
   const bd = useBusinessDate();
@@ -41,6 +42,7 @@ export default function CreateLoan() {
     };
     if (f.currencyCode !== '') b.currencyCode = f.currencyCode;
     if (f.branchCode !== '') b.branchCode = f.branchCode;
+    if (f.limitFacilityRef.trim() !== '') b.limitFacilityRef = f.limitFacilityRef.trim();
     if (f.rate !== '') b.interestRate = Number(f.rate);
     if (f.spread !== '') b.spread = Number(f.spread);
     if (f.frequency !== '') b.repaymentFrequency = f.frequency;
@@ -58,6 +60,7 @@ export default function CreateLoan() {
     if (!f.productCode) return setError('Choose a product');
     if (!(Number(f.amount) > 0)) return setError('Sanctioned amount must be greater than zero');
     if (!/^[1-9]\d*$/.test(f.tenure)) return setError('Tenure must be a whole number of months');
+    if (f.limitFacilityRef.trim() !== '' && !/^[A-Za-z0-9_.:-]{1,64}$/.test(f.limitFacilityRef.trim())) return setError('Facility reference may contain only letters, digits and . _ : - (up to 64)');
     setConfirming(true);
   }
 
@@ -76,6 +79,7 @@ export default function CreateLoan() {
   ];
   if (f.currencyCode !== '') rows.push(['Currency', f.currencyCode]);
   if (f.branchCode !== '') rows.push(['Branch', f.branchCode]);
+  rows.push(['Limit facility', f.limitFacilityRef.trim() || 'None (not drawn on a limit)']);
   if (f.rate !== '') rows.push(['Interest rate', pct(Number(f.rate))]);
   if (f.spread !== '') rows.push(['Spread', pct(Number(f.spread))]);
   if (f.frequency !== '') rows.push(['Repayment frequency', freqName(f.frequency)]);
@@ -95,6 +99,7 @@ export default function CreateLoan() {
             ['Status', <StatusBadge status={created.accountStatus} />], ['Product', created.productCode],
             ['Sanctioned', money(created.sanctionedAmount)], ['Rate', pct(created.interestRate)],
             ['Currency / branch', `${created.currencyCode ?? '-'} / ${created.branchCode ?? '-'}`],
+            ['Limit facility', created.limitFacilityRef ?? 'None'],
             ['Tenure', `${created.tenureMonths} months`], ['Repayment', `${label(created.scheduleType)}, ${freqName(created.repaymentFrequency)}`],
           ]} />
         </Card>
@@ -133,6 +138,7 @@ export default function CreateLoan() {
                   {(branches.data ?? []).filter(b => b.active).map(b => <option key={b.branchCode} value={b.branchCode}>{b.branchCode} - {b.branchName}</option>)}
                 </select>
               </Field>
+              <FacilityPicker customerId={f.customerId} value={f.limitFacilityRef} amount={Number(f.amount)} onChange={v => setF(prev => ({ ...prev, limitFacilityRef: v }))} />
               <Field label="Tenure (months)" hint={product ? `Allowed ${band(product.minTenureMonths, product.maxTenureMonths)}` : undefined}>
                 <input inputMode="numeric" value={f.tenure} onChange={set('tenure')} />
               </Field>

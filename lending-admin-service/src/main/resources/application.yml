@@ -43,6 +43,13 @@ batch:
     username: ${BATCH_ADMIN_USERNAME:batch-admin}
     password: ${BATCH_ADMIN_PASSWORD:}
 
+# Only used by the Limits and Collateral screens: they are done through lending-lcm-service's own API.
+lcm:
+  service:
+    base-url: ${LCM_SERVICE_URL:}
+    username: ${LCM_SERVICE_USERNAME:lcm-service}
+    password: ${LCM_SERVICE_PASSWORD:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

@@ -353,6 +353,11 @@ public class FacilityService {
         return repo.listExcess(ref);
     }
 
+    @Transactional(readOnly = true)
+    public List<ExcessView> excessByStatus(String status) {
+        return repo.listExcessByStatus(status);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private void requirePending(String status, String what) {

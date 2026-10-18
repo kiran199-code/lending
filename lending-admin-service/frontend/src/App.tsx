@@ -20,6 +20,14 @@ import DisburseLoan from './pages/DisburseLoan';
 import EndOfDay from './pages/EndOfDay';
 import Foreclosure from './pages/Foreclosure';
 import Ledger from './pages/Ledger';
+import LimitsApprovals from './pages/LimitsApprovals';
+import LimitsCollateral from './pages/LimitsCollateral';
+import LimitsCollateralDetail from './pages/LimitsCollateralDetail';
+import LimitsCollateralNew from './pages/LimitsCollateralNew';
+import LimitsFacilities from './pages/LimitsFacilities';
+import LimitsFacilityDetail from './pages/LimitsFacilityDetail';
+import LimitsFacilityNew from './pages/LimitsFacilityNew';
+import LimitsMonitoring from './pages/LimitsMonitoring';
 import Login from './pages/Login';
 import Maintenance from './pages/Maintenance';
 import Overdue from './pages/Overdue';
@@ -46,6 +54,14 @@ function Gate() {
         <Route path="ops/bulk" element={<BulkOperations />} />
         <Route path="accounts" element={<Accounts />} />
         <Route path="accounts/:id" element={<AccountDetail />} />
+        <Route path="limits/facilities" element={<LimitsFacilities />} />
+        <Route path="limits/facilities/new" element={<LimitsFacilityNew />} />
+        <Route path="limits/facilities/:ref" element={<LimitsFacilityDetail />} />
+        <Route path="limits/approvals" element={<LimitsApprovals />} />
+        <Route path="limits/collateral" element={<LimitsCollateral />} />
+        <Route path="limits/collateral/new" element={<LimitsCollateralNew />} />
+        <Route path="limits/collateral/:ref" element={<LimitsCollateralDetail />} />
+        <Route path="limits/monitoring" element={<LimitsMonitoring />} />
         <Route path="upcoming" element={<Upcoming />} />
         <Route path="overdue" element={<Overdue />} />
         <Route path="payments" element={<Payments />} />

@@ -124,6 +124,7 @@ export function AccountFacts({ a }: { a: AccountDetail }) {
         ['Status', <StatusBadge status={a.accountStatus} />],
         ['Product', `${a.productCode} (${a.accountType === 'MORTGAGE' ? 'Mortgage' : 'Unsecured'})`],
         ['Customer', a.customerId],
+        ['Limit facility', a.limitFacilityRef ?? 'None'],
         ['Sanctioned', money(a.sanctionedAmount)],
         ['Disbursed', money(a.disbursedAmount)],
         ['EMI', money(a.emiAmount)],

@@ -95,12 +95,12 @@ public class AccountRepository {
                     rs.getBigDecimal("disbursed_amount"), rs.getBigDecimal("interest_rate"),
                     rs.getInt("tenure_months"), rs.getBigDecimal("emi_amount"), nextDue,
                     live ? Sql.dpd(nextDue, today) : 0, Sql.ts(rs, "created_at"),
-                    rs.getString("currency_code"), rs.getString("branch_code"));
+                    rs.getString("currency_code"), rs.getString("branch_code"), rs.getString("limit_facility_ref"));
         };
         List<AccountSummary> rows = jdbc.query("""
                 SELECT a.account_id, a.account_number, a.customer_id, a.sanction_ref_id, a.product_code,
                        a.account_type, a.account_status, a.sanctioned_amount, a.disbursed_amount,
-                       a.interest_rate, a.tenure_months, a.emi_amount, a.created_at, a.currency_code, a.branch_code, nd.next_due
+                       a.interest_rate, a.tenure_months, a.emi_amount, a.created_at, a.currency_code, a.branch_code, a.limit_facility_ref, nd.next_due
                 """ + from + where + order + " LIMIT :limit OFFSET :offset", p, mapper);
         return PageResponse.of(rows, page, size, total == null ? 0 : total);
     }
@@ -124,7 +124,8 @@ public class AccountRepository {
                 rs.getBigDecimal("interest_rate"), rs.getString("benchmark_rate_ref"), rs.getBigDecimal("spread"),
                 rs.getString("day_count_convention"), rs.getBigDecimal("emi_amount"), Sql.date(rs, "emi_start_date"),
                 Sql.longOrNull(rs, "mortgage_id"), rs.getInt("version"), Sql.ts(rs, "created_at"),
-                Sql.ts(rs, "updated_at"), null, rs.getString("currency_code"), rs.getString("branch_code"));
+                Sql.ts(rs, "updated_at"), null, rs.getString("currency_code"), rs.getString("branch_code"),
+                rs.getString("limit_facility_ref"));
     }
 
     public Optional<MortgageDetail> findMortgageByAccount(long accountId) {

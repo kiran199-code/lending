@@ -71,6 +71,12 @@ public class CollateralController {
         return service.valuations(ref);
     }
 
+    @GetMapping("/valuations")
+    @Operation(summary = "Valuations of all collateral, e.g. status=PENDING (lcm.collateral.read)")
+    public List<ValuationView> valuationsByStatus(@RequestParam(value = "status", required = false) String status) {
+        return service.valuationsByStatus(status);
+    }
+
     @PostMapping("/valuations/{id}/approve")
     @Operation(summary = "Approve a valuation as checker (lcm.valuation.approve)")
     public ValuationView approve(@PathVariable("id") long id, @RequestHeader(value = "X-Actor", required = false) String actor) {

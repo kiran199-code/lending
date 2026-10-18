@@ -19,6 +19,13 @@ const SECTIONS: { title: string | null; items: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Limits & collateral',
+    items: [
+      ['/limits/facilities', 'Facilities'], ['/limits/facilities/new', 'New facility'], ['/limits/approvals', 'Approvals'],
+      ['/limits/collateral', 'Collateral'], ['/limits/collateral/new', 'New collateral'], ['/limits/monitoring', 'Monitoring'],
+    ],
+  },
+  {
     title: 'Inquiry',
     items: [
       ['/accounts', 'Accounts'], ['/upcoming', 'Upcoming payments'], ['/overdue', 'Overdue'], ['/payments', 'Payments'],
@@ -70,7 +77,7 @@ export default function Layout() {
           {SECTIONS.map(s => {
             const links = (
               s.items.map(([to, text]) => (
-                <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'nav active' : 'nav')}>
+                <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive && !(pathname !== to && s.items.some(([o]) => o === pathname)) ? 'nav active' : 'nav')}>
                   {text}
                 </NavLink>
               ))

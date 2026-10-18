@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import com.bank.lending.admin.service.StatementProxyService;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 public class AuthController {
@@ -22,7 +23,9 @@ public class AuthController {
     /** Used by the login screen to verify credentials, and to learn which optional features are on. */
     @GetMapping("/api/admin/me")
     public Map<String, Object> me(Authentication authentication) {
+        // roles without the ROLE_ prefix: ADMIN, BATCH_OPS, LOAN_OPS or LIMITS_OPS; the menu shows only what the roles may use
+        var roles = authentication.getAuthorities().stream().map(a -> a.getAuthority().replaceFirst("^ROLE_", "")).sorted().collect(Collectors.toList());
         return Map.of("username", authentication.getName(), "statementEnabled", statements.enabled(),
-                "timezone", timezone);
+                "timezone", timezone, "roles", roles);
     }
 }

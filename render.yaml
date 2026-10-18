@@ -156,6 +156,13 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         generateValue: true   # read it in the Render dashboard -> Environment
+      # Operations logins (all get every inquiry plus their own area). Passwords are generated; read them in the Render dashboard -> Environment.
+      - key: BATCH_OPS_PASSWORD
+        generateValue: true   # user batch-ops: Batch jobs, End of day, Configuration
+      - key: LOAN_OPS_PASSWORD
+        generateValue: true   # user loan-ops: create / disburse / pay loans, Products
+      - key: LIMITS_OPS_PASSWORD
+        generateValue: true   # user limits-ops: facilities, collateral, approvals, monitoring
       # Enables "Download statement" on the account page.
       - key: LENDING_SERVICE_URL
         value: https://lending-service-5tqm.onrender.com

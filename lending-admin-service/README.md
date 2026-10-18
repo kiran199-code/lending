@@ -41,6 +41,7 @@ The only call to another service is the statement PDF, proxied from `lending-ser
 | `DB_URL` or `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost` / `5432` / `lending` | Lending database |
 | `DB_USER`, `DB_PASSWORD` | `lending_app` / `changeme` | DB credentials |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `admin` / `changeme` | **Console login (HTTP Basic) - change in every real environment** |
+| `BATCH_OPS_USERNAME` / `BATCH_OPS_PASSWORD`, `LOAN_OPS_USERNAME` / `LOAN_OPS_PASSWORD`, `LIMITS_OPS_USERNAME` / `LIMITS_OPS_PASSWORD` | `batch-ops`, `loan-ops`, `limits-ops` / empty | Operations logins (see *Logins and access* below). A login exists only when its password is set |
 | `LENDING_SERVICE_URL` | empty | e.g. `https://lending-service-5tqm.onrender.com`; enables the statement download, product editing, Maintenance and the Account operations screens |
 | `BATCH_SERVICE_URL` | empty | Public URL of lending-batch-service; with the password below it enables editing batch job settings and the End of day screen (without them the Configuration screen is view-only and End of day only shows the date) |
 | `BATCH_ADMIN_USERNAME`, `BATCH_ADMIN_PASSWORD` | `batch-admin` / empty | The batch service's own admin login (same values as on that service) |
@@ -48,6 +49,23 @@ The only call to another service is the statement PDF, proxied from `lending-ser
 | `LCM_SERVICE_USERNAME`, `LCM_SERVICE_PASSWORD` | `lcm-service` / empty | The LCM service's own service login (same values as `LCM_SERVICE_PASSWORD` on that service) |
 | `ADMIN_TIMEZONE` | `Asia/Kolkata` | Only a fallback: "today" is the platform business date (below); this zone is used for the wall-clock date if the business date cannot be read |
 | `SERVER_PORT` | `8082` | HTTP port |
+
+## Logins and access
+
+`admin` (ADMIN_USERNAME / ADMIN_PASSWORD) is unchanged and can do everything. Three more logins can be switched on by giving each a password; **all of them get every inquiry**
+(Dashboard, Accounts and account detail with statement, Upcoming payments, Overdue, Payments, Interest accruals, Ledger outbox), plus their own area:
+
+| Login (default name) | Also can |
+|---|---|
+| Batch operations (`batch-ops`) | Batch jobs, End of day (run), Configuration (edit batch job settings) |
+| Loan operations (`loan-ops`) | Account: Create loan, Disburse, Pay instalment, Part-payment, Foreclosure, Bulk; attach a facility to a loan; Products (view and edit) |
+| Limits operations (`limits-ops`) | Limits & collateral: Facilities, New facility, Approvals, Collateral, New collateral, Monitoring (create, change, approve, allocate, sweep) |
+
+Accounting and Maintenance stay admin-only. Facility and collateral data (and the branch and currency lists) can be *read* by every login, because the loan screens show
+them; only changing them is restricted. A screen a login may not open is hidden from its menu, and the server answers 403 to any call it may not make.
+The rules are in one place, `AccessPolicy.java` (with `AccessPolicyTest`); anything not listed there is admin-only. Logins are plain configuration with HTTP Basic, not
+people in IAM; the *Acting as* name on the limit screens is still typed, so a maker and a checker can still be the same person. Giving a login a password in Render is
+all it takes (`render.yaml` generates all three).
 
 ## Run locally
 

@@ -83,7 +83,7 @@ export interface BatchJob { jobName: string; category: string; type: string; cro
 export interface BatchExecution { executionId: number; jobName: string; status: string; exitCode: string | null; startTime: string | null; endTime: string | null }
 export interface BatchOverview { jobs: BatchJob[]; recentExecutions: BatchExecution[]; note: string | null }
 
-export interface Me { username: string; statementEnabled: boolean; timezone: string }
+export interface Me { username: string; statementEnabled: boolean; timezone: string; roles?: string[] }
 
 export interface BatchJobConfig {
   configId: number; jobName: string; category: string; type: string; cron: string | null;

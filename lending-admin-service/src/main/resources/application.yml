@@ -25,10 +25,22 @@ server:
   compression:
     enabled: true
 
-# Single admin login (HTTP Basic). Override both in every real environment.
+# Admin login (HTTP Basic; can do everything). Override both in every real environment.
 admin:
   username: ${ADMIN_USERNAME:admin}
   password: ${ADMIN_PASSWORD:changeme}
+  # Operations logins. Each exists only when its password is set. All get every inquiry plus their own area:
+  # batch-ops: batch jobs, end of day, configuration; loan-ops: create / disburse / pay loans and products;
+  # limits-ops: facilities, collateral, approvals, monitoring.
+  batch-ops:
+    username: ${BATCH_OPS_USERNAME:batch-ops}
+    password: ${BATCH_OPS_PASSWORD:}
+  loan-ops:
+    username: ${LOAN_OPS_USERNAME:loan-ops}
+    password: ${LOAN_OPS_PASSWORD:}
+  limits-ops:
+    username: ${LIMITS_OPS_USERNAME:limits-ops}
+    password: ${LIMITS_OPS_PASSWORD:}
   timezone: ${ADMIN_TIMEZONE:Asia/Kolkata}
 
 # Only used for the "Download statement" button: the PDF is produced by lending-service.

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { get } from '../api';
+import { canOpen, roleLabel } from '../access';
 import { useAuth } from '../auth';
 import { date } from '../format';
 import { useLoad } from '../hooks';
@@ -74,7 +75,7 @@ export default function Layout() {
       <aside className="side">
         <div className="brand">Lending Admin</div>
         <nav aria-label="Main menu">
-          {SECTIONS.map(s => {
+          {SECTIONS.map(sec => ({ ...sec, items: sec.items.filter(([to]) => canOpen(me, to)) })).filter(sec => sec.items.length > 0).map(s => {
             const links = (
               s.items.map(([to, text]) => (
                 <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive && !(pathname !== to && s.items.some(([o]) => o === pathname)) ? 'nav active' : 'nav')}>
@@ -107,11 +108,14 @@ export default function Layout() {
         <div className="side-foot">
           <div className="muted">Signed in as</div>
           <strong>{me?.username}</strong>
+          {roleLabel(me) && <div className="muted">{roleLabel(me)}</div>}
           <button className="btn btn-ghost" onClick={logout}>Sign out</button>
         </div>
       </aside>
       <main className="main">
-        <Outlet />
+        {canOpen(me, pathname)
+          ? <Outlet />
+          : <div className="card"><h2>No access</h2><p>Your login ({roleLabel(me) || me?.username}) does not have access to this screen. Ask an administrator if you need it.</p></div>}
       </main>
     </div>
   );

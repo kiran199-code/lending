@@ -16,6 +16,7 @@ import com.bank.lending.demand.service.PenalInterestService;
 import com.bank.lending.demand.util.PaymentWaterfall;
 import com.bank.lending.ledger.domain.LedgerOutboxEntry;
 import com.bank.lending.ledger.service.LedgerOutboxService;
+import com.bank.lending.limits.LimitGateway;
 import com.bank.lending.payment.domain.EmiTransaction;
 import com.bank.lending.payment.repository.EmiTransactionRepository;
 import com.bank.lending.schedule.domain.AmortizationScheduleEntry;
@@ -79,6 +80,7 @@ public class EmiPaymentService {
     private final LoanAccountService loanAccountService;
     private final PenalInterestService penalService;
     private final AccountingPoster accountingPoster;
+    private final LimitGateway limits;
 
     /**
      * Applies any positive amount to what is due, oldest first. Money left after everything due is paid is held as an
@@ -133,6 +135,7 @@ public class EmiPaymentService {
         ));
         accountingPoster.emiPaid(account, saved, w.applied(PENALTY), w.applied(INTEREST), w.applied(PRINCIPAL),
                 plan.surplus());
+        reportPrincipal(account, saved.getTransactionId(), w.applied(PRINCIPAL), valueDate);
 
         finish(account);
         return outcome(saved, account);
@@ -206,6 +209,10 @@ public class EmiPaymentService {
         ));
         accountingPoster.partPaid(account, saved, w.applied(PENALTY), w.applied(INTEREST), w.applied(PRINCIPAL),
                 toPrincipal);
+        reportPrincipal(account, saved.getTransactionId(), w.applied(PRINCIPAL).add(toPrincipal), valueDate);
+        if (account.getAccountStatus() == LoanAccount.AccountStatus.CLOSED) {
+            reportClosed(account, "PART_PAYMENT_CLEARED", valueDate);
+        }
 
         finish(account);
         return outcome(saved, account);
@@ -308,6 +315,8 @@ public class EmiPaymentService {
         ));
         accountingPoster.foreclosed(account, saved, payoffAmount, advanceUsed, openPenal, openInterest, openPrincipal,
                 undemandedPrincipal, accruedInterest);
+        reportPrincipal(account, txnId, principalPaid, foreclosureDate);
+        reportClosed(account, "FORECLOSED", foreclosureDate);
 
         return outcome(saved, account);
     }
@@ -349,7 +358,24 @@ public class EmiPaymentService {
                 && demandService.openDemands(accountId).isEmpty()) {
             account.setAccountStatus(LoanAccount.AccountStatus.CLOSED);
             loanAccountRepository.save(account);
+            reportClosed(account, "FULLY_PAID", null);
         }
+    }
+
+    // ---- limits (LCM): queued in this transaction, delivered after it commits; no-ops unless lending.lcm.mode is shadow/live
+
+    private void reportPrincipal(LoanAccount account, Long transactionId, BigDecimal principal, LocalDate businessDate) {
+        limits.principalRepaid(limitSubject(account), transactionId, principal, businessDate);
+    }
+
+    private void reportClosed(LoanAccount account, String reason, LocalDate businessDate) {
+        LimitGateway.Subject subject = limitSubject(account);
+        LocalDate date = businessDate != null || !subject.linked() ? businessDate : businessDateService.currentDate();
+        limits.accountClosed(subject, reason, date);
+    }
+
+    private static LimitGateway.Subject limitSubject(LoanAccount a) {
+        return new LimitGateway.Subject(a.getAccountId(), a.getLimitFacilityRef(), a.getCurrencyCode(), a.getBranchCode());
     }
 
     private PaymentOutcome outcomeOf(EmiTransaction txn) {

@@ -43,8 +43,22 @@ public record CreateLoanAccountRequest(
         @Schema(description = "Optional ISO code, e.g. INR (the default). Must be an active currency (GET /api/v1/reference/currencies). Fixed once the account exists.")
         String currencyCode,
         @Schema(description = "Optional branch code, e.g. ONLINE (the default). Must be an active branch (GET /api/v1/reference/branches). Fixed once the account exists.")
-        String branchCode
+        String branchCode,
+        @Schema(description = "Optional LCM facility this loan draws on (e.g. SANC-123). When set, the facility must be usable (active, in date, same currency and branch) if limits are live.")
+        String limitFacilityRef
 ) {
+    /** Request without a facility reference (the shape before limits existed). */
+    public CreateLoanAccountRequest(Long customerId, Long sanctionRefId, String productCode,
+                                    LoanAccount.AccountType accountType, BigDecimal sanctionedAmount, Integer tenureMonths,
+                                    LoanAccount.RateType rateType, BigDecimal interestRate, String benchmarkRateRef,
+                                    BigDecimal spread, LoanAccount.DayCountConvention dayCountConvention,
+                                    LoanAccount.RepaymentFrequency repaymentFrequency, Integer moratoriumMonths,
+                                    BigDecimal balloonPercent, BigDecimal stepUpPercent, String currencyCode, String branchCode) {
+        this(customerId, sanctionRefId, productCode, accountType, sanctionedAmount, tenureMonths, rateType,
+                interestRate, benchmarkRateRef, spread, dayCountConvention, repaymentFrequency, moratoriumMonths,
+                balloonPercent, stepUpPercent, currencyCode, branchCode, null);
+    }
+
     /** Request with every schedule parameter given and the default currency and branch. */
     public CreateLoanAccountRequest(Long customerId, Long sanctionRefId, String productCode,
                                     LoanAccount.AccountType accountType, BigDecimal sanctionedAmount, Integer tenureMonths,

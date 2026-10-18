@@ -31,7 +31,7 @@ class FlywayMigrationTest extends AbstractIntegrationTest {
         assertThat(tables).contains(
                 "loan_account", "mortgage", "mortgage_valuation_history",
                 "amortization_schedule", "interest_accrual", "emi_transaction",
-                "processed_request", "ledger_outbox", "loan_product", "benchmark_rate",
+                "processed_request", "ledger_outbox", "limit_outbox", "loan_product", "benchmark_rate",
                 "business_date_state", "business_date_history", "non_working_day",
                 "loan_demand", "payment_allocation", "penal_interest"
         );

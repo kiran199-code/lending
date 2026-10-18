@@ -88,15 +88,15 @@ class MaintenanceServiceTest {
                 .doesNotContain("CASCADE");
         for (String table : List.of("loan_account", "amortization_schedule", "interest_accrual", "emi_transaction",
                 "loan_demand", "payment_allocation", "penal_interest",
-                "mortgage", "mortgage_valuation_history", "ledger_outbox", "processed_request", "loan_product",
+                "mortgage", "mortgage_valuation_history", "ledger_outbox", "limit_outbox", "processed_request", "loan_product",
                 "acct_journal_line", "acct_journal", "acct_idempotency", "acct_journal_reversal", "acct_accrual_carry",
                 "acct_posting_exception", "acct_balance_daily", "acct_reconciliation")) {
             assertThat(sql.getValue()).contains(table);
         }
         // The business date, holidays, benchmark rates and batch tables are never touched.
         assertThat(sql.getValue()).doesNotContain("business_date", "non_working_day", "benchmark_rate");
-        assertThat(r.deleted()).hasSize(20);
-        assertThat(r.totalRows()).isEqualTo(40L);
+        assertThat(r.deleted()).hasSize(21);
+        assertThat(r.totalRows()).isEqualTo(42L);
         assertThat(r.clearedBy()).isEqualTo("admin");
     }
 

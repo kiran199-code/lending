@@ -42,7 +42,7 @@ public class MaintenanceService {
     static final List<String> TABLES = List.of(
             "loan_account", "amortization_schedule", "interest_accrual", "emi_transaction",
             "loan_demand", "payment_allocation", "penal_interest",
-            "mortgage", "mortgage_valuation_history", "ledger_outbox", "processed_request", "loan_product",
+            "mortgage", "mortgage_valuation_history", "ledger_outbox", "limit_outbox", "processed_request", "loan_product",
             // accounting: journals and their working tables; configuration (events, templates, ledgers) is kept
             "acct_journal_line", "acct_journal", "acct_idempotency", "acct_journal_reversal", "acct_accrual_carry",
             "acct_posting_exception", "acct_balance_daily", "acct_reconciliation");

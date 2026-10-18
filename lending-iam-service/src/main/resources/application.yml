@@ -1,0 +1,112 @@
+spring:
+  application:
+    name: lending-iam-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lending}
+    username: ${DB_USER:lending}
+    password: ${DB_PASSWORD:lending}
+    hikari:
+      # Every connection runs with search_path = iam, so repositories use unqualified table names.
+      schema: ${IAM_DB_SCHEMA:iam}
+      maximum-pool-size: ${IAM_DB_POOL_SIZE:10}
+  flyway:
+    schemas: ${IAM_DB_SCHEMA:iam}
+    default-schema: ${IAM_DB_SCHEMA:iam}
+    create-schemas: true
+    table: iam_schema_history
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+server:
+  port: ${PORT:8085}
+  # Behind the platform's TLS terminator (Render) the service sees http: trust the forwarded headers
+  # so that the issuer, redirects and Secure cookies are built with https.
+  forward-headers-strategy: ${IAM_FORWARD_HEADERS:framework}
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: IAMSESSION
+        http-only: true
+        secure: ${IAM_COOKIE_SECURE:true}
+        same-site: lax
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+iam:
+  # Public base URL of this service; becomes the token issuer ("iss") and the discovery base.
+  # Resource servers must be configured with exactly this value.
+  issuer: ${IAM_ISSUER:http://localhost:8085}
+  # 32 random bytes, base64. REQUIRED. Encrypts MFA secrets, signing keys and webhook secrets.
+  # The service refuses to start without it. Generate: openssl rand -base64 32
+  encryption-key: ${IAM_ENCRYPTION_KEY:}
+  # Optional previous key, used only by the re-encrypt command during key rotation (see runbook).
+  encryption-key-previous: ${IAM_ENCRYPTION_KEY_PREVIOUS:}
+  cors:
+    allowed-origins: ${IAM_CORS_ORIGINS:http://localhost:5173}
+  bootstrap:
+    # Creates the first administrator when the user table is empty. Remove after two real
+    # administrators exist and suspend the bootstrap account (runbook).
+    username: ${IAM_BOOTSTRAP_USERNAME:}
+    password: ${IAM_BOOTSTRAP_PASSWORD:}
+    email: ${IAM_BOOTSTRAP_EMAIL:bootstrap@example.invalid}
+  password:
+    min-length: ${IAM_PW_MIN_LENGTH:12}
+    min-classes: ${IAM_PW_MIN_CLASSES:3}
+    history: ${IAM_PW_HISTORY:5}
+    max-age-days-staff: ${IAM_PW_MAX_AGE_STAFF:90}
+    max-age-days-customer: ${IAM_PW_MAX_AGE_CUSTOMER:365}
+    bcrypt-cost: ${IAM_BCRYPT_COST:11}
+  lockout:
+    max-failures: ${IAM_LOCK_FAILURES:5}
+    lock-minutes: ${IAM_LOCK_MINUTES:15}
+  mfa:
+    issuer-label: ${IAM_MFA_ISSUER:Lending Platform}
+    step-up-window-minutes: ${IAM_STEPUP_MINUTES:15}
+  tokens:
+    staff-access-seconds: ${IAM_STAFF_ACCESS_SECONDS:900}
+    staff-refresh-seconds: ${IAM_STAFF_REFRESH_SECONDS:28800}
+    customer-access-seconds: ${IAM_CUSTOMER_ACCESS_SECONDS:600}
+    customer-refresh-seconds: ${IAM_CUSTOMER_REFRESH_SECONDS:1800}
+    service-access-seconds: ${IAM_SERVICE_ACCESS_SECONDS:600}
+    auth-code-seconds: 300
+    activation-hours: ${IAM_ACTIVATION_HOURS:72}
+    temp-password-hours: ${IAM_TEMP_PASSWORD_HOURS:24}
+    client-secret-grace-minutes: ${IAM_SECRET_GRACE_MINUTES:30}
+  keys:
+    retired-key-published-hours: ${IAM_RETIRED_KEY_HOURS:24}
+    cache-seconds: ${IAM_KEY_CACHE_SECONDS:30}
+  audit:
+    audit-denials: ${IAM_AUDIT_DENIALS:true}
+  authz:
+    # Customer-applicable permissions that act on an account: the decision endpoint then needs an account link.
+    account-bound-permissions: ${IAM_ACCOUNT_BOUND:portal.account.read,portal.payment.initiate,portal.statement.read,lcm.portal.read}
+  sweep:
+    # Expires pending and approved actions, retires old keys, dispatches the outbox. Spring cron.
+    cron: ${IAM_SWEEP_CRON:0 * * * * *}
+  webhooks:
+    max-attempts: ${IAM_WEBHOOK_MAX_ATTEMPTS:8}
+    timeout-seconds: ${IAM_WEBHOOK_TIMEOUT:5}
+    # Only https callbacks are accepted unless this is true (local development).
+    allow-http: ${IAM_WEBHOOK_ALLOW_HTTP:false}
+  security:
+    # Set true behind a TLS terminator so HSTS is sent.
+    hsts: ${IAM_HSTS:true}

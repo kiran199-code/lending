@@ -1,0 +1,29 @@
+lcm.facility.read|Read facilities, availability, sub-limit tree, ledger transactions, excess history, drawing power and pending changes|LOW
+lcm.facility.create|Create a facility in DRAFT (maker)|MEDIUM
+lcm.facility.change|Propose a facility change: activate, amend limit, extend expiry, suspend, reinstate, freeze, close (maker)|MEDIUM
+lcm.facility.approve|Approve or reject a proposed facility change (checker; must differ from the maker)|HIGH
+lcm.excess.create|Propose a temporary excess over a sanctioned limit (maker)|HIGH
+lcm.excess.approve|Approve or reject a temporary excess (checker; must differ from the maker)|HIGH
+lcm.utilisation.check|Non-binding check whether a drawdown would fit (service account, lending-service)|LOW
+lcm.utilisation.reserve|Reserve limit for a pending drawdown, including enforce=false shadow mode (service account)|HIGH
+lcm.utilisation.confirm|Confirm a reservation as utilisation (service account)|HIGH
+lcm.utilisation.release|Release a reservation (service account)|MEDIUM
+lcm.utilisation.repay|Report a principal repayment that restores revolving limit (service account)|HIGH
+lcm.utilisation.close|Release remaining outstanding on closure, foreclosure or write-off (service account)|HIGH
+lcm.utilisation.read|Read reservations and utilisation positions|LOW
+lcm.collateral.read|Read collateral, valuations, allocations and collateral types|LOW
+lcm.collateral.create|Register collateral in DRAFT|MEDIUM
+lcm.valuation.create|Propose a collateral valuation (maker)|MEDIUM
+lcm.valuation.approve|Approve or reject a collateral valuation (checker; must differ from the maker)|HIGH
+lcm.collateral.legal|Record the legal verification outcome of a collateral|HIGH
+lcm.collateral.charge|Record charge registration and prior charge on a collateral|HIGH
+lcm.collateral.insurance|Record insurance expiry of a collateral|MEDIUM
+lcm.collateral.activate|Activate a collateral once legal, valuation, charge and insurance requirements are met|HIGH
+lcm.collateral.release|Release a collateral that has no active allocations|HIGH
+lcm.allocation.manage|Allocate collateral to a facility or release an allocation (changes drawing power)|HIGH
+lcm.monitoring.run|Run the monitoring sweep on demand|MEDIUM
+lcm.monitoring.read|Read breaches and the ledger integrity check|LOW
+lcm.breach.acknowledge|Acknowledge an open limit or collateral breach|MEDIUM
+lcm.events.read|Read the LCM event feed|LOW
+lcm.bridge.run|Load existing lending mortgages, sanctions and loan balances into LCM|HIGH
+lcm.portal.read|Customer-facing read models (exposure, availability); used by the customer portal back end|LOW

@@ -1,0 +1,239 @@
+IAM PERMISSION CATALOGUE (generated from the migrations V2 and V3 of lending-iam-service; do not edit by hand)
+
+Each service names these codes next to its endpoints. When a service adopts IAM it maps the token claim `perms` onto authorities,
+or asks POST /api/v1/authz/check. Applies-to: S staff, C customer, V service account.
+
+PERMISSIONS (88)
+
+[accounting]
+  acct.event.manage                  HIGH     MFA  S   Switch an accounting event off, shadow or live
+  acct.exception.resolve             MEDIUM   -    S   Retry or waive a posting exception
+  acct.journal.read                  LOW      -    S   Read journals, trial balance, ledgers, events, routes, templates and reconciliation
+  acct.opening.run                   HIGH     MFA  S   Run the opening-balance cutover
+  acct.recon.run                     MEDIUM   -    SV  Run reconciliation or the balance snapshot
+  acct.route.approve                 HIGH     MFA  S   Approve a route (checker)
+  acct.route.edit                    MEDIUM   -    S   Create and retire routes (maker)
+  acct.template.approve              HIGH     MFA  S   Approve or reject an entry template (checker)
+  acct.template.edit                 MEDIUM   -    S   Create, change, validate, submit and retire entry templates (maker)
+
+[batch]
+  batch.job.manage                   HIGH     -    S   Change batch job configuration and reload it
+  batch.job.read                     LOW      -    S   Read batch jobs, executions, errors and end-of-day status
+  batch.job.trigger                  HIGH     MFA  S   Trigger a batch job or run end of day
+
+[iam]
+  iam.approval.consume               MEDIUM   -    V   Mark an approved action as executed
+  iam.approval.decide                HIGH     MFA  S   Approve or reject a pending action (also needs the checker permission of its type)
+  iam.approval.manage                CRITICAL MFA  S   Change approval types (checker permission, expiry, callback)
+  iam.approval.onbehalf              HIGH     -    V   Submit an action in the name of another user (service accounts)
+  iam.approval.read                  LOW      -    SV  Read approval types and pending actions
+  iam.approval.submit                MEDIUM   -    SV  Submit a pending action for approval
+  iam.assignment.manage              HIGH     MFA  S   Assign roles and scopes to a user
+  iam.audit.read                     MEDIUM   -    S   Read and verify the audit trail
+  iam.authz.check                    LOW      -    V   Ask the decision endpoint about another user
+  iam.client.manage                  CRITICAL MFA  S   Create, change, disable service accounts and rotate their secrets
+  iam.client.read                    LOW      -    S   Read service accounts and OAuth clients
+  iam.customer.link                  HIGH     -    S   Link a customer user to a customer and accounts, revoke links
+  iam.customer.link.approve          HIGH     MFA  S   Approve a co-borrower, guarantor or delegate link (second person)
+  iam.key.manage                     CRITICAL MFA  S   List and rotate token signing keys
+  iam.role.manage                    CRITICAL MFA  S   Create and change roles, role permissions, limits and segregation-of-duties rules
+  iam.role.read                      LOW      -    S   Read roles, permissions, limits and segregation-of-duties rules
+  iam.user.create                    MEDIUM   -    S   Create a staff or customer user (invite)
+  iam.user.lifecycle                 HIGH     MFA  S   Suspend, reinstate, unlock, offboard, reset password or reset MFA
+  iam.user.read                      LOW      -    S   Read users, their roles, scopes and effective access
+  iam.user.update                    MEDIUM   -    S   Change a user's name, email and mobile
+  iam.webhook.manage                 HIGH     -    S   Manage event webhooks and read the outbox
+
+[lcm]
+  lcm.allocation.manage              HIGH     -    S   Allocate collateral to a facility or release an allocation
+  lcm.breach.acknowledge             MEDIUM   -    S   Acknowledge an open limit or collateral breach
+  lcm.bridge.run                     HIGH     -    S   Load existing lending mortgages, sanctions and loan balances into LCM
+  lcm.collateral.activate            HIGH     -    S   Activate a collateral once its requirements are met
+  lcm.collateral.charge              HIGH     -    S   Record charge registration and prior charge on a collateral
+  lcm.collateral.create              MEDIUM   -    S   Register collateral in DRAFT
+  lcm.collateral.insurance           MEDIUM   -    S   Record insurance expiry of a collateral
+  lcm.collateral.legal               HIGH     -    S   Record the legal verification outcome of a collateral
+  lcm.collateral.read                LOW      -    S   Read collateral, valuations, allocations and collateral types
+  lcm.collateral.release             HIGH     -    S   Release a collateral that has no active allocations
+  lcm.events.read                    LOW      -    S   Read the LCM event feed
+  lcm.excess.approve                 HIGH     MFA  S   Approve or reject a temporary excess (checker)
+  lcm.excess.create                  HIGH     -    S   Propose a temporary excess (maker)
+  lcm.facility.approve               HIGH     MFA  S   Approve or reject a facility change (checker)
+  lcm.facility.change                MEDIUM   -    S   Propose a facility change (maker)
+  lcm.facility.create                MEDIUM   -    S   Create a facility in DRAFT (maker)
+  lcm.facility.read                  LOW      -    S   Read facilities, availability, sub-limit tree, ledger transactions, excess history, drawing power and pending changes
+  lcm.monitoring.read                LOW      -    S   Read breaches and the ledger integrity check
+  lcm.monitoring.run                 MEDIUM   -    S   Run the monitoring sweep on demand
+  lcm.portal.read                    LOW      -    CV  Customer-facing read models (exposure, availability)
+  lcm.utilisation.check              LOW      -    V   Non-binding check whether a drawdown would fit
+  lcm.utilisation.close              HIGH     -    V   Release remaining outstanding on closure, foreclosure or write-off
+  lcm.utilisation.confirm            HIGH     -    V   Confirm a reservation as utilisation
+  lcm.utilisation.read               LOW      -    S   Read reservations and utilisation positions
+  lcm.utilisation.release            MEDIUM   -    V   Release a reservation
+  lcm.utilisation.repay              HIGH     -    V   Report a principal repayment that restores revolving limit
+  lcm.utilisation.reserve            HIGH     -    V   Reserve limit for a pending drawdown
+  lcm.valuation.approve              HIGH     MFA  S   Approve or reject a collateral valuation (checker)
+  lcm.valuation.create               MEDIUM   -    S   Propose a collateral valuation (maker)
+
+[lending]
+  loan.account.create                MEDIUM   -    S   Create a loan account, one or in bulk (maker)
+  loan.account.disburse              HIGH     MFA  S   Disburse a loan account, one or in bulk
+  loan.account.read                  LOW      -    SV  Read loan accounts, schedules, accruals, statements, mortgages and portfolio screens
+  loan.accrual.run                   MEDIUM   -    SV  Run interest accrual, rate reset, delinquency classification, demand raising and penal interest
+  loan.benchmark.manage              HIGH     -    S   Publish or change benchmark rates
+  loan.mortgage.manage               MEDIUM   -    S   Create a mortgage, register or release a charge, record a valuation
+  loan.outbox.manage                 MEDIUM   -    S   View and push the ledger outbox
+  loan.payment.foreclose             HIGH     MFA  S   Foreclose a loan account
+  loan.payment.part                  HIGH     MFA  S   Post a part-payment (principal prepayment)
+  loan.payment.post                  HIGH     MFA  S   Post an EMI payment
+  loan.payment.read                  LOW      -    S   Read payments, amount payable and payment previews
+  loan.product.approve               HIGH     MFA  S   Approve a loan product change (checker)
+  loan.product.manage                MEDIUM   -    S   Create or change a loan product (maker)
+  loan.product.read                  LOW      -    S   Read loan products
+
+[platform]
+  admin.dashboard.read               LOW      -    S   Read the admin dashboard, upcoming and overdue lists
+  bizdate.manage                     HIGH     MFA  SV  Advance or set the business date, start end of day, maintain holidays
+  bizdate.read                       LOW      -    SV  Read the business date, history and holidays
+  ops.maintenance.approve            CRITICAL MFA  S   Approve a clear-data request (second person)
+  ops.maintenance.clear              CRITICAL MFA  S   Clear all data or load base products (sandbox only)
+  ops.maintenance.read               LOW      -    S   Read maintenance status
+  ref.data.manage                    MEDIUM   -    S   Add or change currencies and branches
+  ref.data.read                      LOW      -    S   Read currencies and branches
+
+[portal]
+  portal.account.read                LOW      -    CV  Read own loans, schedules, demands and amount payable
+  portal.payment.initiate            HIGH     MFA  CV  Start a payment on an own or delegated account
+  portal.profile.manage              MEDIUM   -    C   Change own contact details and preferences
+  portal.statement.read              LOW      -    CV  Download own statements and certificates
+
+SYSTEM ROLES (26)
+
+  CUSTOMER_SELF  [CUSTOMER]  Customer (self service)
+    A retail customer using the portal on own accounts.
+    grants: lcm.portal.read, portal.account.read, portal.payment.initiate, portal.profile.manage, portal.statement.read
+
+  SVC_ADMIN  [SERVICE]  Service: lending-admin-service
+    The admin console back end submits approvals and checks access for the signed-in user.
+    grants: bizdate.read, iam.approval.onbehalf, iam.approval.read, iam.approval.submit, iam.authz.check
+
+  SVC_BATCH  [SERVICE]  Service: lending-batch-service
+    Batch jobs call lending and accounting endpoints.
+    grants: acct.recon.run, bizdate.manage, bizdate.read, loan.account.read, loan.accrual.run
+
+  SVC_LCM  [SERVICE]  Service: lending-lcm-service
+    LCM submits facility, valuation and excess approvals and consumes them.
+    grants: iam.approval.consume, iam.approval.onbehalf, iam.approval.read, iam.approval.submit, iam.authz.check
+
+  SVC_LENDING  [SERVICE]  Service: lending-service
+    Lending reserves, confirms, releases and repays limits and asks for approvals.
+    grants: iam.approval.consume, iam.approval.read, iam.approval.submit, iam.authz.check, lcm.utilisation.check, lcm.utilisation.close, lcm.utilisation.confirm, lcm.utilisation.release, lcm.utilisation.repay, lcm.utilisation.reserve
+
+  SVC_PORTAL  [SERVICE]  Service: customer portal back end
+    The portal back end reads on behalf of a customer.
+    grants: iam.authz.check, lcm.portal.read, portal.account.read, portal.statement.read
+
+  ACCOUNTING_CHECKER  [STAFF, MFA required]  Accounting approver
+    Approves templates and routes (checker).
+    grants: acct.journal.read, acct.route.approve, acct.template.approve, iam.approval.decide, iam.approval.read
+
+  ACCOUNTING_MAKER  [STAFF]  Accounting configurator
+    Edits entry templates, routes and event modes (maker).
+    grants: acct.event.manage, acct.exception.resolve, acct.journal.read, acct.route.edit, acct.template.edit, bizdate.read, ref.data.read
+
+  ACCOUNTING_OPS  [STAFF, MFA required]  Accounting operations
+    Runs reconciliation, snapshot and the opening-balance cutover; works posting exceptions.
+    grants: acct.exception.resolve, acct.journal.read, acct.opening.run, acct.recon.run, bizdate.read
+
+  AUDITOR  [STAFF]  Auditor (read only)
+    Reads everything and the audit trail; changes nothing.
+    grants: acct.journal.read, admin.dashboard.read, batch.job.read, bizdate.read, iam.approval.read, iam.audit.read, iam.client.read, iam.role.read, iam.user.read, lcm.collateral.read, lcm.events.read, lcm.facility.read, lcm.monitoring.read, lcm.utilisation.read, loan.account.read, loan.payment.read, loan.product.read, ops.maintenance.read, ref.data.read
+
+  BATCH_ADMIN  [STAFF, MFA required]  Batch administrator
+    Changes batch job configuration.
+    grants: batch.job.manage, batch.job.read, bizdate.read
+
+  BATCH_OPERATOR  [STAFF, MFA required]  Batch operator
+    Watches and triggers batch jobs and end of day.
+    grants: admin.dashboard.read, batch.job.read, batch.job.trigger, bizdate.manage, bizdate.read, loan.accrual.run
+
+  BRANCH_MANAGER  [STAFF]  Branch manager
+    Branch-scoped read of loans plus limits and collateral; approves loan creation as a checker.
+    grants: admin.dashboard.read, bizdate.read, iam.approval.read, lcm.collateral.read, lcm.facility.read, lcm.monitoring.read, loan.account.read, loan.payment.read, loan.product.read, ref.data.read
+
+  IAM_ACCESS_ADMIN  [STAFF, MFA required]  Identity administrator: access
+    Assigns roles and scopes to users. Cannot create users or define roles.
+    grants: iam.approval.read, iam.assignment.manage, iam.role.read, iam.user.read
+
+  IAM_SECURITY_ADMIN  [STAFF, MFA required]  Identity administrator: security
+    Defines roles and separation-of-duties rules, manages service accounts, signing keys, webhooks and approval types.
+    grants: iam.approval.manage, iam.approval.read, iam.client.manage, iam.client.read, iam.key.manage, iam.role.manage, iam.role.read, iam.webhook.manage
+
+  IAM_USER_ADMIN  [STAFF, MFA required]  Identity administrator: users
+    Creates and maintains users and customer links; suspends, unlocks, offboards and resets. Cannot grant access.
+    grants: iam.approval.read, iam.client.read, iam.customer.link, iam.role.read, iam.user.create, iam.user.lifecycle, iam.user.read, iam.user.update
+
+  LCM_ADMIN  [STAFF, MFA required]  Limits and collateral administrator
+    Runs the monitoring sweep and the lending bridge.
+    grants: lcm.bridge.run, lcm.collateral.read, lcm.events.read, lcm.facility.read, lcm.monitoring.read, lcm.monitoring.run
+
+  LCM_CHECKER  [STAFF, MFA required]  Limits and collateral approver
+    Approves facility changes, excess and valuations; activates and releases collateral (checker).
+    grants: iam.approval.decide, iam.approval.read, lcm.collateral.activate, lcm.collateral.read, lcm.collateral.release, lcm.excess.approve, lcm.facility.approve, lcm.facility.read, lcm.monitoring.read, lcm.utilisation.read, lcm.valuation.approve
+
+  LCM_MAKER  [STAFF]  Limits and collateral officer
+    Creates facilities, proposes changes, registers collateral and valuations (maker).
+    grants: lcm.allocation.manage, lcm.breach.acknowledge, lcm.collateral.charge, lcm.collateral.create, lcm.collateral.insurance, lcm.collateral.legal, lcm.collateral.read, lcm.events.read, lcm.excess.create, lcm.facility.change, lcm.facility.create, lcm.facility.read, lcm.monitoring.read, lcm.utilisation.read, lcm.valuation.create
+
+  LOAN_APPROVER  [STAFF, MFA required]  Loan approver
+    Disburses loans (checker for creation).
+    grants: admin.dashboard.read, bizdate.read, lcm.facility.read, loan.account.disburse, loan.account.read, loan.payment.read, loan.product.read, ref.data.read
+
+  LOAN_OFFICER  [STAFF]  Loan officer
+    Creates loan accounts and records mortgage details (maker).
+    grants: admin.dashboard.read, bizdate.read, lcm.collateral.read, lcm.facility.read, loan.account.create, loan.account.read, loan.mortgage.manage, loan.payment.read, loan.product.read, ref.data.read
+
+  PAYMENTS_OFFICER  [STAFF, MFA required]  Payments officer
+    Posts EMI, part-payment and foreclosure.
+    grants: admin.dashboard.read, bizdate.read, loan.account.read, loan.payment.foreclose, loan.payment.part, loan.payment.post, loan.payment.read
+
+  PLATFORM_ADMIN  [STAFF, MFA required]  Platform administrator
+    Reference data, ledger outbox and (sandbox only) maintenance.
+    grants: bizdate.read, loan.outbox.manage, ops.maintenance.clear, ops.maintenance.read, ref.data.manage, ref.data.read
+
+  PRODUCT_APPROVER  [STAFF, MFA required]  Product approver
+    Approves loan product changes (checker).
+    grants: iam.approval.decide, iam.approval.read, loan.product.approve, loan.product.read
+
+  PRODUCT_MANAGER  [STAFF]  Product manager
+    Maintains loan products and benchmark rates (maker).
+    grants: bizdate.read, loan.account.read, loan.benchmark.manage, loan.product.manage, loan.product.read
+
+  SECURITY_APPROVER  [STAFF, MFA required]  Identity approver
+    Second person for customer links, approvals of identity actions and clear-data requests.
+    grants: iam.approval.decide, iam.approval.read, iam.customer.link.approve, iam.role.read, iam.user.read, ops.maintenance.approve
+
+SEPARATION-OF-DUTIES RULES (14): no user, and no role, may hold both
+  acct.route.approve           + acct.route.edit              The person who writes a route cannot approve it
+  acct.template.approve        + acct.template.edit           The person who writes an entry template cannot approve it
+  iam.assignment.manage        + iam.audit.read               Whoever grants access cannot be the one who audits the grants
+  iam.assignment.manage        + iam.role.manage              The person who defines roles cannot also grant them to users
+  iam.assignment.manage        + iam.user.create              The person who creates users cannot also grant them access
+  iam.audit.read               + iam.client.manage            Whoever manages service accounts cannot be the one who audits them
+  iam.audit.read               + iam.role.manage              Whoever defines roles cannot be the one who audits them
+  lcm.excess.approve           + lcm.excess.create            The person who proposes a temporary excess cannot approve it
+  lcm.facility.approve         + lcm.facility.change          The person who proposes a facility change cannot approve it
+  lcm.facility.approve         + lcm.facility.create          The person who creates a facility cannot approve it
+  lcm.valuation.approve        + lcm.valuation.create         The person who proposes a valuation cannot approve it
+  loan.account.create          + loan.account.disburse        The person who creates a loan cannot disburse it
+  loan.product.approve         + loan.product.manage          The person who changes a product cannot approve the change
+  ops.maintenance.approve      + ops.maintenance.clear        The person who asks to clear data cannot approve the request
+
+APPROVAL TYPES SEEDED (7)
+  ACCT_ROUTE_APPROVE       maker acct.route.edit            checker acct.route.approve         approvals 1, pending 72h, consume window 24h
+  ACCT_TEMPLATE_APPROVE    maker acct.template.edit         checker acct.template.approve      approvals 1, pending 72h, consume window 24h
+  LCM_EXCESS_APPROVE       maker lcm.excess.create          checker lcm.excess.approve         approvals 1, pending 24h, consume window 24h
+  LCM_FACILITY_CHANGE      maker lcm.facility.change        checker lcm.facility.approve       approvals 1, pending 72h, consume window 24h
+  LCM_VALUATION_APPROVE    maker lcm.valuation.create       checker lcm.valuation.approve      approvals 1, pending 72h, consume window 24h
+  LOAN_PRODUCT_CHANGE      maker loan.product.manage        checker loan.product.approve       approvals 1, pending 72h, consume window 24h
+  MAINTENANCE_CLEAR        maker ops.maintenance.clear      checker ops.maintenance.approve    approvals 1, pending 1h, consume window 24h

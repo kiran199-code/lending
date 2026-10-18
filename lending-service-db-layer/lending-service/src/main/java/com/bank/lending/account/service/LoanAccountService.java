@@ -17,6 +17,7 @@ import com.bank.lending.demand.domain.LoanDemand;
 import com.bank.lending.demand.repository.LoanDemandRepository;
 import com.bank.lending.ledger.domain.LedgerOutboxEntry;
 import com.bank.lending.ledger.service.LedgerOutboxService;
+import com.bank.lending.limits.LimitGateway;
 import com.bank.lending.product.domain.LoanProduct;
 import com.bank.lending.product.repository.LoanProductRepository;
 import com.bank.lending.product.service.AccountTermsResolver;
@@ -65,6 +66,7 @@ public class LoanAccountService {
     private final LoanDemandRepository demandRepository;
     private final AccountingPoster accountingPoster;
     private final ReferenceDataService referenceData;
+    private final LimitGateway limits;
 
     /** Idempotent on sanction_ref_id: a retried creation request for an already-created sanction returns the existing account. */
     @Transactional
@@ -79,6 +81,12 @@ public class LoanAccountService {
         // currency and branch are fixed here for the life of the account; its accounting entries use the same two
         String currencyCode = referenceData.resolveCurrency(request.currencyCode());
         String branchCode = referenceData.resolveBranch(request.branchCode());
+        // optional link to an LCM facility; checked only when limits are shadow/live (see LimitGateway), stored always
+        String facilityRef = request.limitFacilityRef() == null || request.limitFacilityRef().isBlank()
+                ? null : request.limitFacilityRef().trim();
+        if (facilityRef != null) {
+            limits.checkOnCreate(facilityRef, request.sanctionedAmount(), currencyCode, branchCode, businessDateService.currentDate());
+        }
 
         LoanAccount account = LoanAccount.builder()
                 .customerId(request.customerId())
@@ -100,6 +108,7 @@ public class LoanAccountService {
                 .stepUpPercent(terms.stepUpPercent())
                 .currencyCode(currencyCode)
                 .branchCode(branchCode)
+                .limitFacilityRef(facilityRef)
                 .accountStatus(PENDING_DISBURSEMENT)
                 .version(0)
                 .build();
@@ -158,6 +167,15 @@ public class LoanAccountService {
                     "Mortgage account " + accountId + " has no registered mortgage charge linked yet");
         }
 
+        // Limits: reserve before anything changes, so a refusal leaves the account untouched. No-op unless the account
+        // has a facility and lending.lcm.mode is shadow or live.
+        LimitGateway.Subject limitSubject = limitSubject(account);
+        LocalDate businessDate = limitSubject.linked() ? businessDateService.currentDate() : null;
+        LimitGateway.Ticket ticket = limits.reserveForDisbursement(limitSubject, disbursedAmount, businessDate);
+        if (ticket.reservationRef() != null) {
+            account.setLimitReservationRef(ticket.reservationRef());
+        }
+
         account.setDisbursedAmount(disbursedAmount);
         account.setEmiStartDate(firstEmiDueDate);
         account.setAccountStatus(ACTIVE);
@@ -171,8 +189,13 @@ public class LoanAccountService {
                 "tenureMonths", account.getTenureMonths()
         ));
         accountingPoster.disbursed(saved, disbursedAmount, BigDecimal.ZERO);
+        limits.disbursed(limitSubject, ticket, disbursedAmount, businessDate);
 
         return saved;
+    }
+
+    private static LimitGateway.Subject limitSubject(LoanAccount a) {
+        return new LimitGateway.Subject(a.getAccountId(), a.getLimitFacilityRef(), a.getCurrencyCode(), a.getBranchCode());
     }
 
     /**

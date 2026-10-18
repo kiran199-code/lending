@@ -49,6 +49,23 @@ business-date:
 lending:
   maintenance:
     reset-enabled: ${LENDING_RESET_ENABLED:false}
+  # Link to the separate Limits and Collateral Management service (lending-lcm-service).
+  # mode: off (default - no calls, no behaviour change) | shadow (record usage in LCM, never block) | live (enforce limits)
+  lcm:
+    mode: ${LENDING_LCM_MODE:off}
+    base-url: ${LENDING_LCM_URL:http://localhost:8084}
+    username: ${LENDING_LCM_USERNAME:lcm-service}
+    password: ${LENDING_LCM_PASSWORD:changeme}
+    connect-timeout-ms: ${LENDING_LCM_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${LENDING_LCM_READ_TIMEOUT_MS:5000}
+    retries: ${LENDING_LCM_RETRIES:2}
+    fail-open: ${LENDING_LCM_FAIL_OPEN:false}
+    reservation-ttl-minutes: ${LENDING_LCM_RESERVATION_TTL_MINUTES:30}
+    outbox:
+      batch-size: 50
+      max-attempts: 10
+      lease-minutes: 5
+      retry-cron: "0 * * * * *"
 
 springdoc:
   swagger-ui:

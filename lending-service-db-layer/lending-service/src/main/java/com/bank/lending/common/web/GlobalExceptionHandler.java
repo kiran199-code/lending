@@ -5,6 +5,8 @@ import com.bank.lending.accounting.model.PostingException;
 import com.bank.lending.common.exception.FeatureDisabledException;
 import com.bank.lending.common.exception.InvalidAccountStateException;
 import com.bank.lending.common.exception.ResourceNotFoundException;
+import com.bank.lending.limits.LimitRejectedException;
+import com.bank.lending.limits.LimitUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PostingException.class)
     public ResponseEntity<ApiError> handlePosting(PostingException ex, HttpServletRequest request) {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.reason() + ": " + ex.getMessage(), request);
+    }
+
+    /** The Limits and Collateral Management service refused the operation (limit exceeded, facility not usable...). */
+    @ExceptionHandler(LimitRejectedException.class)
+    public ResponseEntity<ApiError> handleLimitRejected(LimitRejectedException ex, HttpServletRequest request) {
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, "Limit check failed [" + ex.code() + "]: " + ex.getMessage(), request);
+    }
+
+    /** Limits are live and the service could not be reached; nothing was changed. */
+    @ExceptionHandler(LimitUnavailableException.class)
+    public ResponseEntity<ApiError> handleLimitUnavailable(LimitUnavailableException ex, HttpServletRequest request) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "The limits service is not available, nothing was changed: " + ex.getMessage(), request);
     }
 
     @ExceptionHandler(ConfigConflictException.class)

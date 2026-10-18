@@ -1,0 +1,200 @@
+// Single source of truth for the permission catalogue, roles, segregation-of-duties rules and approval types.
+// Used to generate the V2 seed migration and Appendix A-D of the specification, so the two cannot drift apart.
+// permission: [code, module, description, risk, mfa(step-up), appliesTo]   appliesTo: S staff, C customer, V service
+const P = [];
+const add = (module, rows) => rows.forEach(r => P.push([r[0], module, r[1], r[2], r[3] ? 1 : 0, r[4] || 'S']));
+
+add('lending', [
+  ['loan.account.read', 'Read loan accounts, schedules, accruals, statements, mortgages and portfolio screens', 'LOW', false, 'SV'],
+  ['loan.account.create', 'Create a loan account, one or in bulk (maker)', 'MEDIUM'],
+  ['loan.account.disburse', 'Disburse a loan account, one or in bulk', 'HIGH', true],
+  ['loan.payment.read', 'Read payments, amount payable and payment previews', 'LOW'],
+  ['loan.payment.post', 'Post an EMI payment', 'HIGH', true],
+  ['loan.payment.part', 'Post a part-payment (principal prepayment)', 'HIGH', true],
+  ['loan.payment.foreclose', 'Foreclose a loan account', 'HIGH', true],
+  ['loan.product.read', 'Read loan products', 'LOW'],
+  ['loan.product.manage', 'Create or change a loan product (maker)', 'MEDIUM'],
+  ['loan.product.approve', 'Approve a loan product change (checker)', 'HIGH', true],
+  ['loan.benchmark.manage', 'Publish or change benchmark rates', 'HIGH'],
+  ['loan.mortgage.manage', 'Create a mortgage, register or release a charge, record a valuation', 'MEDIUM'],
+  ['loan.accrual.run', 'Run interest accrual, rate reset, delinquency classification, demand raising and penal interest', 'MEDIUM', false, 'SV'],
+  ['loan.outbox.manage', 'View and push the ledger outbox', 'MEDIUM'],
+]);
+add('platform', [
+  ['bizdate.read', 'Read the business date, history and holidays', 'LOW', false, 'SV'],
+  ['bizdate.manage', 'Advance or set the business date, start end of day, maintain holidays', 'HIGH', true, 'SV'],
+  ['ref.data.read', 'Read currencies and branches', 'LOW'],
+  ['ref.data.manage', 'Add or change currencies and branches', 'MEDIUM'],
+  ['ops.maintenance.read', 'Read maintenance status', 'LOW'],
+  ['ops.maintenance.clear', 'Clear all data or load base products (sandbox only)', 'CRITICAL', true],
+  ['ops.maintenance.approve', 'Approve a clear-data request (second person)', 'CRITICAL', true],
+  ['admin.dashboard.read', 'Read the admin dashboard, upcoming and overdue lists', 'LOW'],
+]);
+add('batch', [
+  ['batch.job.read', 'Read batch jobs, executions, errors and end-of-day status', 'LOW'],
+  ['batch.job.trigger', 'Trigger a batch job or run end of day', 'HIGH', true],
+  ['batch.job.manage', 'Change batch job configuration and reload it', 'HIGH'],
+]);
+add('accounting', [
+  ['acct.journal.read', 'Read journals, trial balance, ledgers, events, routes, templates and reconciliation', 'LOW'],
+  ['acct.template.edit', 'Create, change, validate, submit and retire entry templates (maker)', 'MEDIUM'],
+  ['acct.template.approve', 'Approve or reject an entry template (checker)', 'HIGH', true],
+  ['acct.route.edit', 'Create and retire routes (maker)', 'MEDIUM'],
+  ['acct.route.approve', 'Approve a route (checker)', 'HIGH', true],
+  ['acct.event.manage', 'Switch an accounting event off, shadow or live', 'HIGH', true],
+  ['acct.exception.resolve', 'Retry or waive a posting exception', 'MEDIUM'],
+  ['acct.recon.run', 'Run reconciliation or the balance snapshot', 'MEDIUM', false, 'SV'],
+  ['acct.opening.run', 'Run the opening-balance cutover', 'HIGH', true],
+]);
+add('lcm', [
+  ['lcm.facility.read', 'Read facilities, availability, sub-limit tree, ledger transactions, excess history, drawing power and pending changes', 'LOW'],
+  ['lcm.facility.create', 'Create a facility in DRAFT (maker)', 'MEDIUM'],
+  ['lcm.facility.change', 'Propose a facility change (maker)', 'MEDIUM'],
+  ['lcm.facility.approve', 'Approve or reject a facility change (checker)', 'HIGH', true],
+  ['lcm.excess.create', 'Propose a temporary excess (maker)', 'HIGH'],
+  ['lcm.excess.approve', 'Approve or reject a temporary excess (checker)', 'HIGH', true],
+  ['lcm.utilisation.check', 'Non-binding check whether a drawdown would fit', 'LOW', false, 'V'],
+  ['lcm.utilisation.reserve', 'Reserve limit for a pending drawdown', 'HIGH', false, 'V'],
+  ['lcm.utilisation.confirm', 'Confirm a reservation as utilisation', 'HIGH', false, 'V'],
+  ['lcm.utilisation.release', 'Release a reservation', 'MEDIUM', false, 'V'],
+  ['lcm.utilisation.repay', 'Report a principal repayment that restores revolving limit', 'HIGH', false, 'V'],
+  ['lcm.utilisation.close', 'Release remaining outstanding on closure, foreclosure or write-off', 'HIGH', false, 'V'],
+  ['lcm.utilisation.read', 'Read reservations and utilisation positions', 'LOW'],
+  ['lcm.collateral.read', 'Read collateral, valuations, allocations and collateral types', 'LOW'],
+  ['lcm.collateral.create', 'Register collateral in DRAFT', 'MEDIUM'],
+  ['lcm.valuation.create', 'Propose a collateral valuation (maker)', 'MEDIUM'],
+  ['lcm.valuation.approve', 'Approve or reject a collateral valuation (checker)', 'HIGH', true],
+  ['lcm.collateral.legal', 'Record the legal verification outcome of a collateral', 'HIGH'],
+  ['lcm.collateral.charge', 'Record charge registration and prior charge on a collateral', 'HIGH'],
+  ['lcm.collateral.insurance', 'Record insurance expiry of a collateral', 'MEDIUM'],
+  ['lcm.collateral.activate', 'Activate a collateral once its requirements are met', 'HIGH'],
+  ['lcm.collateral.release', 'Release a collateral that has no active allocations', 'HIGH'],
+  ['lcm.allocation.manage', 'Allocate collateral to a facility or release an allocation', 'HIGH'],
+  ['lcm.monitoring.run', 'Run the monitoring sweep on demand', 'MEDIUM'],
+  ['lcm.monitoring.read', 'Read breaches and the ledger integrity check', 'LOW'],
+  ['lcm.breach.acknowledge', 'Acknowledge an open limit or collateral breach', 'MEDIUM'],
+  ['lcm.events.read', 'Read the LCM event feed', 'LOW'],
+  ['lcm.bridge.run', 'Load existing lending mortgages, sanctions and loan balances into LCM', 'HIGH'],
+  ['lcm.portal.read', 'Customer-facing read models (exposure, availability)', 'LOW', false, 'CV'],
+]);
+add('iam', [
+  ['iam.user.read', 'Read users, their roles, scopes and effective access', 'LOW'],
+  ['iam.user.create', 'Create a staff or customer user (invite)', 'MEDIUM'],
+  ['iam.user.update', 'Change a user\'s name, email and mobile', 'MEDIUM'],
+  ['iam.user.lifecycle', 'Suspend, reinstate, unlock, offboard, reset password or reset MFA', 'HIGH', true],
+  ['iam.assignment.manage', 'Assign roles and scopes to a user', 'HIGH', true],
+  ['iam.role.read', 'Read roles, permissions, limits and segregation-of-duties rules', 'LOW'],
+  ['iam.role.manage', 'Create and change roles, role permissions, limits and segregation-of-duties rules', 'CRITICAL', true],
+  ['iam.client.read', 'Read service accounts and OAuth clients', 'LOW'],
+  ['iam.client.manage', 'Create, change, disable service accounts and rotate their secrets', 'CRITICAL', true],
+  ['iam.key.manage', 'List and rotate token signing keys', 'CRITICAL', true],
+  ['iam.audit.read', 'Read and verify the audit trail', 'MEDIUM'],
+  ['iam.approval.read', 'Read approval types and pending actions', 'LOW', false, 'SV'],
+  ['iam.approval.submit', 'Submit a pending action for approval', 'MEDIUM', false, 'SV'],
+  ['iam.approval.decide', 'Approve or reject a pending action (also needs the checker permission of its type)', 'HIGH', true],
+  ['iam.approval.manage', 'Change approval types (checker permission, expiry, callback)', 'CRITICAL', true],
+  ['iam.approval.consume', 'Mark an approved action as executed', 'MEDIUM', false, 'V'],
+  ['iam.approval.onbehalf', 'Submit an action in the name of another user (service accounts)', 'HIGH', false, 'V'],
+  ['iam.authz.check', 'Ask the decision endpoint about another user', 'LOW', false, 'V'],
+  ['iam.webhook.manage', 'Manage event webhooks and read the outbox', 'HIGH'],
+  ['iam.customer.link', 'Link a customer user to a customer and accounts, revoke links', 'HIGH'],
+  ['iam.customer.link.approve', 'Approve a co-borrower, guarantor or delegate link (second person)', 'HIGH', true],
+]);
+add('portal', [
+  ['portal.account.read', 'Read own loans, schedules, demands and amount payable', 'LOW', false, 'CV'],
+  ['portal.payment.initiate', 'Start a payment on an own or delegated account', 'HIGH', true, 'CV'],
+  ['portal.statement.read', 'Download own statements and certificates', 'LOW', false, 'CV'],
+  ['portal.profile.manage', 'Change own contact details and preferences', 'MEDIUM', false, 'C'],
+]);
+
+const ALL = P.map(p => p[0]);
+const byModule = m => P.filter(p => p[1] === m).map(p => p[0]);
+const except = (list, ...ex) => list.filter(c => !ex.includes(c));
+const reads = P.filter(p => /\.read$/.test(p[0]) && p[5].includes('S')).map(p => p[0]);
+
+// role: [code, name, kind(S/C/V), description, mfaRequired, permissions[]]
+const ROLES = [
+  ['IAM_USER_ADMIN', 'Identity administrator: users', 'S', 'Creates and maintains users and customer links; suspends, unlocks, offboards and resets. Cannot grant access.', true,
+    ['iam.user.read', 'iam.user.create', 'iam.user.update', 'iam.user.lifecycle', 'iam.customer.link', 'iam.role.read', 'iam.client.read', 'iam.approval.read']],
+  ['IAM_ACCESS_ADMIN', 'Identity administrator: access', 'S', 'Assigns roles and scopes to users. Cannot create users or define roles.', true,
+    ['iam.user.read', 'iam.assignment.manage', 'iam.role.read', 'iam.approval.read']],
+  ['IAM_SECURITY_ADMIN', 'Identity administrator: security', 'S', 'Defines roles and separation-of-duties rules, manages service accounts, signing keys, webhooks and approval types.', true,
+    ['iam.role.read', 'iam.role.manage', 'iam.client.read', 'iam.client.manage', 'iam.key.manage', 'iam.webhook.manage', 'iam.approval.manage', 'iam.approval.read']],
+  ['SECURITY_APPROVER', 'Identity approver', 'S', 'Second person for customer links, approvals of identity actions and clear-data requests.', true,
+    ['iam.user.read', 'iam.role.read', 'iam.approval.read', 'iam.approval.decide', 'iam.customer.link.approve', 'ops.maintenance.approve']],
+  ['AUDITOR', 'Auditor (read only)', 'S', 'Reads everything and the audit trail; changes nothing.', false, reads.concat(['iam.audit.read'])],
+  ['LOAN_OFFICER', 'Loan officer', 'S', 'Creates loan accounts and records mortgage details (maker).', false,
+    ['loan.account.read', 'loan.account.create', 'loan.payment.read', 'loan.product.read', 'loan.mortgage.manage', 'bizdate.read', 'ref.data.read', 'admin.dashboard.read', 'lcm.facility.read', 'lcm.collateral.read']],
+  ['LOAN_APPROVER', 'Loan approver', 'S', 'Disburses loans (checker for creation).', true,
+    ['loan.account.read', 'loan.account.disburse', 'loan.payment.read', 'loan.product.read', 'bizdate.read', 'ref.data.read', 'admin.dashboard.read', 'lcm.facility.read']],
+  ['PAYMENTS_OFFICER', 'Payments officer', 'S', 'Posts EMI, part-payment and foreclosure.', true,
+    ['loan.account.read', 'loan.payment.read', 'loan.payment.post', 'loan.payment.part', 'loan.payment.foreclose', 'bizdate.read', 'admin.dashboard.read']],
+  ['PRODUCT_MANAGER', 'Product manager', 'S', 'Maintains loan products and benchmark rates (maker).', false,
+    ['loan.product.read', 'loan.product.manage', 'loan.benchmark.manage', 'loan.account.read', 'bizdate.read']],
+  ['PRODUCT_APPROVER', 'Product approver', 'S', 'Approves loan product changes (checker).', true, ['loan.product.read', 'loan.product.approve', 'iam.approval.read', 'iam.approval.decide']],
+  ['ACCOUNTING_MAKER', 'Accounting configurator', 'S', 'Edits entry templates, routes and event modes (maker).', false,
+    ['acct.journal.read', 'acct.template.edit', 'acct.route.edit', 'acct.event.manage', 'acct.exception.resolve', 'ref.data.read', 'bizdate.read']],
+  ['ACCOUNTING_CHECKER', 'Accounting approver', 'S', 'Approves templates and routes (checker).', true,
+    ['acct.journal.read', 'acct.template.approve', 'acct.route.approve', 'iam.approval.read', 'iam.approval.decide']],
+  ['ACCOUNTING_OPS', 'Accounting operations', 'S', 'Runs reconciliation, snapshot and the opening-balance cutover; works posting exceptions.', true,
+    ['acct.journal.read', 'acct.recon.run', 'acct.opening.run', 'acct.exception.resolve', 'bizdate.read']],
+  ['BATCH_OPERATOR', 'Batch operator', 'S', 'Watches and triggers batch jobs and end of day.', true,
+    ['batch.job.read', 'batch.job.trigger', 'bizdate.read', 'bizdate.manage', 'loan.accrual.run', 'admin.dashboard.read']],
+  ['BATCH_ADMIN', 'Batch administrator', 'S', 'Changes batch job configuration.', true, ['batch.job.read', 'batch.job.manage', 'bizdate.read']],
+  ['PLATFORM_ADMIN', 'Platform administrator', 'S', 'Reference data, ledger outbox and (sandbox only) maintenance.', true,
+    ['ref.data.read', 'ref.data.manage', 'loan.outbox.manage', 'ops.maintenance.read', 'ops.maintenance.clear', 'bizdate.read']],
+  ['BRANCH_MANAGER', 'Branch manager', 'S', 'Branch-scoped read of loans plus limits and collateral; approves loan creation as a checker.', false,
+    ['loan.account.read', 'loan.payment.read', 'loan.product.read', 'bizdate.read', 'ref.data.read', 'admin.dashboard.read', 'lcm.facility.read', 'lcm.collateral.read', 'lcm.monitoring.read', 'iam.approval.read']],
+  ['LCM_MAKER', 'Limits and collateral officer', 'S', 'Creates facilities, proposes changes, registers collateral and valuations (maker).', false,
+    ['lcm.facility.read', 'lcm.facility.create', 'lcm.facility.change', 'lcm.excess.create', 'lcm.collateral.read', 'lcm.collateral.create', 'lcm.valuation.create',
+      'lcm.collateral.legal', 'lcm.collateral.charge', 'lcm.collateral.insurance', 'lcm.allocation.manage', 'lcm.utilisation.read', 'lcm.monitoring.read', 'lcm.breach.acknowledge', 'lcm.events.read']],
+  ['LCM_CHECKER', 'Limits and collateral approver', 'S', 'Approves facility changes, excess and valuations; activates and releases collateral (checker).', true,
+    ['lcm.facility.read', 'lcm.facility.approve', 'lcm.excess.approve', 'lcm.valuation.approve', 'lcm.collateral.read', 'lcm.collateral.activate', 'lcm.collateral.release',
+      'lcm.utilisation.read', 'lcm.monitoring.read', 'iam.approval.read', 'iam.approval.decide']],
+  ['LCM_ADMIN', 'Limits and collateral administrator', 'S', 'Runs the monitoring sweep and the lending bridge.', true,
+    ['lcm.monitoring.run', 'lcm.monitoring.read', 'lcm.bridge.run', 'lcm.facility.read', 'lcm.collateral.read', 'lcm.events.read']],
+  ['CUSTOMER_SELF', 'Customer (self service)', 'C', 'A retail customer using the portal on own accounts.', false,
+    ['portal.account.read', 'portal.payment.initiate', 'portal.statement.read', 'portal.profile.manage', 'lcm.portal.read']],
+  ['SVC_LENDING', 'Service: lending-service', 'V', 'Lending reserves, confirms, releases and repays limits and asks for approvals.', false,
+    ['lcm.utilisation.check', 'lcm.utilisation.reserve', 'lcm.utilisation.confirm', 'lcm.utilisation.release', 'lcm.utilisation.repay', 'lcm.utilisation.close',
+      'iam.approval.read', 'iam.approval.submit', 'iam.approval.consume', 'iam.authz.check']],
+  ['SVC_BATCH', 'Service: lending-batch-service', 'V', 'Batch jobs call lending and accounting endpoints.', false,
+    ['loan.accrual.run', 'loan.account.read', 'bizdate.read', 'bizdate.manage', 'acct.recon.run']],
+  ['SVC_ADMIN', 'Service: lending-admin-service', 'V', 'The admin console back end submits approvals and checks access for the signed-in user.', false,
+    ['iam.approval.read', 'iam.approval.submit', 'iam.approval.onbehalf', 'iam.authz.check', 'bizdate.read']],
+  ['SVC_PORTAL', 'Service: customer portal back end', 'V', 'The portal back end reads on behalf of a customer.', false,
+    ['lcm.portal.read', 'iam.authz.check', 'portal.account.read', 'portal.statement.read']],
+  ['SVC_LCM', 'Service: lending-lcm-service', 'V', 'LCM submits facility, valuation and excess approvals and consumes them.', false,
+    ['iam.approval.read', 'iam.approval.submit', 'iam.approval.consume', 'iam.approval.onbehalf', 'iam.authz.check']],
+];
+
+// Segregation of duties: one user may not hold both permissions through any combination of roles.
+const SOD = [
+  ['acct.template.edit', 'acct.template.approve', 'The person who writes an entry template cannot approve it'],
+  ['acct.route.edit', 'acct.route.approve', 'The person who writes a route cannot approve it'],
+  ['lcm.facility.change', 'lcm.facility.approve', 'The person who proposes a facility change cannot approve it'],
+  ['lcm.facility.create', 'lcm.facility.approve', 'The person who creates a facility cannot approve it'],
+  ['lcm.excess.create', 'lcm.excess.approve', 'The person who proposes a temporary excess cannot approve it'],
+  ['lcm.valuation.create', 'lcm.valuation.approve', 'The person who proposes a valuation cannot approve it'],
+  ['loan.account.create', 'loan.account.disburse', 'The person who creates a loan cannot disburse it'],
+  ['loan.product.manage', 'loan.product.approve', 'The person who changes a product cannot approve the change'],
+  ['iam.user.create', 'iam.assignment.manage', 'The person who creates users cannot also grant them access'],
+  ['iam.role.manage', 'iam.assignment.manage', 'The person who defines roles cannot also grant them to users'],
+  ['iam.assignment.manage', 'iam.audit.read', 'Whoever grants access cannot be the one who audits the grants'],
+  ['iam.role.manage', 'iam.audit.read', 'Whoever defines roles cannot be the one who audits them'],
+  ['iam.client.manage', 'iam.audit.read', 'Whoever manages service accounts cannot be the one who audits them'],
+  ['ops.maintenance.clear', 'ops.maintenance.approve', 'The person who asks to clear data cannot approve the request'],
+];
+
+// Approval types: [code, name, makerPermission, checkerPermission, expiryHours, description]
+const APPROVALS = [
+  ['ACCT_TEMPLATE_APPROVE', 'Accounting entry template', 'acct.template.edit', 'acct.template.approve', 72, 'Approve a submitted entry template'],
+  ['ACCT_ROUTE_APPROVE', 'Accounting route', 'acct.route.edit', 'acct.route.approve', 72, 'Approve a route to a GL account'],
+  ['LCM_FACILITY_CHANGE', 'Facility change', 'lcm.facility.change', 'lcm.facility.approve', 72, 'Approve a proposed facility change in LCM'],
+  ['LCM_EXCESS_APPROVE', 'Temporary excess', 'lcm.excess.create', 'lcm.excess.approve', 24, 'Approve a temporary excess over a sanctioned limit'],
+  ['LCM_VALUATION_APPROVE', 'Collateral valuation', 'lcm.valuation.create', 'lcm.valuation.approve', 72, 'Approve a collateral valuation'],
+  ['LOAN_PRODUCT_CHANGE', 'Loan product change', 'loan.product.manage', 'loan.product.approve', 72, 'Approve a change to a loan product'],
+  ['MAINTENANCE_CLEAR', 'Clear data (sandbox)', 'ops.maintenance.clear', 'ops.maintenance.approve', 1, 'Dual control for clearing all data'],
+];
+
+module.exports = { P, ROLES, SOD, APPROVALS, ALL };

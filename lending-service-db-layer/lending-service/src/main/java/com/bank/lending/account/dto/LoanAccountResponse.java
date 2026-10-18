@@ -33,6 +33,8 @@ public record LoanAccountResponse(
         String branchCode,
         LoanAccount.AccountStatus accountStatus,
         Long mortgageId,
+        String limitFacilityRef,
+        String limitReservationRef,
         Integer version,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
@@ -45,7 +47,7 @@ public record LoanAccountResponse(
                 a.getSpread(), a.getDayCountConvention(),
                 a.getRepaymentFrequency(), a.getMoratoriumMonths(), a.getBalloonPercent(), a.getStepUpPercent(),
                 a.getEmiAmount(), a.getEmiStartDate(), a.getCurrencyCode(), a.getBranchCode(),
-                a.getAccountStatus(), a.getMortgageId(), a.getVersion(), a.getCreatedAt(), a.getUpdatedAt()
+                a.getAccountStatus(), a.getMortgageId(), a.getLimitFacilityRef(), a.getLimitReservationRef(), a.getVersion(), a.getCreatedAt(), a.getUpdatedAt()
         );
     }
 }

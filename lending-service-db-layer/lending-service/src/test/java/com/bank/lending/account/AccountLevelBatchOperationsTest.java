@@ -42,7 +42,7 @@ class AccountLevelBatchOperationsTest {
             Mockito.mock(AccountNumberGenerator.class), Mockito.mock(LedgerOutboxService.class),
             Mockito.mock(AccountTermsResolver.class), products, benchmarks, Mockito.mock(BusinessDateService.class),
             Mockito.mock(LoanDemandRepository.class), Mockito.mock(AccountingPoster.class),
-            Mockito.mock(com.bank.lending.refdata.ReferenceDataService.class));
+            Mockito.mock(com.bank.lending.refdata.ReferenceDataService.class), Mockito.mock(com.bank.lending.limits.LimitGateway.class));
 
     private LoanAccount account(LoanAccount.AccountStatus status) {
         LoanAccount a = LoanAccount.builder().accountId(1L).productId(10L).accountStatus(status)

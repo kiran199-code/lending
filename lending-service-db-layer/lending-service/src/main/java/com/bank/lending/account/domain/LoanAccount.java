@@ -132,6 +132,14 @@ public class LoanAccount {
     @Column(name = "mortgage_id")
     private Long mortgageId;
 
+    /** Credit facility in the Limits and Collateral Management service this loan draws on; null = not limit-controlled. */
+    @Column(name = "limit_facility_ref", length = 40)
+    private String limitFacilityRef;
+
+    /** LCM reservation taken when the loan was disbursed (audit only). */
+    @Column(name = "limit_reservation_ref", length = 40)
+    private String limitReservationRef;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;

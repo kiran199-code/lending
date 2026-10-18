@@ -46,9 +46,10 @@ services:
       # Remove it (or set "false") on anything that holds data you want to keep.
       - key: LENDING_RESET_ENABLED
         value: "true"
-      # Limits (LCM). Leave the mode "off" until lending-lcm-service is deployed and loaded, then "shadow", then "live".
+      # Limits (LCM): "live". Collateral for mortgage-type loans is held only in LCM, and such a loan cannot be disbursed unless this is live
+      # (set LENDING_LCM_URL below too). Use "off" or "shadow" only on an environment that has no secured loans.
       - key: LENDING_LCM_MODE
-        value: "off"
+        value: "live"
       # lending-lcm-service's public URL (Render dashboard > lending-lcm-service); set after the first sync.
       - key: LENDING_LCM_URL
         sync: false

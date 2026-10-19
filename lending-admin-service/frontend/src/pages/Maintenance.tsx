@@ -42,6 +42,17 @@ const LCM_TABLE_NAMES: Record<string, string> = {
   breach: 'Breaches',
 };
 
+const BATCH_TABLE_NAMES: Record<string, string> = {
+  batch_job_instance: 'Job instances',
+  batch_job_execution: 'Job executions',
+  batch_job_execution_params: 'Job parameters',
+  batch_job_execution_context: 'Job execution contexts',
+  batch_step_execution: 'Step executions',
+  batch_step_execution_context: 'Step execution contexts',
+  batch_job_audit_log: 'Step audit log',
+  batch_job_error_records: 'Skipped and failed items',
+};
+
 type Notice = { tone: 'good' | 'warn' | 'bad'; text: string } | null;
 
 export default function Maintenance() {
@@ -68,10 +79,13 @@ export default function Maintenance() {
   const eodRunning = data?.businessDateStatus === 'EOD_RUNNING';
   const lcm = data?.lcm;
   const lcmBlocks = !!lcm?.configured && !(lcm.reachable && lcm.resetEnabled);
-  const canClear = !!data?.resetEnabled && !eodRunning && !lcmBlocks;
+  const batch = data?.batch;
+  const batchBlocks = !!batch?.configured && !(batch.reachable && batch.resetEnabled && !batch.busy);
+  const canClear = !!data?.resetEnabled && !eodRunning && !lcmBlocks && !batchBlocks;
   const lendingRows = data ? Object.values(data.rowCounts).reduce((a, b) => a + b, 0) : 0;
   const lcmRows = lcm?.rowCounts ? Object.values(lcm.rowCounts).reduce((a, b) => a + b, 0) : 0;
-  const totalRows = lendingRows + lcmRows;
+  const batchRows = batch?.rowCounts ? Object.values(batch.rowCounts).reduce((a, b) => a + b, 0) : 0;
+  const totalRows = lendingRows + lcmRows + batchRows;
 
   const countCols: Col<[string, number]>[] = [
     { key: 't', header: 'Data', render: r => TABLE_NAMES[r[0]] ?? r[0] },
@@ -82,12 +96,17 @@ export default function Maintenance() {
     { key: 'n', header: 'Rows', align: 'right', render: r => count(r[1]) },
   ];
 
+  const batchCountCols: Col<[string, number]>[] = [
+    { key: 't', header: 'Batch job history', render: r => BATCH_TABLE_NAMES[r[0]] ?? r[0] },
+    { key: 'n', header: 'Rows', align: 'right', render: r => count(r[1]) },
+  ];
+
   return (
     <>
       <PageHeader title="Maintenance" sub="Start again from scratch in a test environment" />
       <div className="banner banner-warn">
-        These actions change data, so they are done by lending-service and lending-lcm-service on this console's behalf; the console
-        itself still never writes to the database. Use them in sandbox and test environments only.
+        These actions change data, so they are done by lending-service, lending-lcm-service and lending-batch-service on this console's
+        behalf; the console itself still never writes to the database. Use them in sandbox and test environments only.
       </div>
       {notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}</div>}
       {loading && !data && <Loading />}
@@ -140,6 +159,27 @@ export default function Maintenance() {
                 allow it.
               </div>
             )}
+            {data.resetEnabled && batch?.configured && !batch.reachable && (
+              <div className="banner banner-warn">
+                lending-batch-service could not be reached{batch.error ? `: ${batch.error}` : ''}. Open its address once to wake it, then reload
+                this page. Nothing is cleared while it cannot be checked, so loans are never cleared while the old job history is left behind.
+              </div>
+            )}
+            {data.resetEnabled && batch?.configured && batch.reachable && !batch.resetEnabled && (
+              <div className="banner banner-warn">
+                Clearing is switched off on lending-batch-service. Set BATCH_RESET_ENABLED=true on it (Render: Environment tab) and redeploy to
+                allow it.
+              </div>
+            )}
+            {batch?.configured && batch.reachable && batch.resetEnabled && batch.busy && (
+              <div className="banner banner-warn">{batch.busyReason ?? 'The batch service is busy'}. Wait for it to finish before clearing.</div>
+            )}
+            {batch && !batch.configured && (
+              <div className="banner banner-warn">
+                This console is not connected to lending-batch-service (BATCH_SERVICE_URL and BATCH_ADMIN_PASSWORD), so its job history will not
+                be cleared with the loans, and end of day can then refuse dates that already ran.
+              </div>
+            )}
             {lcm && !lcm.configured && (
               <div className="banner banner-warn">
                 This console is not connected to lending-lcm-service (LCM_SERVICE_URL and LCM_SERVICE_PASSWORD), so facilities and
@@ -150,9 +190,10 @@ export default function Maintenance() {
             <p className="muted">
               Removes every loan account with its schedule, accruals, payments, ledger outbox entries, idempotency log and accounting
               journals, every loan product, and, in lending-lcm-service, every facility, utilisation entry, collateral, breach, event and
-              audit row. Then it sets the business date to the current date (India time; it is {data.businessDate} now) and opens it. It
-              cannot be undone. It keeps holidays, benchmark rates, the accounting and collateral-type configuration, and the batch
-              service's job settings and run history. Afterwards create the base products to start again.
+              audit row, and, in lending-batch-service, the job execution history. Then it sets the business date to the current date (India
+              time; it is {data.businessDate} now) and opens it. It cannot be undone. It keeps holidays, benchmark rates, the accounting and
+              collateral-type configuration, and the batch service's job settings and schedules. Afterwards create the base products to
+              start again.
             </p>
             <DataTable
               columns={countCols}
@@ -166,6 +207,14 @@ export default function Maintenance() {
                 rows={Object.entries(lcm.rowCounts)}
                 rowKey={r => r[0]}
                 footer={<tr><td className="muted">Total</td><td className="num muted" style={{ textAlign: 'right' }}>{count(lcmRows)}</td></tr>}
+              />
+            )}
+            {batch?.configured && batch.reachable && batch.rowCounts && (
+              <DataTable
+                columns={batchCountCols}
+                rows={Object.entries(batch.rowCounts)}
+                rowKey={r => r[0]}
+                footer={<tr><td className="muted">Total</td><td className="num muted" style={{ textAlign: 'right' }}>{count(batchRows)}</td></tr>}
               />
             )}
           </section>
@@ -202,7 +251,7 @@ function ClearDialog({ rows, onClose, onDone }: { rows: number; onClose: () => v
     setErr(null);
     try {
       const r = await send<ClearDataResult>('POST', '/maintenance/clear-data', { confirm: 'RESET' });
-      onDone(`${r.message} ${count(r.totalRows + (r.lcm?.totalRows ?? 0))} rows removed.`);
+      onDone(`${r.message} ${count(r.totalRows + (r.lcm?.totalRows ?? 0) + (r.batch?.totalRows ?? 0))} rows removed.`);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : String(ex));
       setBusy(false);
@@ -214,8 +263,8 @@ function ClearDialog({ rows, onClose, onDone }: { rows: number; onClose: () => v
       <form className="modal" role="dialog" aria-modal="true" aria-label="Clear all data" onSubmit={submit}>
         <h2>Clear all data?</h2>
         <p>
-          This permanently deletes {count(rows)} rows: all loan accounts, their schedules, accruals and payments, all loan products, and all
-          facilities and collateral. The business date is then set to the current date. There is no undo.
+          This permanently deletes {count(rows)} rows: all loan accounts, their schedules, accruals and payments, all loan products, all
+          facilities and collateral, and the batch job history. The business date is then set to the current date. There is no undo.
         </p>
         <label className="field">
           <span>Type RESET to confirm</span>

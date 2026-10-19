@@ -119,6 +119,10 @@ services:
       # sleeps on the free tier, so the cron may be missed; POST /api/v1/batch-admin/eod/run does it on demand.
       - key: BATCH_EOD_ENABLED
         value: "true"
+      # Sandbox only: lets the admin portal's Maintenance screen empty the job execution history together with the loans,
+      # so a job is not refused for a business date it ran for before the clear. Remove it (or set "false") where the history matters.
+      - key: BATCH_RESET_ENABLED
+        value: "true"
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 

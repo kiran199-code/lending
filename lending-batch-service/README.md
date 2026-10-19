@@ -206,6 +206,9 @@ crons as before. `MONTHLY`/`PERIODIC` jobs are not part of the chain and still t
 | `batch.eod.enabled` (`BATCH_EOD_ENABLED`) | `true` | nightly end of day replaces the DAILY jobs' own crons |
 | `batch.eod.cron` (`BATCH_EOD_CRON`) | `0 0 1 * * ?` | when the nightly run starts |
 | `batch.eod.zone` (`BATCH_EOD_ZONE`) | `Asia/Kolkata` | zone for the cron |
+| `batch.maintenance.reset-enabled` (`BATCH_RESET_ENABLED`) | `false` | lets `POST /api/v1/batch-admin/maintenance/clear-data` (body `{"confirm":"RESET"}`) empty the job execution history; sandbox and test only, see below |
+
+**Clearing the job history.** Spring Batch refuses to start a job a second time for a business date it already completed (*A job instance already exists and is complete...*). After lending-service's *Clear all data* moves the business date back, end of day meets such dates again, so the admin console's Maintenance screen also calls `POST /api/v1/batch-admin/maintenance/clear-data`. It truncates `batch.batch_job_instance`, `batch_job_execution` (with `_params`, `_context`), `batch_step_execution` (with `_context`), `batch_job_audit_log` and `batch_job_error_records` in one statement; the job settings (`batch_job_config`), the Quartz tables and the id sequences are kept. It answers 403 `RESET_DISABLED` unless the setting above is true, 400 without the confirmation word, and 409 `BATCH_BUSY` while end of day runs or a job started in the last 30 minutes is unfinished. `GET /api/v1/batch-admin/maintenance/status` shows the switch, whether it is busy and the row counts.
 
 If a night fails the business date stays on that day in `EOD_RUNNING`; payments for that day can still be inspected, nothing is posted for the next day. Fix the cause (see `GET /jobs/{job}/errors`)
 and run `POST /eod/run` again. On the Render free tier the service sleeps, so the nightly cron may be missed - run it on demand.

@@ -97,6 +97,29 @@ public class BatchConfigClient {
                 .body(JsonNode.class));
     }
 
+    /** GET /api/v1/batch-admin/maintenance/status: whether clearing is enabled, whether something is running, row counts. */
+    public JsonNode maintenanceStatus() {
+        require();
+        return call(() -> statusClient.get().uri("/api/v1/batch-admin/maintenance/status")
+                .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                .body(JsonNode.class));
+    }
+
+    /** POST /api/v1/batch-admin/maintenance/clear-data: empties the job execution history (403 unless BATCH_RESET_ENABLED, 409 while busy). */
+    public JsonNode maintenanceClear(String actor) {
+        require();
+        return call(() -> {
+            RestClient.RequestBodySpec spec = client.post().uri("/api/v1/batch-admin/maintenance/clear-data")
+                    .contentType(MediaType.APPLICATION_JSON);
+            if (actor != null && !actor.isBlank()) {
+                spec = spec.header("X-Actor", actor);
+            }
+            return spec.body(java.util.Map.of("confirm", "RESET"))
+                    .retrieve().onStatus(s -> s.isError(), (req, res) -> { throw upstream(res.getStatusCode().value(), res.getBody()); })
+                    .body(JsonNode.class);
+        });
+    }
+
     private void require() {
         if (!enabled()) {
             throw new FeatureDisabledException(

@@ -146,6 +146,15 @@ export interface LcmMaintenanceStatus {
   rowCounts?: Record<string, number>;
   error?: string;
 }
+export interface BatchMaintenanceStatus {
+  configured: boolean;
+  reachable?: boolean;
+  resetEnabled?: boolean;
+  busy?: boolean;
+  busyReason?: string;
+  rowCounts?: Record<string, number>;
+  error?: string;
+}
 export interface MaintenanceStatus {
   resetEnabled: boolean;
   businessDate: string;
@@ -153,6 +162,7 @@ export interface MaintenanceStatus {
   rowCounts: Record<string, number>;
   baseProducts: { productCode: string; productName: string; exists: boolean }[];
   lcm: LcmMaintenanceStatus;
+  batch: BatchMaintenanceStatus;
 }
 export interface ClearDataResult {
   deleted: Record<string, number>;
@@ -161,6 +171,7 @@ export interface ClearDataResult {
   businessDate: string;
   message: string;
   lcm?: { configured: boolean; totalRows?: number };
+  batch?: { configured: boolean; totalRows?: number };
 }
 export interface BaseProductsResult { created: string[]; alreadyExisted: string[]; message: string }
 

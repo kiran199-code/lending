@@ -69,6 +69,10 @@ batch:
     # End of day waits for each job to reach a final state before starting the next one.
     job-timeout-minutes: ${BATCH_EOD_JOB_TIMEOUT_MINUTES:180}
     poll-interval-ms: ${BATCH_EOD_POLL_INTERVAL_MS:1000}
+  # Start from scratch (admin console, Maintenance): lets POST /api/v1/batch-admin/maintenance/clear-data empty the job
+  # execution history. Off unless BATCH_RESET_ENABLED=true; set it only in sandbox and test environments.
+  maintenance:
+    reset-enabled: ${BATCH_RESET_ENABLED:false}
 
 # lending-service is the only writer of loan data: batch jobs call its REST API (the batch DB
 # role is read-only on the lending tables). base-url comes from LENDING_SERVICE_URL — required in

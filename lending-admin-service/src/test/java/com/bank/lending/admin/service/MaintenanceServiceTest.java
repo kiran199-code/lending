@@ -28,7 +28,8 @@ class MaintenanceServiceTest {
 
     private final LendingMaintenanceClient lending = Mockito.mock(LendingMaintenanceClient.class);
     private final LcmClient lcm = Mockito.mock(LcmClient.class);
-    private final MaintenanceService service = new MaintenanceService(lending, lcm);
+    private final BatchConfigClient batch = Mockito.mock(BatchConfigClient.class);
+    private final MaintenanceService service = new MaintenanceService(lending, lcm, batch);
 
     private JsonNode lcmStatus(boolean resetEnabled) {
         return JSON.createObjectNode().put("resetEnabled", resetEnabled);
@@ -141,5 +142,143 @@ class MaintenanceServiceTest {
         when(lcm.enabled()).thenReturn(false);
 
         assertThat(service.status().path("lcm").path("configured").asBoolean(true)).isFalse();
+    }
+
+    // ---- the batch service's job history ----
+
+    private JsonNode batchStatus(boolean resetEnabled, boolean busy) {
+        com.fasterxml.jackson.databind.node.ObjectNode n = JSON.createObjectNode().put("resetEnabled", resetEnabled).put("busy", busy);
+        if (busy) {
+            n.put("busyReason", "End of day is running");
+        }
+        n.putObject("rowCounts").put("batch_job_instance", 12);
+        return n;
+    }
+
+    @Test
+    void batchSwitchedOffStopsTheWholeClearBeforeAnythingIsDeleted() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(false, false));
+
+        assertThatThrownBy(() -> service.clearData("admin"))
+                .isInstanceOf(FeatureDisabledException.class).hasMessageContaining("BATCH_RESET_ENABLED");
+        verify(lending, never()).clearData(anyString());
+        verify(batch, never()).maintenanceClear(anyString());
+    }
+
+    @Test
+    void batchBusyStopsTheWholeClearBeforeAnythingIsDeleted() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(true, true));
+
+        assertThatThrownBy(() -> service.clearData("admin"))
+                .isInstanceOfSatisfying(UpstreamException.class, e -> {
+                    assertThat(e.getStatus()).isEqualTo(409);
+                    assertThat(e.getMessage()).contains("End of day is running").contains("Nothing was deleted");
+                });
+        verify(lending, never()).clearData(anyString());
+    }
+
+    @Test
+    void batchUnreachableStopsTheWholeClearBeforeAnythingIsDeleted() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenThrow(new UpstreamException(502, "Could not reach lending-batch-service"));
+
+        assertThatThrownBy(() -> service.clearData("admin")).isInstanceOf(UpstreamException.class);
+        verify(lending, never()).clearData(anyString());
+    }
+
+    @Test
+    void allThreeAreClearedInOrderAndTheAnswerCarriesAll() {
+        when(lcm.enabled()).thenReturn(true);
+        when(lcm.get("/maintenance/status", Map.of())).thenReturn(lcmStatus(true));
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(true, false));
+        lendingClearAnswers();
+        when(lcm.post(eq("/maintenance/clear-data"), anyMap(), eq(Map.of("confirm", "RESET")), eq("admin")))
+                .thenReturn(JSON.createObjectNode().put("totalRows", 7).put("message", "Limits cleared."));
+        when(batch.maintenanceClear("admin")).thenReturn(JSON.createObjectNode().put("totalRows", 30).put("message", "Batch history cleared."));
+
+        JsonNode r = service.clearData("admin");
+
+        InOrder order = inOrder(lcm, batch, lending);
+        order.verify(lcm).get("/maintenance/status", Map.of());
+        order.verify(batch).maintenanceStatus();
+        order.verify(lending).clearData("admin");
+        order.verify(lcm).post(eq("/maintenance/clear-data"), anyMap(), any(), eq("admin"));
+        order.verify(batch).maintenanceClear("admin");
+        assertThat(r.path("batch").path("totalRows").asInt()).isEqualTo(30);
+        assertThat(r.path("batch").path("configured").asBoolean()).isTrue();
+        assertThat(r.path("message").asText()).contains("Loans cleared.").contains("Limits cleared.").contains("Batch history cleared.");
+    }
+
+    @Test
+    void withoutBatchTheOthersAreClearedAndTheAnswerSaysSo() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(false);
+        lendingClearAnswers();
+
+        JsonNode r = service.clearData("admin");
+
+        assertThat(r.path("batch").path("configured").asBoolean(true)).isFalse();
+        assertThat(r.path("message").asText()).contains("batch job history was not cleared");
+        verify(batch, never()).maintenanceClear(anyString());
+    }
+
+    @Test
+    void ifBatchFailsAfterTheRestWasClearedTheErrorSaysWhatAlreadyHappened() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(true, false));
+        lendingClearAnswers();
+        when(batch.maintenanceClear("admin")).thenThrow(new UpstreamException(500, "boom"));
+
+        assertThatThrownBy(() -> service.clearData("admin"))
+                .isInstanceOfSatisfying(UpstreamException.class, e -> {
+                    assertThat(e.getStatus()).isEqualTo(500);
+                    assertThat(e.getMessage()).contains("were cleared").contains("batch job history failed").contains("boom");
+                });
+    }
+
+    @Test
+    void statusCarriesBatchSwitchBusyFlagAndCounts() {
+        when(lending.status()).thenReturn(JSON.createObjectNode().put("resetEnabled", true));
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(true, true));
+
+        JsonNode r = service.status();
+
+        assertThat(r.path("batch").path("reachable").asBoolean()).isTrue();
+        assertThat(r.path("batch").path("resetEnabled").asBoolean()).isTrue();
+        assertThat(r.path("batch").path("busy").asBoolean()).isTrue();
+        assertThat(r.path("batch").path("busyReason").asText()).isEqualTo("End of day is running");
+        assertThat(r.path("batch").path("rowCounts").path("batch_job_instance").asInt()).isEqualTo(12);
+    }
+
+    @Test
+    void statusStillLoadsWhenBatchCannotBeReached() {
+        when(lending.status()).thenReturn(JSON.createObjectNode().put("resetEnabled", true));
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenThrow(new UpstreamException(502, "asleep"));
+
+        JsonNode r = service.status();
+
+        assertThat(r.path("resetEnabled").asBoolean()).isTrue();
+        assertThat(r.path("batch").path("reachable").asBoolean(true)).isFalse();
+        assertThat(r.path("batch").path("error").asText()).isEqualTo("asleep");
+    }
+
+    @Test
+    void statusWithoutBatchSaysNotConfigured() {
+        when(lending.status()).thenReturn(JSON.createObjectNode().put("resetEnabled", true));
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(false);
+
+        assertThat(service.status().path("batch").path("configured").asBoolean(true)).isFalse();
     }
 }

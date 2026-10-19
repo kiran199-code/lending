@@ -46,4 +46,12 @@ class SpringBatchEodJobGatewayTest {
                 id -> execution(BatchStatus.STARTED), Duration.ofMillis(60), Duration.ofMillis(10));
         assertTrue(result.getStatus().isRunning());
     }
+
+    @Test
+    void aJobThatAlreadyCompletedForTheDateIsReportedAsSkippedNotFailed() {
+        EodJobResult r = SpringBatchEodJobGateway.alreadyCompleteResult("INTEREST_ACCRUAL_DAILY", java.time.LocalDate.of(2026, 11, 1));
+        assertEquals("SKIPPED", r.status());
+        assertTrue(r.ok());
+        assertTrue(r.message().contains("2026-11-01"));
+    }
 }

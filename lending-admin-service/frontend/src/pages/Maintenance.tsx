@@ -81,7 +81,9 @@ export default function Maintenance() {
   const lcmBlocks = !!lcm?.configured && !(lcm.reachable && lcm.resetEnabled);
   const batch = data?.batch;
   const batchBlocks = !!batch?.configured && !(batch.reachable && batch.resetEnabled && !batch.busy);
-  const canClear = !!data?.resetEnabled && !eodRunning && !lcmBlocks && !batchBlocks;
+  // The business date says "end of day running" but the batch service reports nothing running: that run failed, so it must not block a clear.
+  const eodStuck = eodRunning && !!batch?.configured && !!batch.reachable && !batch.busy;
+  const canClear = !!data?.resetEnabled && (!eodRunning || eodStuck) && !lcmBlocks && !batchBlocks;
   const lendingRows = data ? Object.values(data.rowCounts).reduce((a, b) => a + b, 0) : 0;
   const lcmRows = lcm?.rowCounts ? Object.values(lcm.rowCounts).reduce((a, b) => a + b, 0) : 0;
   const batchRows = batch?.rowCounts ? Object.values(batch.rowCounts).reduce((a, b) => a + b, 0) : 0;
@@ -186,7 +188,13 @@ export default function Maintenance() {
                 collateral will not be cleared with the loans.
               </div>
             )}
-            {eodRunning && <div className="banner banner-warn">End of day is running. Wait for it to finish before clearing.</div>}
+            {eodRunning && !eodStuck && <div className="banner banner-warn">End of day is running. Wait for it to finish before clearing.</div>}
+            {eodStuck && (
+              <div className="banner banner-warn">
+                The business date shows end of day running, but the batch service has nothing running, so that run failed or stopped. Clear all
+                data is allowed and will reopen the date as today's date. (You can also fix the failed job and run End of day again.)
+              </div>
+            )}
             <p className="muted">
               Removes every loan account with its schedule, accruals, payments, ledger outbox entries, idempotency log and accounting
               journals, every loan product, and, in lending-lcm-service, every facility, utilisation entry, collateral, breach, event and

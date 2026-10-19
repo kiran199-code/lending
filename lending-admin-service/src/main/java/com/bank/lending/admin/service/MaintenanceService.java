@@ -65,6 +65,7 @@ public class MaintenanceService {
         }
     }
 
+    /** Whether the batch service is set up, reachable and reports nothing running; the screen uses it to tell a failed end of day from a live one. */
     private void batchStatus(ObjectNode b) {
         b.put("configured", batch.enabled());
         if (!batch.enabled()) {
@@ -101,6 +102,7 @@ public class MaintenanceService {
                         + "and redeploy; otherwise the loans would be cleared and the facilities and collateral left behind.");
             }
         }
+        boolean batchIdle = false;
         if (batch.enabled()) {
             JsonNode st = batch.maintenanceStatus(); // unreachable or too old: stops here, nothing deleted yet
             if (!st.path("resetEnabled").asBoolean(false)) {
@@ -111,8 +113,11 @@ public class MaintenanceService {
             if (st.path("busy").asBoolean(false)) {
                 throw new UpstreamException(409, st.path("busyReason").asText("The batch service is busy") + ". Wait for it to finish, then clear again. Nothing was deleted.");
             }
+            batchIdle = true;
         }
-        ObjectNode out = asObject(lending.clearData(actor));
+        // Nothing runs in the batch service, so a business date still marked as "end of day running" belongs to a run that failed:
+        // lending-service may clear anyway and reopen the date. Without a verified-idle batch service that stays refused.
+        ObjectNode out = asObject(lending.clearData(actor, batchIdle));
         if (lcm.enabled()) {
             try {
                 JsonNode r = lcm.post("/maintenance/clear-data", Map.of(), Map.of("confirm", "RESET"), actor);

@@ -31,12 +31,14 @@ public class MaintenanceController {
 
     @Operation(summary = "Delete all accounts, their data and all loan products, and set the business date to today",
             description = "Irreversible. Refused (403) unless LENDING_RESET_ENABLED=true, (400) without {\"confirm\":\"RESET\"}, "
-                    + "and (409) while end of day is running. Afterwards the business date is today's date (India time) and OPEN. "
+                    + "and (409) while end of day is running, unless {\"ignoreEndOfDay\":true} is sent (for an end of day that failed and left the date "
+                    + "marked as running). Afterwards the business date is today's date (India time) and OPEN. "
                     + "Holidays, benchmark rates, the accounting configuration and the batch service's tables are kept.")
     @PostMapping("/clear-data")
     public ClearDataResponse clearData(@RequestBody(required = false) ClearDataRequest request,
                                        @RequestHeader(value = "X-Actor", required = false) String actor) {
-        return maintenanceService.clearAllData(request == null ? null : request.confirm(), actor);
+        return maintenanceService.clearAllData(request == null ? null : request.confirm(), actor,
+                request != null && Boolean.TRUE.equals(request.ignoreEndOfDay()));
     }
 
     @Operation(summary = "Create the eleven base products (PL01, BL01, EL01, GL01, AL01, HL01, TL01, BB01, AB01, SU01, EM01)",

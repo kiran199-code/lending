@@ -8,7 +8,11 @@ import com.bank.lending.batch.repository.BatchJobConfigRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.explore.JobExplorer;
+import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +33,7 @@ public class SpringBatchEodJobGateway implements EodJobGateway {
     private final BatchExecutionQueryService executionQueryService;
     private final BatchJobLauncherService launcherService;
     private final JobExplorer jobExplorer;
+    private final JobRepository jobRepository;
 
     /** How long end of day waits for one job to reach a final state before it gives up on the chain. */
     @Value("${batch.eod.job-timeout-minutes:180}")
@@ -47,8 +52,20 @@ public class SpringBatchEodJobGateway implements EodJobGateway {
                 .toList();
     }
 
+    /**
+     * True when {@code jobName} already completed for {@code businessDate}. A restartable job is identified by its business date
+     * alone, so the instance is looked up directly: that answers for any date, however long ago it ran. (Scanning only the most
+     * recent instances missed old dates, so after the business date went back a completed date was launched again and Spring Batch
+     * refused it with "A job instance already exists and is complete".) A job that is not restartable gets a fresh run id on every
+     * launch, so it has no such instance and is judged from its recent executions, as before.
+     */
     @Override
     public boolean alreadyCompleted(String jobName, LocalDate businessDate) {
+        JobParameters identifying = new JobParametersBuilder().addString(JobParamsUtil.BUSINESS_DATE, businessDate.toString()).toJobParameters();
+        JobExecution last = jobRepository.getLastJobExecution(jobName, identifying);
+        if (last != null && last.getStatus() == BatchStatus.COMPLETED) {
+            return true;
+        }
         return executionQueryService.recentExecutions(jobName, HISTORY_WINDOW).stream()
                 .anyMatch(e -> e.getStatus() == BatchStatus.COMPLETED
                         && businessDate.equals(JobParamsUtil.businessDate(e.getJobParameters())));
@@ -71,9 +88,16 @@ public class SpringBatchEodJobGateway implements EodJobGateway {
                     description == null || description.isBlank()
                             ? "skips=" + execution.getStepExecutions().stream().mapToLong(s -> s.getSkipCount()).sum()
                             : abbreviate(description));
+        } catch (JobInstanceAlreadyCompleteException e) {
+            // Safety net: a completed instance for this date turned up between the check and the launch. It is done, so skip it.
+            return alreadyCompleteResult(jobName, businessDate);
         } catch (Exception e) {
             return new EodJobResult(jobName, "FAILED", abbreviate(String.valueOf(e.getMessage())));
         }
+    }
+
+    static EodJobResult alreadyCompleteResult(String jobName, LocalDate businessDate) {
+        return new EodJobResult(jobName, "SKIPPED", "already completed for " + businessDate);
     }
 
     /**

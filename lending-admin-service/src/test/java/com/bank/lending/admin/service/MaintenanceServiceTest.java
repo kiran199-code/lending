@@ -13,6 +13,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,7 +37,7 @@ class MaintenanceServiceTest {
     }
 
     private void lendingClearAnswers() {
-        when(lending.clearData("admin")).thenReturn(JSON.createObjectNode().put("totalRows", 5)
+        when(lending.clearData(eq("admin"), anyBoolean())).thenReturn(JSON.createObjectNode().put("totalRows", 5)
                 .put("businessDate", "2026-10-19").put("message", "Loans cleared."));
     }
 
@@ -47,7 +48,7 @@ class MaintenanceServiceTest {
 
         assertThatThrownBy(() -> service.clearData("admin"))
                 .isInstanceOf(FeatureDisabledException.class).hasMessageContaining("LCM_RESET_ENABLED");
-        verify(lending, never()).clearData(anyString());
+        verify(lending, never()).clearData(anyString(), anyBoolean());
         verify(lcm, never()).post(anyString(), anyMap(), any(), anyString());
     }
 
@@ -57,7 +58,7 @@ class MaintenanceServiceTest {
         when(lcm.get("/maintenance/status", Map.of())).thenThrow(new UpstreamException(502, "Could not reach lending-lcm-service"));
 
         assertThatThrownBy(() -> service.clearData("admin")).isInstanceOf(UpstreamException.class);
-        verify(lending, never()).clearData(anyString());
+        verify(lending, never()).clearData(anyString(), anyBoolean());
     }
 
     @Test
@@ -72,7 +73,7 @@ class MaintenanceServiceTest {
 
         InOrder order = inOrder(lcm, lending);
         order.verify(lcm).get("/maintenance/status", Map.of());
-        order.verify(lending).clearData("admin");
+        order.verify(lending).clearData(eq("admin"), anyBoolean());
         order.verify(lcm).post(eq("/maintenance/clear-data"), anyMap(), any(), eq("admin"));
         assertThat(r.path("totalRows").asInt()).isEqualTo(5);
         assertThat(r.path("businessDate").asText()).isEqualTo("2026-10-19");
@@ -163,7 +164,7 @@ class MaintenanceServiceTest {
 
         assertThatThrownBy(() -> service.clearData("admin"))
                 .isInstanceOf(FeatureDisabledException.class).hasMessageContaining("BATCH_RESET_ENABLED");
-        verify(lending, never()).clearData(anyString());
+        verify(lending, never()).clearData(anyString(), anyBoolean());
         verify(batch, never()).maintenanceClear(anyString());
     }
 
@@ -178,7 +179,7 @@ class MaintenanceServiceTest {
                     assertThat(e.getStatus()).isEqualTo(409);
                     assertThat(e.getMessage()).contains("End of day is running").contains("Nothing was deleted");
                 });
-        verify(lending, never()).clearData(anyString());
+        verify(lending, never()).clearData(anyString(), anyBoolean());
     }
 
     @Test
@@ -188,7 +189,7 @@ class MaintenanceServiceTest {
         when(batch.maintenanceStatus()).thenThrow(new UpstreamException(502, "Could not reach lending-batch-service"));
 
         assertThatThrownBy(() -> service.clearData("admin")).isInstanceOf(UpstreamException.class);
-        verify(lending, never()).clearData(anyString());
+        verify(lending, never()).clearData(anyString(), anyBoolean());
     }
 
     @Test
@@ -207,7 +208,7 @@ class MaintenanceServiceTest {
         InOrder order = inOrder(lcm, batch, lending);
         order.verify(lcm).get("/maintenance/status", Map.of());
         order.verify(batch).maintenanceStatus();
-        order.verify(lending).clearData("admin");
+        order.verify(lending).clearData(eq("admin"), anyBoolean());
         order.verify(lcm).post(eq("/maintenance/clear-data"), anyMap(), any(), eq("admin"));
         order.verify(batch).maintenanceClear("admin");
         assertThat(r.path("batch").path("totalRows").asInt()).isEqualTo(30);
@@ -280,5 +281,29 @@ class MaintenanceServiceTest {
         when(batch.enabled()).thenReturn(false);
 
         assertThat(service.status().path("batch").path("configured").asBoolean(true)).isFalse();
+    }
+
+    @Test
+    void whenTheBatchServiceIsIdleLendingIsToldToIgnoreAStuckEndOfDay() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(true);
+        when(batch.maintenanceStatus()).thenReturn(batchStatus(true, false));
+        lendingClearAnswers();
+        when(batch.maintenanceClear("admin")).thenReturn(JSON.createObjectNode().put("totalRows", 1).put("message", "ok"));
+
+        service.clearData("admin");
+
+        verify(lending).clearData("admin", true);
+    }
+
+    @Test
+    void withoutAVerifiedIdleBatchServiceAStuckEndOfDayIsNotIgnored() {
+        when(lcm.enabled()).thenReturn(false);
+        when(batch.enabled()).thenReturn(false);
+        lendingClearAnswers();
+
+        service.clearData("admin");
+
+        verify(lending).clearData("admin", false);
     }
 }

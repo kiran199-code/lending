@@ -49,8 +49,19 @@ public class LendingMaintenanceClient {
     }
 
     public JsonNode clearData(String actor) {
+        return clearData(actor, false);
+    }
+
+    /**
+     * @param ignoreEndOfDay true only when the batch service has just reported that nothing is running, so a business date still marked
+     *                       as EOD_RUNNING belongs to an end of day that failed; lending-service then clears and reopens the date.
+     */
+    public JsonNode clearData(String actor, boolean ignoreEndOfDay) {
         require();
         ObjectNode body = JSON.createObjectNode().put("confirm", "RESET");
+        if (ignoreEndOfDay) {
+            body.put("ignoreEndOfDay", true);
+        }
         return call(() -> client.post().uri("/api/v1/maintenance/clear-data")
                 .header("X-Actor", actor == null ? "admin-portal" : actor)
                 .contentType(MediaType.APPLICATION_JSON).body(body)

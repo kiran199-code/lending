@@ -77,6 +77,16 @@ public class MaintenanceService {
 
     @Transactional
     public ClearDataResponse clearAllData(String confirm, String actor) {
+        return clearAllData(confirm, actor, false);
+    }
+
+    /**
+     * @param ignoreEndOfDay true lets the clear go ahead although the business date is EOD_RUNNING. The admin console sets it only
+     *                       after the batch service reported that nothing is running, i.e. end of day failed and left the date
+     *                       marked as running; the reset then reopens the date.
+     */
+    @Transactional
+    public ClearDataResponse clearAllData(String confirm, String actor, boolean ignoreEndOfDay) {
         if (!resetEnabled) {
             throw new FeatureDisabledException(
                     "Clearing data is switched off on this lending-service. Set LENDING_RESET_ENABLED=true to allow it "
@@ -86,8 +96,11 @@ public class MaintenanceService {
             throw new IllegalArgumentException("Confirmation missing: send {\"confirm\": \"" + CONFIRMATION + "\"}");
         }
         if (businessDate.state().status() == BusinessDateStatus.EOD_RUNNING) {
-            throw new InvalidAccountStateException(
-                    "End of day is running; wait for it to finish (or fail) before clearing data");
+            if (!ignoreEndOfDay) {
+                throw new InvalidAccountStateException(
+                        "End of day is running; wait for it to finish (or fail) before clearing data");
+            }
+            log.warn("Clearing data although the business date is EOD_RUNNING (ignoreEndOfDay): end of day had failed or stopped");
         }
         Map<String, Long> before = rowCounts();
         // One statement naming every referencing table, so no CASCADE is needed. RESTART IDENTITY puts the

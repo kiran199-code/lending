@@ -79,6 +79,29 @@ class MaintenanceServiceTest {
     }
 
     @Test
+    void aStuckEndOfDayDoesNotBlockTheClearWhenTheCallerSaysSoAndTheDateIsReopened() {
+        businessDateIs(BusinessDateStatus.EOD_RUNNING);
+        when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(1L);
+        LocalDate today = LocalDate.of(2026, 10, 19);
+        when(businessDate.resetToToday("kiran")).thenReturn(new BusinessDateResponse(today, null, today.plusDays(1),
+                BusinessDateStatus.OPEN, true, today, "kiran", null));
+
+        ClearDataResponse r = service(true).clearAllData("RESET", "kiran", true);
+
+        verify(jdbc).execute(anyString());
+        verify(businessDate).resetToToday("kiran");
+        assertThat(r.businessDate()).isEqualTo(today);
+    }
+
+    @Test
+    void ignoringEndOfDayStillNeedsTheSwitchAndTheConfirmationWord() {
+        businessDateIs(BusinessDateStatus.EOD_RUNNING);
+        assertThatThrownBy(() -> service(false).clearAllData("RESET", "kiran", true)).isInstanceOf(FeatureDisabledException.class);
+        assertThatThrownBy(() -> service(true).clearAllData("no", "kiran", true)).isInstanceOf(IllegalArgumentException.class);
+        verify(jdbc, never()).execute(anyString());
+    }
+
+    @Test
     void clearTruncatesEveryTableInOneStatementAndReportsTheCounts() {
         businessDateIs(BusinessDateStatus.OPEN);
         when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(2L);

@@ -210,6 +210,10 @@ services:
         generateValue: true   # lending-service reads it from here (LENDING_LCM_PASSWORD below)
       - key: LCM_ENFORCE
         value: "true"
+      # Sandbox only: lets the admin portal's Maintenance screen clear the facilities and collateral together with the
+      # loans (lending-service has its own LENDING_RESET_ENABLED). Remove it (or set "false") where the data matters.
+      - key: LCM_RESET_ENABLED
+        value: "true"
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 

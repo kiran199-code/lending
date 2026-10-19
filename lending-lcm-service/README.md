@@ -32,6 +32,7 @@ mvn spring-boot:run          # needs Postgres; defaults below
 | `PORT` | `8084` | HTTP port |
 | `LCM_SERVICE_USERNAME` `LCM_SERVICE_PASSWORD` | `lcm-service` / `changeme` | HTTP Basic service credential. **Change it.** |
 | `LCM_ENFORCE` | `true` | `false` makes every drawdown shadow-mode (recorded, never rejected) |
+| `LCM_RESET_ENABLED` | `false` | `true` allows `POST /api/v1/lcm/maintenance/clear-data` (body `{"confirm":"RESET"}`): empties every facility, utilisation, collateral, breach, event and audit table and restarts ids at 1; the collateral type configuration is kept. Sandbox and test environments only. `GET /api/v1/lcm/maintenance/status` shows the switch and the row counts. The admin console's Maintenance screen calls both |
 | `LCM_MAKER_CHECKER_ENFORCE` | `true` | Maker and checker must be different `X-Actor` values |
 | `LCM_RESERVATION_TTL_MINUTES` / `LCM_RESERVATION_MAX_TTL_MINUTES` | 30 / 1440 | Default and ceiling for reservation lifetime |
 | `LCM_SWEEP_CRON` | `0 * * * * *` | Background sweep; `-` disables the timer |

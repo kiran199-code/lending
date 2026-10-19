@@ -29,10 +29,10 @@ public class MaintenanceController {
         return maintenanceService.status();
     }
 
-    @Operation(summary = "Delete all accounts, their data and all loan products",
+    @Operation(summary = "Delete all accounts, their data and all loan products, and set the business date to today",
             description = "Irreversible. Refused (403) unless LENDING_RESET_ENABLED=true, (400) without {\"confirm\":\"RESET\"}, "
-                    + "and (409) while end of day is running. The business date, holidays, benchmark rates and the batch "
-                    + "service's tables are kept.")
+                    + "and (409) while end of day is running. Afterwards the business date is today's date (India time) and OPEN. "
+                    + "Holidays, benchmark rates, the accounting configuration and the batch service's tables are kept.")
     @PostMapping("/clear-data")
     public ClearDataResponse clearData(@RequestBody(required = false) ClearDataRequest request,
                                        @RequestHeader(value = "X-Actor", required = false) String actor) {

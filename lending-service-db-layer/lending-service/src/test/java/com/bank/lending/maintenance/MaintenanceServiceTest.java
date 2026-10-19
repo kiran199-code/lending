@@ -56,6 +56,7 @@ class MaintenanceServiceTest {
                 .isInstanceOf(FeatureDisabledException.class)
                 .hasMessageContaining("LENDING_RESET_ENABLED");
         verify(jdbc, never()).execute(anyString());
+        verify(businessDate, never()).resetToToday(anyString());
     }
 
     @Test
@@ -65,6 +66,7 @@ class MaintenanceServiceTest {
         assertThatThrownBy(() -> service(true).clearAllData(null, "kiran"))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(jdbc, never()).execute(anyString());
+        verify(businessDate, never()).resetToToday(anyString());
     }
 
     @Test
@@ -73,12 +75,16 @@ class MaintenanceServiceTest {
         assertThatThrownBy(() -> service(true).clearAllData("RESET", "kiran"))
                 .isInstanceOf(InvalidAccountStateException.class).hasMessageContaining("End of day is running");
         verify(jdbc, never()).execute(anyString());
+        verify(businessDate, never()).resetToToday(anyString());
     }
 
     @Test
     void clearTruncatesEveryTableInOneStatementAndReportsTheCounts() {
         businessDateIs(BusinessDateStatus.OPEN);
         when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(2L);
+        LocalDate today = LocalDate.of(2026, 10, 19);
+        when(businessDate.resetToToday("admin")).thenReturn(new BusinessDateResponse(today, null, today.plusDays(1),
+                BusinessDateStatus.OPEN, true, today, "admin", null));
 
         ClearDataResponse r = service(true).clearAllData("RESET", "admin");
 
@@ -98,6 +104,23 @@ class MaintenanceServiceTest {
         assertThat(r.deleted()).hasSize(21);
         assertThat(r.totalRows()).isEqualTo(42L);
         assertThat(r.clearedBy()).isEqualTo("admin");
+    }
+
+    @Test
+    void clearPutsTheBusinessDateOnTodayAfterTheTruncateAndSaysSo() {
+        businessDateIs(BusinessDateStatus.OPEN);
+        when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(0L);
+        LocalDate today = LocalDate.of(2026, 10, 19);
+        when(businessDate.resetToToday("admin")).thenReturn(new BusinessDateResponse(today, null, today.plusDays(1),
+                BusinessDateStatus.OPEN, true, today, "admin", null));
+
+        ClearDataResponse r = service(true).clearAllData("RESET", "admin");
+
+        org.mockito.InOrder order = Mockito.inOrder(jdbc, businessDate);
+        order.verify(jdbc).execute(anyString());
+        order.verify(businessDate).resetToToday("admin");
+        assertThat(r.businessDate()).isEqualTo(today);
+        assertThat(r.message()).contains("2026-10-19");
     }
 
     @Test

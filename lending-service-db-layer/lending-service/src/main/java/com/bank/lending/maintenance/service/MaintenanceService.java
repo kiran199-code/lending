@@ -1,6 +1,7 @@
 package com.bank.lending.maintenance.service;
 
 import com.bank.lending.businessdate.domain.BusinessDateStatus;
+import com.bank.lending.businessdate.dto.BusinessDateResponse;
 import com.bank.lending.businessdate.service.BusinessDateService;
 import com.bank.lending.common.exception.FeatureDisabledException;
 import com.bank.lending.common.exception.InvalidAccountStateException;
@@ -26,8 +27,9 @@ import java.util.Map;
  * Start-from-scratch operations for non-production environments.
  *
  * <p>{@link #clearAllData} empties the accounts, their schedules, accruals, payments, mortgages, the
- * ledger outbox, the idempotency log and the loan product master. It leaves the business date, the
- * holiday calendar, the benchmark rates and the batch service's own tables alone. It is refused unless
+ * ledger outbox, the idempotency log and the loan product master, and then puts the business date on today's
+ * date (see {@link BusinessDateService#resetToToday}). It leaves the holiday calendar, the benchmark rates, the
+ * accounting configuration and the batch service's own tables alone. It is refused unless
  * {@code lending.maintenance.reset-enabled} is true, the caller types the confirmation word, and end of
  * day is not running. {@link #createBaseProducts} (re)creates the standard product set and never changes
  * a product that already exists.
@@ -69,7 +71,8 @@ public class MaintenanceService {
                 .map(r -> new MaintenanceStatusResponse.BaseProductStatus(
                         r.productCode(), r.productName(), productRepository.existsByProductCode(r.productCode())))
                 .toList();
-        return new MaintenanceStatusResponse(resetEnabled, businessDate.state().status(), rowCounts(), base);
+        BusinessDateResponse state = businessDate.state();
+        return new MaintenanceStatusResponse(resetEnabled, state.businessDate(), state.status(), rowCounts(), base);
     }
 
     @Transactional
@@ -92,9 +95,12 @@ public class MaintenanceService {
         jdbc.execute("TRUNCATE TABLE " + String.join(", ", TABLES) + " RESTART IDENTITY");
         long total = before.values().stream().mapToLong(Long::longValue).sum();
         String who = actor == null || actor.isBlank() ? "unknown" : actor.trim();
-        log.warn("DATA CLEARED by {}: {} rows removed {}", who, total, before);
-        return new ClearDataResponse(before, total, who, OffsetDateTime.now(),
-                "All accounts and products were removed. Create the base products to start again.");
+        // Same transaction as the truncate: if the date cannot be reset, nothing is cleared.
+        BusinessDateResponse date = businessDate.resetToToday(who);
+        log.warn("DATA CLEARED by {}: {} rows removed {}; business date now {}", who, total, before, date.businessDate());
+        return new ClearDataResponse(before, total, who, OffsetDateTime.now(), date.businessDate(),
+                "All accounts and products were removed and the business date is now " + date.businessDate()
+                        + ". Create the base products to start again.");
     }
 
     public BaseProductsResponse createBaseProducts() {

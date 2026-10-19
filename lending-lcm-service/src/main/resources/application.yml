@@ -49,3 +49,8 @@ lcm:
     sweep-cron: ${LCM_SWEEP_CRON:0 * * * * *}
   events:
     max-page-size: 500
+  # Start-from-scratch (POST /api/v1/lcm/maintenance/clear-data). Off unless you turn it on, so a production
+  # deployment cannot be emptied by accident. The admin console's Maintenance screen needs it on here as well as on
+  # lending-service, so that clearing the loans does not leave facilities and collateral behind.
+  maintenance:
+    reset-enabled: ${LCM_RESET_ENABLED:false}

@@ -26,6 +26,22 @@ const TABLE_NAMES: Record<string, string> = {
   acct_reconciliation: 'Accounting reconciliation results',
 };
 
+const LCM_TABLE_NAMES: Record<string, string> = {
+  facility: 'Facilities',
+  facility_change: 'Facility changes',
+  facility_excess: 'Temporary excess',
+  utilisation_position: 'Utilisation positions',
+  reservation: 'Reservations',
+  limit_txn: 'Limit ledger entries',
+  idempotency_key: 'LCM idempotency keys',
+  lcm_event: 'LCM events',
+  audit_log: 'LCM audit log',
+  collateral: 'Collateral',
+  collateral_valuation: 'Collateral valuations',
+  collateral_allocation: 'Collateral allocations',
+  breach: 'Breaches',
+};
+
 type Notice = { tone: 'good' | 'warn' | 'bad'; text: string } | null;
 
 export default function Maintenance() {
@@ -50,11 +66,19 @@ export default function Maintenance() {
 
   const missing = data ? data.baseProducts.filter(p => !p.exists).length : 0;
   const eodRunning = data?.businessDateStatus === 'EOD_RUNNING';
-  const canClear = !!data?.resetEnabled && !eodRunning;
-  const totalRows = data ? Object.values(data.rowCounts).reduce((a, b) => a + b, 0) : 0;
+  const lcm = data?.lcm;
+  const lcmBlocks = !!lcm?.configured && !(lcm.reachable && lcm.resetEnabled);
+  const canClear = !!data?.resetEnabled && !eodRunning && !lcmBlocks;
+  const lendingRows = data ? Object.values(data.rowCounts).reduce((a, b) => a + b, 0) : 0;
+  const lcmRows = lcm?.rowCounts ? Object.values(lcm.rowCounts).reduce((a, b) => a + b, 0) : 0;
+  const totalRows = lendingRows + lcmRows;
 
   const countCols: Col<[string, number]>[] = [
     { key: 't', header: 'Data', render: r => TABLE_NAMES[r[0]] ?? r[0] },
+    { key: 'n', header: 'Rows', align: 'right', render: r => count(r[1]) },
+  ];
+  const lcmCountCols: Col<[string, number]>[] = [
+    { key: 't', header: 'Limits and collateral', render: r => LCM_TABLE_NAMES[r[0]] ?? r[0] },
     { key: 'n', header: 'Rows', align: 'right', render: r => count(r[1]) },
   ];
 
@@ -62,8 +86,8 @@ export default function Maintenance() {
     <>
       <PageHeader title="Maintenance" sub="Start again from scratch in a test environment" />
       <div className="banner banner-warn">
-        These actions change data, so they are done by lending-service on this console's behalf; the console itself still never
-        writes to the database. Use them in sandbox and test environments only.
+        These actions change data, so they are done by lending-service and lending-lcm-service on this console's behalf; the console
+        itself still never writes to the database. Use them in sandbox and test environments only.
       </div>
       {notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}</div>}
       {loading && !data && <Loading />}
@@ -104,18 +128,46 @@ export default function Maintenance() {
                 allow it.
               </div>
             )}
+            {data.resetEnabled && lcm?.configured && !lcm.reachable && (
+              <div className="banner banner-warn">
+                lending-lcm-service could not be reached{lcm.error ? `: ${lcm.error}` : ''}. Open its address once to wake it, then reload this
+                page. Nothing is cleared while it cannot be checked, so loans are never cleared without their facilities and collateral.
+              </div>
+            )}
+            {data.resetEnabled && lcm?.configured && lcm.reachable && !lcm.resetEnabled && (
+              <div className="banner banner-warn">
+                Clearing is switched off on lending-lcm-service. Set LCM_RESET_ENABLED=true on it (Render: Environment tab) and redeploy to
+                allow it.
+              </div>
+            )}
+            {lcm && !lcm.configured && (
+              <div className="banner banner-warn">
+                This console is not connected to lending-lcm-service (LCM_SERVICE_URL and LCM_SERVICE_PASSWORD), so facilities and
+                collateral will not be cleared with the loans.
+              </div>
+            )}
             {eodRunning && <div className="banner banner-warn">End of day is running. Wait for it to finish before clearing.</div>}
             <p className="muted">
-              Removes every loan account with its schedule, accruals, payments, mortgages, ledger outbox entries and idempotency log, and
-              every loan product. It cannot be undone. It keeps the business date, holidays, benchmark rates, and the batch service's job
-              settings and run history. Afterwards create the base products to start again.
+              Removes every loan account with its schedule, accruals, payments, ledger outbox entries, idempotency log and accounting
+              journals, every loan product, and, in lending-lcm-service, every facility, utilisation entry, collateral, breach, event and
+              audit row. Then it sets the business date to the current date (India time; it is {data.businessDate} now) and opens it. It
+              cannot be undone. It keeps holidays, benchmark rates, the accounting and collateral-type configuration, and the batch
+              service's job settings and run history. Afterwards create the base products to start again.
             </p>
             <DataTable
               columns={countCols}
               rows={Object.entries(data.rowCounts)}
               rowKey={r => r[0]}
-              footer={<tr><td className="muted">Total</td><td className="num muted" style={{ textAlign: 'right' }}>{count(totalRows)}</td></tr>}
+              footer={<tr><td className="muted">Total</td><td className="num muted" style={{ textAlign: 'right' }}>{count(lendingRows)}</td></tr>}
             />
+            {lcm?.configured && lcm.reachable && lcm.rowCounts && (
+              <DataTable
+                columns={lcmCountCols}
+                rows={Object.entries(lcm.rowCounts)}
+                rowKey={r => r[0]}
+                footer={<tr><td className="muted">Total</td><td className="num muted" style={{ textAlign: 'right' }}>{count(lcmRows)}</td></tr>}
+              />
+            )}
           </section>
         </>
       )}
@@ -150,7 +202,7 @@ function ClearDialog({ rows, onClose, onDone }: { rows: number; onClose: () => v
     setErr(null);
     try {
       const r = await send<ClearDataResult>('POST', '/maintenance/clear-data', { confirm: 'RESET' });
-      onDone(`${r.message} ${count(r.totalRows)} rows removed.`);
+      onDone(`${r.message} ${count(r.totalRows + (r.lcm?.totalRows ?? 0))} rows removed.`);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : String(ex));
       setBusy(false);
@@ -162,8 +214,8 @@ function ClearDialog({ rows, onClose, onDone }: { rows: number; onClose: () => v
       <form className="modal" role="dialog" aria-modal="true" aria-label="Clear all data" onSubmit={submit}>
         <h2>Clear all data?</h2>
         <p>
-          This permanently deletes {count(rows)} rows: all loan accounts, their schedules, accruals and payments, and all loan products.
-          There is no undo.
+          This permanently deletes {count(rows)} rows: all loan accounts, their schedules, accruals and payments, all loan products, and all
+          facilities and collateral. The business date is then set to the current date. There is no undo.
         </p>
         <label className="field">
           <span>Type RESET to confirm</span>

@@ -188,6 +188,36 @@ public class BusinessDateService {
         return toResponse(s);
     }
 
+    /**
+     * Start-from-scratch only (called by the maintenance clear, in the same transaction): puts the business date
+     * on today's date in {@code business-date.system-timezone}, status OPEN, whatever it was before, and restarts the
+     * history with that one date. Unlike {@link #set} it may move the date backwards, because the accruals and
+     * payments that a backward move would leave behind were deleted together with the rest of the data.
+     * Holidays are kept.
+     */
+    @Transactional
+    public BusinessDateResponse resetToToday(String actor) {
+        BusinessDateState s = lock();
+        LocalDate today = LocalDate.now(systemZone);
+        LocalDate before = s.getBusinessDate();
+        s.setBusinessDate(today);
+        s.setPreviousDate(null);
+        s.setStatus(BusinessDateStatus.OPEN);
+        touch(s, actor);
+        stateRepository.save(s);
+
+        // A bulk delete runs at once, so a history row for today that already exists cannot clash with the new one.
+        historyRepository.deleteAllInBatch();
+        String note = "Reset to the current date by " + (actor == null || actor.isBlank() ? "system" : actor)
+                + " (was " + before + ")";
+        historyRepository.save(BusinessDateHistory.builder().businessDate(today).openedAt(OffsetDateTime.now())
+                .note(note.length() > 200 ? note.substring(0, 200) : note).build());
+
+        partitionMaintenanceService.ensurePartitions(today);
+        log.warn("Business date RESET {} -> {} by {}", before, today, actor);
+        return toResponse(s);
+    }
+
     // ---- calendar ------------------------------------------------------------------------
 
     @Transactional(readOnly = true)

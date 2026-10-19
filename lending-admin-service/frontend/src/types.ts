@@ -139,13 +139,29 @@ export interface ProductInput {
   status: string; expectedVersion: number | null;
 }
 
+export interface LcmMaintenanceStatus {
+  configured: boolean;
+  reachable?: boolean;
+  resetEnabled?: boolean;
+  rowCounts?: Record<string, number>;
+  error?: string;
+}
 export interface MaintenanceStatus {
   resetEnabled: boolean;
+  businessDate: string;
   businessDateStatus: string;
   rowCounts: Record<string, number>;
   baseProducts: { productCode: string; productName: string; exists: boolean }[];
+  lcm: LcmMaintenanceStatus;
 }
-export interface ClearDataResult { deleted: Record<string, number>; totalRows: number; clearedBy: string; message: string }
+export interface ClearDataResult {
+  deleted: Record<string, number>;
+  totalRows: number;
+  clearedBy: string;
+  businessDate: string;
+  message: string;
+  lcm?: { configured: boolean; totalRows?: number };
+}
 export interface BaseProductsResult { created: string[]; alreadyExisted: string[]; message: string }
 
 export interface EodJobRow { jobName: string; status: string; startedAt: string | null; finishedAt: string | null; message: string | null }

@@ -26,4 +26,5 @@ lcm.monitoring.read|Read breaches and the ledger integrity check|LOW
 lcm.breach.acknowledge|Acknowledge an open limit or collateral breach|MEDIUM
 lcm.events.read|Read the LCM event feed|LOW
 lcm.bridge.run|Load existing lending mortgages, sanctions and loan balances into LCM|HIGH
+lcm.maintenance.reset|Clear all facilities, utilisation and collateral in a non-production environment (and read the row counts)|HIGH
 lcm.portal.read|Customer-facing read models (exposure, availability); used by the customer portal back end|LOW

@@ -222,6 +222,40 @@ services:
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 
   - type: web
+    name: lending-chit-service
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./lending-chit-service/Dockerfile
+    dockerContext: ./lending-chit-service
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DB_HOST
+        fromDatabase: { name: lending-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: lending-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: lending-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: lending-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: lending-db, property: password }
+      - key: CHIT_DB_SCHEMA
+        value: chit
+      - key: CHIT_SERVICE_USERNAME
+        value: chit-service
+      - key: CHIT_SERVICE_PASSWORD
+        generateValue: true   # callers read it from here (lending-service and the admin portal, from the phase that wires them)
+      # Sandbox only: lets the admin portal's Maintenance screen clear chit groups, tickets and journals together with the
+      # loans. Remove it (or set "false") where the data matters.
+      - key: CHIT_RESET_ENABLED
+        value: "true"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+
+  - type: web
     name: lending-iam-service
     runtime: docker
     plan: free

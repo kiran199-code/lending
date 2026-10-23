@@ -24,6 +24,7 @@
         <module>lending-batch-service</module>
         <module>lending-admin-service</module>
         <module>lending-lcm-service</module>
+        <module>lending-chit-service</module>
         <module>lending-iam-service</module>
     </modules>
 </project>

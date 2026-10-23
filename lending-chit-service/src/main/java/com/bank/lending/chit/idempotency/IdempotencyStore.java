@@ -46,6 +46,20 @@ public class IdempotencyStore {
         return IdempotencyCheck.decide(key, rows.get(0), operation, requestHash);
     }
 
+    /**
+     * Read-only look at a key: the replay if the same request already completed under it, null if the key is unused,
+     * IDEMPOTENCY_KEY_REUSED if it was used for a different request. Lets a caller answer a retry before doing any
+     * expensive preparation (such as reading the calendar) that a replay does not need.
+     */
+    public Replay peek(String key, String operation, String requestHash) {
+        if (key == null || key.isBlank()) {
+            throw ChitException.badRequest("IDEMPOTENCY_KEY_REQUIRED", "An idempotency key is required for this operation");
+        }
+        List<Stored> rows = jdbc.query("SELECT operation, request_hash, result_ref FROM idempotency_key WHERE idem_key = ?",
+                (rs, i) -> new Stored(rs.getString("operation"), rs.getString("request_hash"), rs.getString("result_ref")), key);
+        return rows.isEmpty() ? null : IdempotencyCheck.decide(key, rows.get(0), operation, requestHash);
+    }
+
     public void complete(String key, String resultRef) {
         jdbc.update("UPDATE idempotency_key SET result_ref = ? WHERE idem_key = ?", resultRef, key);
     }

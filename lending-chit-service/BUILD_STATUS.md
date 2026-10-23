@@ -1,7 +1,7 @@
 # lending-chit-service: build status
 
 Chit fund microservice for the lending platform. Built in phases from `docs/Chit_Fund_Specification_Prompt_v2.md`.
-Last updated 23 Oct 2026. **Phases 1 and 2 of 10 are done. Phases 3 to 9 are not started.**
+Last updated 23 Oct 2026. **Phases 1, 2 and 3 of 10 are built. Phases 4 to 9 are not started.** Phase 3 is awaiting your review; nothing from it is committed.
 
 ## Phase 0: discovery note
 
@@ -14,7 +14,7 @@ Last updated 23 Oct 2026. **Phases 1 and 2 of 10 are done. Phases 3 to 9 are not
 5. Rounding is HALF_UP at 2 decimals. Percentages are written as 5 for 5%. Late fees count calendar days.
 6. Rules can be edited only while a group is DRAFT or OPEN_FOR_ENROLMENT; they are frozen from FULL onward.
 7. A standard chit has `cycleCount = ticketCount`, so every ticket wins exactly once. The validator enforces it.
-8. Group `FULL` may go back to `OPEN_FOR_ENROLMENT` when a ticket is withdrawn before activation.
+8. Group `FULL` may go back to `OPEN_FOR_ENROLMENT` when a ticket is withdrawn before activation. (Built in Phase 3.)
 9. Ticket `TRANSFERRED` is a transient state while a transfer awaits approval; the ticket then returns to ACTIVE or PRIZED with a new subscriber link. A cured defaulter returns to PRIZED if it had won, otherwise ACTIVE.
 10. `ROLL_OVER_CYCLE` sends an AUCTION_OPEN cycle back to COLLECTION_OPEN with the calendar extended.
 11. No-bid handling: LOTTERY draws a winner at the minimum discount; FOREMAN_DEFAULT_DISCOUNT draws a winner at the foreman's default discount (needs `foremanDefaultDiscountPct`).
@@ -53,7 +53,9 @@ com.bank.lending.chit
   events/        EventFeed and the event writer                                       (Phase 2)
   maintenance/   status and clear-data                                                (Phase 2)
   portal/        customer-scoped read models                                          (Phase 7)
-  platform/      LendingClient (business date, working days, holidays)                (Phase 3)
+  platform/      LendingPlatformClient (business date, working-day calendar)         (Phase 3, built)
+  calendar/      CycleCalendarGenerator                                               (Phase 3, built)
+  enrolment/     quote, enrol, withdraw, verify, activate, cancel                     (Phase 3, built)
 ```
 
 ### Journal templates still to review (the core ones are in section 12 of the prompt)
@@ -139,6 +141,59 @@ New accounts beyond the prompt: `FOREMAN_FLOAT_PAYABLE`, `TRANSFER_FEE_INCOME`, 
 
 If `mvn test` fails on first run, send me the output; the likeliest causes are a mismatch between my stubs and the real Spring signatures, or the IT needing Docker.
 
-## Next: Phase 3
+## Decisions you gave, as applied
 
-Group setup and enrolment: create a group with its rules (validated), open enrolment, enrol tickets and subscribers, the cycle calendar generator, the platform business-date client, activation with rules frozen, and the admin screens' first API. It needs your answers to open questions 1 and 6 before it starts, because they change the ticket and group model. Questions 3 and 4 are still only needed for Phase 6.
+- **Ticket transfer (your Option A).** A transferred ticket stays the same record. The holder changes through the subscriber link and history and arrears travel with it. In Phase 3 this shows up as: `chit_ticket.customer_id` is the *current holder* and every enrolment opens a subscriber link; the transfer in Phase 6 must update both in one transaction.
+- **Strict term (your "yes strict").** Cycles must equal tickets, so every ticket wins exactly once. The validator and a database CHECK already enforce it; the calendar generator builds exactly one cycle per ticket.
+
+## Phase 3: what is built
+
+Enrolment, activation, the calendar, security and fees. 25 new main classes and edits to 7 existing ones, one new migration (V3), 43 tests added (176 in all).
+
+| Area | What | Notes |
+|---|---|---|
+| Schema | `V3__chit_enrolment.sql` | Seat numbers can be reused after a withdrawal (partial unique index on live tickets); `chit_fee_receipt`; security rows carry received date, verifier, reference and return date; cancel and activation details on the group. 25 tables now. |
+| Rules | `securityDepositPct` added to `ChitRules` and validated; `RulesDefaults` fills optional rules | Only the required fields have to be sent. `subscription` defaults to value / tickets when that divides exactly. |
+| Calendar | `calendar/CycleCalendarGenerator` | Monthly (day of month; a day past month end means the last day) and weekly or fortnightly (weekday). A non-working day moves *forward* (at most 14 days). Refused with `CALENDAR_OVERLAP` if an auction would not be before the next due date. |
+| lending-service client | `platform/LendingPlatformClient` | Reads `GET /api/v1/business-date` and `/working-day?date=`. Read timeout 90 s (a sleeping free-plan lending-service), one retry on 502/503/504 or an I/O error, then `503 BUSINESS_DATE_UNAVAILABLE`; nothing is changed. Optional Basic credential. |
+| Groups | `group/*` | Create (DRAFT), list, get, rules versions (new version on each change), open enrolment, cycle list, preview. |
+| Enrolment | `enrolment/*` | Quote, enrol (several tickets per customer), withdraw, verify security, cancel, activation check, activate. |
+| Ledger | `LedgerService.ensureGroupAccounts`; fee and deposit journals | Posting keys: `ENROL_FEE:<ticketId>:ENROLMENT`, `ENROL_FEE:<ticketId>:REGISTRATION`, `SECURITY_RECV:<ticketId>`, refunds `ENROL_FEE_REFUND:...`, `SEC_REFUND:<ticketId>`. |
+| Events | `ChitGroupCreated`, `ChitRulesUpdated`, `EnrolmentOpened`, `TicketEnrolled`, `ChitGroupFull`, `TicketWithdrawn`, `SecurityVerified`, `ChitGroupActivated`, `ChitGroupCancelled` | In `chit_event`, readable through the feed. |
+| Errors | `BUSINESS_DATE_UNAVAILABLE` 503; 409 for `GROUP_CODE_EXISTS`, `GROUP_FULL`, `ENROLMENT_NOT_OPEN`, `WITHDRAWAL_NOT_ALLOWED`, `RULES_LOCKED_BY_ENROLMENT`, `ACTIVATION_BLOCKED`; 403 `MAKER_CHECKER_VIOLATION` | Others (amount mismatch, guarantor, calendar) are 422. |
+| Permissions | 7 new codes in `IAM_PERMISSIONS.txt` | `chit.group.*` and `chit.enrolment.*`. |
+
+### How activation works
+
+1. A repeated request (same key) is answered first, without touching lending-service.
+2. The group, rules and tickets are read and every blocker checked (`GROUP_NOT_FULL`, `TICKETS_INCOMPLETE`, `SECURITY_MISSING`, `SECURITY_NOT_VERIFIED`). Only then is the whole calendar built from lending-service, so no lock or transaction is held during those calls.
+3. One transaction takes the group's row lock, refuses if the group changed since step 2 (`DATA_CONFLICT`, nothing written, repeat the call), re-checks everything including `FIRST_DUE_DATE_PASSED` against the business date, then freezes the rules version, sets tickets ACTIVE, inserts the cycles as SCHEDULED, creates the full chart of ledger accounts, sets the group ACTIVE and writes the event.
+
+### New assumptions for you to confirm or change
+
+1. **Security is collected at enrolment, from every ticket.** `DEPOSIT` = `securityDepositPct` % of the chit value, received in cash (Dr SECURITY_CASH / Cr SECURITY_DEPOSIT_LIABILITY). `LIEN_ON_DEPOSIT` = the same figure but **no cash moves**: the subscriber's own deposit is marked and its reference recorded. `GUARANTOR` = a different customer is named; no money. The legal limits on a deposit are not hard-coded (TODO-VERIFY). If you want security collected only when a ticket wins a prize, say so; that is a different flow (the prize-hold template already exists for it).
+2. **Amounts received must equal the quote exactly.** No part payment or advance at enrolment; a short or excess amount is refused (`ENROLMENT_AMOUNT_MISMATCH`).
+3. **Enrolment and registration fees both post to `ENROLMENT_FEE_INCOME`** with the same template, as two journals.
+4. **Withdrawal before activation returns the deposit and keeps the fees** (setting `CHIT_WITHDRAWAL_REFUNDS_FEES`, default off). **Cancelling the group refunds everything**, ticket by ticket in number order: deposit, then enrolment fee, then registration fee. A lien is released, not paid.
+5. **Once any ticket is enrolled these terms are locked:** chit value, ticket and cycle count, subscription, frequency, enrolment fee, registration fee, security rule and deposit percentage. Other rules can still change and create a new version. From FULL onward everything is frozen (as before).
+6. **Seat numbers** are the lowest free number from 1 to N. A withdrawn ticket stays as an EXITED row and its number is reused by the next person.
+7. **Maker-checker on security:** whoever recorded the security (the `X-Actor` of the enrolment call, or `lending-service` if none was sent) cannot verify it. Turn off with `CHIT_MAKER_CHECKER_ENFORCE=false` for single-person demos.
+8. **Customers are not validated.** `customerId` is a number; the chit service does not check that the customer exists in lending-service. There is no customer lookup in the scope of this phase.
+9. **The group code is supplied by the caller** (3 to 30 characters, capitals, digits, `-`, `_`), not generated.
+10. **Activation needs the first instalment date on or after the business date.** The start date is not forced into the future when a draft is created.
+11. **A repeated request returns current state, flagged `replayed: true`.** For withdraw and cancel the refund lines are rebuilt from the receipts and security rows, not stored, so they always match the books.
+12. **Working-day lookups are one call per date** (about two per cycle). The weekend set is configurable in lending-service, so it is asked, not assumed.
+
+## Phase 3: how it was checked, and what was not
+
+- **Database: checked.** V1 to V3 apply cleanly on PostgreSQL 16; `scripts/verify_schema.sql` now runs 40 checks (refused and allowed cases) and every refused case is refused.
+- **Pure code: checked.** 176 tests pass under the stand-in runner (133 before, 43 new): the calendar generator (month ends, leap year, weekly and fortnightly, holiday rolling, overlap), the lending-service client against a throw-away local HTTP server (success, retry, no retry on 4xx, outage, unreadable reply, credentials), quote and amount checks, activation blockers, refund plans, the money-term lock, and the rules snapshot round trip.
+- **Services against a real database: checked, with limits.** The group, enrolment and activation services were run end to end against PostgreSQL 16 through a sandbox harness (150 checks, all passing): create and replay, wrong-key reuse, every refusal listed above, enrolling to FULL, withdrawal and seat reuse, rule locking, maker-checker, activation with a holiday and a weekend, replay, cancel with refunds (every ledger account back to zero and the trial balance in balance), guarantor and lien groups, event and audit rows. The harness is **not** part of the repo and is **not** Spring: it replaces `JdbcTemplate` with a bridge to PostgreSQL and wraps calls in transactions by hand. It does not exercise concurrent requests, the real `@Transactional` proxies, or JSON binding.
+- **Controllers, wiring, JSON binding: compiled only.** The REST controllers and the Spring configuration compile against the stubs but have not run. In particular, binding the request body to the 34-field `ChitRules` record, the security filter on the new paths, and the 201 status are unverified until `mvn test` runs.
+- **`ChitApplicationIT`: extended, never executed.** It now also drives a group from DRAFT to ACTIVE and a cancellation over HTTP, with a local stand-in for lending-service. It needs Docker.
+- **The real lending-service was not called.** The client was tested against a stand-in built from the controller's source (`GET /api/v1/business-date` returns `businessDate`; `/working-day?date=` returns `workingDay`). On Render the first call may take a minute if lending-service is asleep.
+- **Not done:** `mvn` build, real JUnit run, Spring startup, Flyway through Spring, Docker build, Render and Compose changes on real infrastructure, concurrent enrolment of the last seat, and your review.
+
+## Next: Phase 4
+
+Demands and payments: create each cycle's demands, collect and allocate payments (late fees, arrears, current), late-fee accrual, default detection and the batch jobs, all against the business date. Questions 3 and 4 are still only needed for Phase 6.

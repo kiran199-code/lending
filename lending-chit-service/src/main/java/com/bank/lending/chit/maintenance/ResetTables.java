@@ -10,7 +10,7 @@ import java.util.List;
 public final class ResetTables {
 
     public static final List<String> TABLES = List.of(
-            "chit_group", "chit_group_rules_version", "chit_ticket", "chit_subscriber_link", "chit_cycle",
+            "chit_group", "chit_group_rules_version", "chit_ticket", "chit_subscriber_link", "chit_cycle", "chit_fee_receipt",
             "chit_demand", "chit_payment", "chit_payment_allocation", "chit_late_fee",
             "chit_auction", "chit_bid", "chit_draw_record",
             "chit_prize_payout", "chit_dividend", "chit_security", "chit_default_case", "chit_ticket_transfer",

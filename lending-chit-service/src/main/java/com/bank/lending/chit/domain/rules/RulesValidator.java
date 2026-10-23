@@ -8,6 +8,7 @@ import com.bank.lending.chit.domain.AuctionType;
 import com.bank.lending.chit.domain.Frequency;
 import com.bank.lending.chit.domain.NoBidRule;
 import com.bank.lending.chit.domain.QuorumRule;
+import com.bank.lending.chit.domain.SecurityRule;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -145,6 +146,18 @@ public final class RulesValidator {
             out.add(v("FEE_NEGATIVE", "registrationFee", "A fee cannot be negative"));
         }
 
+        // security deposit: a percentage of the chit value, needed only for the deposit-based rules
+        BigDecimal dep = r.securityDepositPct();
+        boolean depositRule = r.securityRule() == SecurityRule.DEPOSIT || r.securityRule() == SecurityRule.LIEN_ON_DEPOSIT;
+        if (dep.signum() < 0 || dep.compareTo(Money.HUNDRED) > 0) {
+            out.add(v("PCT_OUT_OF_RANGE", "securityDepositPct", "Must be between 0 and 100"));
+        } else if (depositRule && dep.signum() == 0) {
+            out.add(v("CONFIG_REQUIRED", "securityDepositPct", r.securityRule() + " needs a security deposit percentage above 0"));
+        } else if (!depositRule && dep.signum() > 0) {
+            out.add(v("UNSUPPORTED_COMBINATION", "securityDepositPct",
+                    "A security deposit percentage only applies to DEPOSIT or LIEN_ON_DEPOSIT, not " + r.securityRule()));
+        }
+
         // allocation order
         Set<AllocationBucket> expected = EnumSet.of(AllocationBucket.LATE_FEES, AllocationBucket.ARREARS, AllocationBucket.CURRENT);
         List<AllocationBucket> order = r.allocationOrder();
@@ -205,6 +218,7 @@ public final class RulesValidator {
         req(out, "foremanGuaranteeMode", r.foremanGuaranteeMode());
         req(out, "allocationOrder", r.allocationOrder());
         req(out, "defaulterLosesDividend", r.defaulterLosesDividend());
+        req(out, "securityDepositPct", r.securityDepositPct());
     }
 
     private static void req(List<RuleViolation> out, String field, Object value) {

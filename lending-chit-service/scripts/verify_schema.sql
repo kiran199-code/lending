@@ -130,5 +130,35 @@ INSERT INTO ledger_line(journal_id,line_no,account_id,side,amount)
   SELECT j.id,1,a.id,'D',10 FROM ledger_journal j, ledger_account a WHERE j.posting_key='UNBAL:1' AND a.account_type='POOL_CASH' AND a.group_id=j.group_id;
 SELECT pg_temp.must_fail('unbalanced (one-sided) journal', $$SET CONSTRAINTS ALL IMMEDIATE$$);
 
+
+-- V3: enrolment ---------------------------------------------------------------------------------------------------
+-- a withdrawn ticket gives its number back; two live tickets still cannot share one
+UPDATE chit_ticket SET status = 'EXITED', exit_reason = 'withdrawn', exited_on = '2026-11-02'
+ WHERE group_id = (SELECT id FROM chit_group WHERE group_code = 'G2') AND ticket_no = 2;
+SELECT pg_temp.must_pass('an exited ticket number can be taken again',
+  $$INSERT INTO chit_ticket(group_id,ticket_no,customer_id,created_by) SELECT id,2,900,'t' FROM chit_group WHERE group_code='G2'$$);
+SELECT pg_temp.must_fail('two live tickets with one number',
+  $$INSERT INTO chit_ticket(group_id,ticket_no,customer_id,created_by) SELECT id,2,901,'t' FROM chit_group WHERE group_code='G2'$$);
+
+INSERT INTO chit_fee_receipt(ticket_id,fee_kind,amount,received_on,created_by)
+  SELECT t.id,'ENROLMENT',500,'2026-11-01','t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1;
+SELECT pg_temp.must_fail('the same fee twice for one ticket',
+  $$INSERT INTO chit_fee_receipt(ticket_id,fee_kind,amount,received_on,created_by) SELECT t.id,'ENROLMENT',500,'2026-11-01','t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1$$);
+SELECT pg_temp.must_fail('a zero fee receipt',
+  $$INSERT INTO chit_fee_receipt(ticket_id,fee_kind,amount,received_on,created_by) SELECT t.id,'REGISTRATION',0,'2026-11-01','t' FROM chit_ticket t LIMIT 1$$);
+SELECT pg_temp.must_fail('refunded without a refund date', $$UPDATE chit_fee_receipt SET status = 'REFUNDED'$$);
+SELECT pg_temp.must_pass('refunded with a date', $$UPDATE chit_fee_receipt SET status = 'REFUNDED', refunded_on = '2026-11-03'$$);
+
+INSERT INTO chit_security(ticket_id,kind,amount,created_by)
+  SELECT t.id,'DEPOSIT',2000,'t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1;
+SELECT pg_temp.must_fail('two live deposits for one ticket',
+  $$INSERT INTO chit_security(ticket_id,kind,amount,created_by) SELECT t.id,'DEPOSIT',2000,'t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1$$);
+SELECT pg_temp.must_fail('verified with nobody recorded as the verifier', $$UPDATE chit_security SET status = 'VERIFIED'$$);
+SELECT pg_temp.must_pass('verified by a named person', $$UPDATE chit_security SET status = 'VERIFIED', verified_by = 'ops1', verified_at = now()$$);
+SELECT pg_temp.must_pass('a returned deposit frees the slot for a new one',
+  $$UPDATE chit_security SET status = 'RETURNED', returned_on = '2026-11-04'$$);
+SELECT pg_temp.must_pass('a new deposit after the return',
+  $$INSERT INTO chit_security(ticket_id,kind,amount,created_by) SELECT t.id,'DEPOSIT',2000,'t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1$$);
+
 ROLLBACK;
 \echo 'schema verification finished: every rule above was exercised'

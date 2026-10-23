@@ -45,3 +45,18 @@ chit:
   # the other services.
   maintenance:
     reset-enabled: ${CHIT_RESET_ENABLED:false}
+
+  # lending-service owns the business date and the working-day calendar (read only). The URL is the lending-service base
+  # URL. Username and password are for when lending-service is protected; leave them empty while it is open.
+  # The read timeout is long on purpose: a free-plan lending-service can take over a minute to wake up.
+  platform:
+    lending-url: ${LENDING_SERVICE_URL:http://localhost:8080}
+    username: ${CHIT_PLATFORM_USERNAME:}
+    password: ${CHIT_PLATFORM_PASSWORD:}
+    connect-timeout-ms: ${CHIT_PLATFORM_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${CHIT_PLATFORM_READ_TIMEOUT_MS:90000}
+    retries: ${CHIT_PLATFORM_RETRIES:1}
+  enrolment:
+    # Does a ticket that withdraws before the group starts get its enrolment and registration fees back? Its deposit
+    # always comes back. Cancelling the whole group always refunds everything.
+    withdrawal-refunds-fees: ${CHIT_WITHDRAWAL_REFUNDS_FEES:false}

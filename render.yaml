@@ -244,6 +244,11 @@ services:
         fromDatabase: { name: lending-db, property: password }
       - key: CHIT_DB_SCHEMA
         value: chit
+      - key: CHIT_DB_POOL_SIZE
+        value: "3"   # the free database has few connections; 3 is plenty for this service
+      # Chit reads the business date and working-day calendar from lending-service (read only).
+      - key: LENDING_SERVICE_URL
+        value: https://lending-service-5tqm.onrender.com
       - key: CHIT_SERVICE_USERNAME
         value: chit-service
       - key: CHIT_SERVICE_PASSWORD

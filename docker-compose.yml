@@ -106,7 +106,7 @@ services:
     ports:
       - "8082:8082"
 
-  # Chit fund service (phase 2: schema, ledger, events, maintenance; no business endpoints yet).
+  # Chit fund service (phase 3: groups, enrolment, activation, ledger, events, maintenance).
   # API on http://localhost:8086 with HTTP Basic chit-service / changeme. Its tables live in the 'chit' schema.
   lending-chit-service:
     build:
@@ -114,6 +114,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      lending-service:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_USER: lending_app
@@ -121,6 +123,7 @@ services:
       CHIT_SERVICE_USERNAME: chit-service
       CHIT_SERVICE_PASSWORD: changeme
       CHIT_RESET_ENABLED: "true"
+      LENDING_SERVICE_URL: http://lending-service:8080
     ports:
       - "8086:8086"
 

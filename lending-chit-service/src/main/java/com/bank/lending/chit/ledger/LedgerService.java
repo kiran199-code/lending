@@ -63,6 +63,28 @@ public class LedgerService {
         return postInternal(mirror, ctx, journalId);
     }
 
+    /**
+     * Creates the whole chart of accounts of a group at activation: every group-level account, and the per-ticket
+     * accounts for each ticket. Safe to call again (accounts that exist are left alone); postings would create the
+     * accounts they need anyway, this just makes the set complete and visible from day one.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public int ensureGroupAccounts(long groupId, List<Long> ticketIds) {
+        int count = 0;
+        for (AccountType type : AccountType.values()) {
+            if (type.perTicket()) {
+                for (Long ticketId : ticketIds) {
+                    repo.ensureAccount(groupId, AccountRef.of(type, ticketId));
+                    count++;
+                }
+            } else {
+                repo.ensureAccount(groupId, AccountRef.of(type));
+                count++;
+            }
+        }
+        return count;
+    }
+
     @Transactional(readOnly = true)
     public TrialBalance trialBalance(long groupId) {
         List<AccountBalance> accounts = repo.balances(groupId);

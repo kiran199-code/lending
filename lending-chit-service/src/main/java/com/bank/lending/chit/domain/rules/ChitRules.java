@@ -60,7 +60,8 @@ public record ChitRules(
         BigDecimal registrationFee,
         ForemanGuaranteeMode foremanGuaranteeMode,
         List<AllocationBucket> allocationOrder,
-        Boolean defaulterLosesDividend) {
+        Boolean defaulterLosesDividend,
+        BigDecimal securityDepositPct) {
 
     public static Builder builder() {
         return new Builder();
@@ -102,6 +103,7 @@ public record ChitRules(
         b.foremanGuaranteeMode = foremanGuaranteeMode;
         b.allocationOrder = allocationOrder;
         b.defaulterLosesDividend = defaulterLosesDividend;
+        b.securityDepositPct = securityDepositPct;
         return b;
     }
 
@@ -140,6 +142,7 @@ public record ChitRules(
         private ForemanGuaranteeMode foremanGuaranteeMode = ForemanGuaranteeMode.NONE;
         private List<AllocationBucket> allocationOrder = List.of(AllocationBucket.LATE_FEES, AllocationBucket.ARREARS, AllocationBucket.CURRENT);
         private Boolean defaulterLosesDividend = Boolean.TRUE;
+        private BigDecimal securityDepositPct = Money.ZERO;
 
         public Builder chitValue(BigDecimal v) {
             this.chitValue = v;
@@ -306,6 +309,11 @@ public record ChitRules(
             return this;
         }
 
+        public Builder securityDepositPct(BigDecimal v) {
+            this.securityDepositPct = v;
+            return this;
+        }
+
         public ChitRules build() {
             return new ChitRules(
                     chitValue,
@@ -340,7 +348,8 @@ public record ChitRules(
                     registrationFee,
                     foremanGuaranteeMode,
                     allocationOrder,
-                    defaulterLosesDividend);
+                    defaulterLosesDividend,
+                    securityDepositPct);
         }
     }
 }

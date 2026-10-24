@@ -1,0 +1,35 @@
+To: 
+Subject: Lending platform: ready for demo (architecture deck and demo runbook attached)
+
+Attachments:
+  1. Lending-Platform-Architecture-v1.8.pptx
+  2. Lending_Demo_Runbook_shareable.docx   (no passwords; do NOT attach Lending_Demo_Runbook_updated.docx)
+
+----------------------------------------------------------------
+
+Hi [Name],
+
+The lending platform is now working end to end in our cloud sandbox and ready for a demo. In short, here is what we have built and tested:
+
+- Loan lifecycle: product setup, loan creation, disbursement, EMI, part-payment and foreclosure, with schedules, interest accruals and customer statements.
+- Collateral and limits: a separate service holds facilities and collateral. Secured loans cannot be disbursed unless their collateral and facility are valid. Facility and collateral changes need a second person to approve.
+- Accounting: an internal ledger posts the accounting entries for each loan event, with a daily reconciliation.
+- End of day: batch jobs run in order and advance the business date. A failed run can now be rerun, and jobs already completed for a date are skipped.
+- Admin console: one console with separate logins for batch, loan and limits operations, plus inquiry screens (accounts, overdue, payments, ledger and batch status).
+- Automated proof: an end-to-end test console runs secured and unsecured loan flows through the whole platform and produces a report.
+- Reset between demos: one Maintenance screen clears the loans, collateral and batch history and resets the business date, so each demo starts clean.
+
+Two things to know before the demo:
+- The platform runs on free-tier cloud hosting, so each service takes about a minute to wake up. I'll start them 20 minutes before we begin.
+- The link to an external core-banking ledger is still a placeholder, so the ledger outbox screen shows every entry as failed. This is expected and doesn't affect balances or end of day. The real postings are on the accounting screens.
+
+The customer portal is designed (wireframes and technical specification) but not built yet. It is the next step after we finish more life-cycle testing.
+
+Attached:
+1. Lending-Platform-Architecture-v1.8: the platform architecture.
+2. Lending_Demo_Runbook (shareable copy): service addresses, start-up order, demo script and troubleshooting. Login details are left out. I'll share them separately.
+
+Happy to walk you through it whenever suits you.
+
+Regards,
+Kiran

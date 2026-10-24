@@ -6,13 +6,11 @@ import type { Me } from './types';
  */
 export type Role = 'ADMIN' | 'BATCH_OPS' | 'LOAN_OPS' | 'LIMITS_OPS';
 
-/** Screens that need a role. A path not listed here is an inquiry (dashboard, accounts, upcoming, overdue, payments, accruals, ledger, chit groups). */
+/** Screens that need a role. A path not listed here is an inquiry (dashboard, accounts, upcoming, overdue, payments, accruals, ledger). */
 const AREAS: [string, Role[]][] = [
   ['/products', ['LOAN_OPS']],
   ['/ops', ['LOAN_OPS']],
   ['/limits', ['LIMITS_OPS']],
-  // Chit: every inquiry is open; creating a group is ADMIN only for now (no chit role), and so is every change the server enforces.
-  ['/chit/groups/new', []],
   ['/accounting', []],
   ['/batch', ['BATCH_OPS']],
   ['/eod', ['BATCH_OPS']],

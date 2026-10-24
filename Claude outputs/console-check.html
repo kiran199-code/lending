@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lending E2E console</title>
+<style>
+:root{--bg:#fff;--fg:#1c2330;--mut:#5b6677;--line:#d9dee7;--acc:#0b5fff}
+@media(prefers-color-scheme:dark){:root{--bg:#10151f;--fg:#e6eaf2;--mut:#9aa6b8;--line:#2a3445;--acc:#6ea0ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px}
+h1{font-size:20px;margin:0 0 4px}p.s{color:var(--mut);margin:0 0 16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+input,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+input{flex:1;min-width:200px}label.f{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mut);flex:1;min-width:160px}label.f input{min-width:0;font-size:15px;color:var(--fg)}button{cursor:pointer}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+pre{background:color-mix(in srgb,var(--fg) 6%,transparent);padding:12px;border-radius:6px;overflow:auto;max-height:420px;font-size:12.5px;white-space:pre-wrap}
+a{color:var(--acc)}small{color:var(--mut)}
+</style></head><body><main>
+<h1>Lending E2E lifecycle suite</h1>
+<p class="s">Runs against the services this instance is configured for. The token is kept in this page only.</p>
+<div class="row"><input id="tok" type="password" placeholder="E2E_SERVER_TOKEN" autocomplete="off"></div>
+<div class="row">
+ <label class="f">Accounts<input id="acc" type="number" min="1" placeholder="default 20"></label>
+ <label class="f">Max simulated days<input id="days" type="number" min="1" placeholder="default 800"></label>
+ <label class="f">Start date<input id="start" type="date"></label>
+</div>
+<p class="s"><small>Start date = simulated day 1. It must be <b>the platform's current business date or later</b> (the date only moves forward); leave it empty to use the
+ server's built-in default, which is usually already in the past. A dry run reports the current business date.</small></p>
+<div class="row">
+ <button onclick="start(true)">Dry run</button><button class="p" onclick="start(false)">Run</button>
+ <button onclick="status()">Refresh status</button><button onclick="runs()">List runs</button>
+</div>
+<div class="row"><input id="rid" placeholder="run id (E2E-...)"><button onclick="open_('report')">Report</button><button onclick="open_('defects')">Defects</button>
+ <button onclick="open_('audit')">Audit trail</button><button onclick="open_('checks')">Checks</button><button onclick="teardown()">Teardown</button></div>
+<pre id="out">Ready.</pre>
+<small>Reports live on this instance's temporary disk: fetch them before the instance restarts.</small>
+<script>
+const $=id=>document.getElementById(id), out=t=>$('out').textContent=t;
+const H=()=>({'X-E2E-Token':$('tok').value});
+async function call(path,opt={}){const r=await fetch(path,{...opt,headers:{...H(),...(opt.headers||{})}});const t=await r.text();
+ try{return r.status+' '+JSON.stringify(JSON.parse(t),null,2)}catch(e){return r.status+'\n'+t}}
+async function start(dry){const b={};if($('acc').value)b.accounts=$('acc').value;if($('days').value)b['max-sim-days']=$('days').value;if($('start').value)b['start-date']=$('start').value;
+ out(await call('/runs'+(dry?'?dryRun=true':''),{method:'POST',body:JSON.stringify(b)}));setTimeout(status,1500)}
+async function status(){out(await call('/runs/current'))}
+async function runs(){out(await call('/runs'))}
+async function open_(k){const id=$('rid').value.trim();if(!id)return out('Enter a run id (see List runs).');out(await call('/runs/'+id+'/'+k))}
+async function teardown(){const id=$('rid').value.trim();if(!id)return out('Enter a run id.');if(!confirm('Foreclose open accounts of '+id+'?'))return;
+ out(await call('/runs/'+id+'/teardown',{method:'POST'}))}
+</script></main></body></html>

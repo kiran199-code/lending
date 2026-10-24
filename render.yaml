@@ -141,12 +141,6 @@ services:
         value: lcm-service
       - key: LCM_SERVICE_PASSWORD
         fromService: { type: web, name: lending-lcm-service, envVarKey: LCM_SERVICE_PASSWORD }
-      - key: CHIT_SERVICE_URL
-        sync: false             # https://lending-chit-service-XXXX.onrender.com (enables the Chit funds screens)
-      - key: CHIT_SERVICE_USERNAME
-        value: chit-service
-      - key: CHIT_SERVICE_PASSWORD
-        fromService: { type: web, name: lending-chit-service, envVarKey: CHIT_SERVICE_PASSWORD }
       - key: SERVER_PORT
         value: "10000"
       - key: DB_HOST
@@ -223,45 +217,6 @@ services:
       # Sandbox only: lets the admin portal's Maintenance screen clear the facilities and collateral together with the
       # loans (lending-service has its own LENDING_RESET_ENABLED). Remove it (or set "false") where the data matters.
       - key: LCM_RESET_ENABLED
-        value: "true"
-      - key: JAVA_TOOL_OPTIONS
-        value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
-
-  - type: web
-    name: lending-chit-service
-    runtime: docker
-    plan: free
-    region: singapore
-    dockerfilePath: ./lending-chit-service/Dockerfile
-    dockerContext: ./lending-chit-service
-    healthCheckPath: /actuator/health
-    envVars:
-      - key: PORT
-        value: "10000"
-      - key: DB_HOST
-        fromDatabase: { name: lending-db, property: host }
-      - key: DB_PORT
-        fromDatabase: { name: lending-db, property: port }
-      - key: DB_NAME
-        fromDatabase: { name: lending-db, property: database }
-      - key: DB_USER
-        fromDatabase: { name: lending-db, property: user }
-      - key: DB_PASSWORD
-        fromDatabase: { name: lending-db, property: password }
-      - key: CHIT_DB_SCHEMA
-        value: chit
-      - key: CHIT_DB_POOL_SIZE
-        value: "3"   # the free database has few connections; 3 is plenty for this service
-      # Chit reads the business date and working-day calendar from lending-service (read only).
-      - key: LENDING_SERVICE_URL
-        value: https://lending-service-5tqm.onrender.com
-      - key: CHIT_SERVICE_USERNAME
-        value: chit-service
-      - key: CHIT_SERVICE_PASSWORD
-        generateValue: true   # callers read it from here (lending-service and the admin portal, from the phase that wires them)
-      # Sandbox only: lets the admin portal's Maintenance screen clear chit groups, tickets and journals together with the
-      # loans. Remove it (or set "false") where the data matters.
-      - key: CHIT_RESET_ENABLED
         value: "true"
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx256m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"

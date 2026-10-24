@@ -141,6 +141,12 @@ services:
         value: lcm-service
       - key: LCM_SERVICE_PASSWORD
         fromService: { type: web, name: lending-lcm-service, envVarKey: LCM_SERVICE_PASSWORD }
+      - key: CHIT_SERVICE_URL
+        sync: false             # https://lending-chit-service-XXXX.onrender.com (enables the Chit funds screens)
+      - key: CHIT_SERVICE_USERNAME
+        value: chit-service
+      - key: CHIT_SERVICE_PASSWORD
+        fromService: { type: web, name: lending-chit-service, envVarKey: CHIT_SERVICE_PASSWORD }
       - key: SERVER_PORT
         value: "10000"
       - key: DB_HOST

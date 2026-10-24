@@ -15,6 +15,7 @@ import java.util.Optional;
  *   <li>BATCH_OPS: batch jobs, end of day, configuration (batch job settings).</li>
  *   <li>LOAN_OPS: create, disburse and pay loans (operations), and products.</li>
  *   <li>LIMITS_OPS: every change to facilities, collateral, valuations, allocations, approvals and monitoring.</li>
+ *   <li>Chit fund screens: reading is open to every signed-in user; creating groups, enrolling, activating and cancelling are ADMIN only for now (no chit role yet, so the call matches no rule).</li>
  *   <li>Accounting screens (except the branch and currency lists the forms need) and Maintenance: ADMIN only.</li>
  * </ul>
  *
@@ -59,6 +60,7 @@ public final class AccessPolicy {
             new Rule("GET", A + "/accounting/branches", List.of()),
             new Rule("GET", A + "/accounting/currencies", List.of()),
             new Rule("GET", A + "/limits/**", List.of()),
+            new Rule("GET", A + "/chit/**", List.of()),
             // actions
             new Rule(null, A + "/limits/**", List.of(LIMITS_OPS)),
             new Rule(null, A + "/operations/**", List.of(LOAN_OPS)),

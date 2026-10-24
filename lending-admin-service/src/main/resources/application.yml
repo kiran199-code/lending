@@ -62,6 +62,13 @@ lcm:
     username: ${LCM_SERVICE_USERNAME:lcm-service}
     password: ${LCM_SERVICE_PASSWORD:}
 
+# Only used by the Chit fund screens: they are done through lending-chit-service's own API.
+chit:
+  service:
+    base-url: ${CHIT_SERVICE_URL:}
+    username: ${CHIT_SERVICE_USERNAME:chit-service}
+    password: ${CHIT_SERVICE_PASSWORD:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

@@ -137,4 +137,16 @@ class AccessPolicyTest {
         assertThrows(IllegalStateException.class, () -> AdminUsers.build("admin", "pw", "admin", "1", "l", "", "m", ""));
         assertThrows(IllegalStateException.class, () -> AdminUsers.build("admin", "pw", " ", "1", "l", "", "m", ""));
     }
+
+    @Test
+    void chitIsReadableByEveryoneAndChangedByAdminOnly() {
+        for (String role : ALL_ROLES) {
+            assertTrue(AccessPolicy.allowed("GET", "/api/admin/chit/groups", List.of(role)), role);
+            assertTrue(AccessPolicy.allowed("GET", "/api/admin/chit/groups/G1/tickets", List.of(role)), role);
+            assertFalse(AccessPolicy.allowed("POST", "/api/admin/chit/groups", List.of(role)), role);
+            assertFalse(AccessPolicy.allowed("POST", "/api/admin/chit/groups/G1/activate", List.of(role)), role);
+        }
+        assertTrue(AccessPolicy.allowed("POST", "/api/admin/chit/groups", List.of("ADMIN")));
+        assertTrue(AccessPolicy.allowed("POST", "/api/admin/chit/groups/G1/tickets/1/security/verify", List.of("ADMIN")));
+    }
 }

@@ -61,7 +61,7 @@ async function request(path: string, params?: Params, init?: { method: string; b
   const headers: Record<string, string> = t ? { Authorization: `Basic ${t}` } : {};
   if (init?.body !== undefined) headers['Content-Type'] = 'application/json';
   const acting = getActingAs().trim();
-  if (acting && path.startsWith('/limits')) headers['X-Acting-As'] = acting;
+  if (acting && (path.startsWith('/limits') || path.startsWith('/chit'))) headers['X-Acting-As'] = acting;
   if (init?.headers) Object.assign(headers, init.headers);
   const res = await fetch(`/api/admin${path}${qs(params)}`, {
     method: init?.method ?? 'GET',

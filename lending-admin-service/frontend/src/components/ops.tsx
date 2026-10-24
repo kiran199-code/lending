@@ -169,7 +169,7 @@ export function ConfirmModal({ title, businessDate, rows, note, confirmLabel, da
         <h2>{title}</h2>
         {businessDate && <p style={{ fontSize: 16 }}>Business date: <strong>{date(businessDate)}</strong></p>}
         <KeyValues items={rows} />
-        {note && <p style={{ marginBottom: 0 }}>{note}</p>}
+        {note && (typeof note === 'string' ? <p style={{ marginBottom: 0 }}>{note}</p> : <div className="modal-note">{note}</div>)}
         {typeToConfirm && (
           <label className="field wide" style={{ marginTop: 12 }}>
             <span>Type {typeToConfirm} to confirm</span>

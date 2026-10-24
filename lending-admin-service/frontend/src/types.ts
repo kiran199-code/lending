@@ -340,3 +340,35 @@ export interface Breach {
 }
 export interface SweepResult { asOf: string; reservationsExpired: number; facilitiesExpired: number; breachesOpened: number; breachesClosed: number }
 export interface Integrity { ok: boolean; differences: string[] }
+
+// ---------------------------------------------------------------- chit funds (lending-chit-service, through /api/admin/chit)
+
+export interface ChitGroup {
+  groupCode: string; name: string; foremanRef: string; status: string; chitValue: number; ticketCount: number; cycleCount: number;
+  subscription: number; frequency: string; startDate: string; rulesVersion: number; ticketsEnrolled: number; seatsLeft: number;
+  activatedAt: string | null; activatedBy: string | null; cancelledAt: string | null; cancelledBy: string | null;
+  cancelReason: string | null; version: number; createdAt: string; createdBy: string; replayed?: boolean | null;
+}
+export interface ChitGroupPage { items: ChitGroup[]; total: number; limit: number; offset: number }
+export interface ChitFee { kind: string; amount: number; status: string; receivedOn: string | null; refundedOn: string | null }
+export interface ChitSecurity {
+  kind: string; amount: number; guarantorCustomerId: number | null; reference: string | null; status: string;
+  receivedOn: string | null; verifiedBy: string | null;
+}
+export interface ChitTicket {
+  ticketId: number; ticketNo: number; customerId: number; status: string; payoutAccountRef: string | null; fees: ChitFee[];
+  security: ChitSecurity | null; exitReason: string | null; exitedOn: string | null; replayed?: boolean | null;
+}
+export interface ChitQuote {
+  enrolmentFee: number; registrationFee: number; securityDeposit: number; lienAmount: number; guarantorRequired: boolean; cashDue: number;
+}
+export interface ChitReadiness { ready: boolean; blockers: { code: string; message: string }[]; firstDueDate: string | null }
+export interface ChitCycle { cycleNo: number; status: string; dueDate: string; auctionDate: string }
+export interface ChitActivation { group: ChitGroup; cycles: ChitCycle[]; replayed?: boolean | null }
+export interface ChitRefund { lines: { kind: string; ticketNo: number; amount: number }[]; cashRefunded: number }
+export interface ChitWithdrawResult { ticket: ChitTicket; refund: ChitRefund; groupStatus: string; replayed?: boolean | null }
+export interface ChitCancelResult { groupCode: string; status: string; reason: string; refund: ChitRefund; replayed?: boolean | null }
+export interface ChitPreview {
+  valid: boolean; violations: { code: string; field: string | null; message: string }[]; effectiveRules: Record<string, unknown> | null;
+  schedule: { cycleNo: number; dueDate: string; auctionDate: string }[] | null; scheduleError: string | null;
+}

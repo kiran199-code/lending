@@ -93,6 +93,8 @@ services:
         condition: service_started
       lending-batch-service:
         condition: service_started
+      lending-chit-service:
+        condition: service_started
     environment:
       DB_HOST: postgres
       DB_USER: lending_app          # session is forced read-only; see lending-admin-service/db for a SELECT-only role
@@ -103,6 +105,9 @@ services:
       BATCH_SERVICE_URL: http://lending-batch-service:8081
       BATCH_ADMIN_USERNAME: batch-admin
       BATCH_ADMIN_PASSWORD: changeme
+      CHIT_SERVICE_URL: http://lending-chit-service:8086
+      CHIT_SERVICE_USERNAME: chit-service
+      CHIT_SERVICE_PASSWORD: changeme
     ports:
       - "8082:8082"
 

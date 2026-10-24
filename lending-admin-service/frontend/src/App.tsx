@@ -13,6 +13,9 @@ import AccountingReconciliation from './pages/AccountingReconciliation';
 import AccountingTrialBalance from './pages/AccountingTrialBalance';
 import Batch from './pages/Batch';
 import BulkOperations from './pages/BulkOperations';
+import ChitGroupDetail from './pages/ChitGroupDetail';
+import ChitGroupNew from './pages/ChitGroupNew';
+import ChitGroups from './pages/ChitGroups';
 import Configuration from './pages/Configuration';
 import CreateLoan from './pages/CreateLoan';
 import Dashboard from './pages/Dashboard';
@@ -62,6 +65,9 @@ function Gate() {
         <Route path="limits/collateral/new" element={<LimitsCollateralNew />} />
         <Route path="limits/collateral/:ref" element={<LimitsCollateralDetail />} />
         <Route path="limits/monitoring" element={<LimitsMonitoring />} />
+        <Route path="chit/groups" element={<ChitGroups />} />
+        <Route path="chit/groups/new" element={<ChitGroupNew />} />
+        <Route path="chit/groups/:code" element={<ChitGroupDetail />} />
         <Route path="upcoming" element={<Upcoming />} />
         <Route path="overdue" element={<Overdue />} />
         <Route path="payments" element={<Payments />} />

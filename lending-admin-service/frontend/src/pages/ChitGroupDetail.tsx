@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { get, send } from '../api';
 import { ChitBadge, ChitGate, GroupBadge, useCanChangeChit, wholeNumber } from '../components/chit';
+import { GroupCollectionCard, PaymentsTable, ReceiptModal, ReversePaymentDialog } from '../components/chitCollection';
 import DataTable, { Col } from '../components/DataTable';
 import { ActingAsBar, NoticeBanner, useActingAs } from '../components/limits';
 import { ConfirmModal, Field, Notice, useIdempotencyKey } from '../components/ops';
@@ -9,7 +10,7 @@ import { Card, ErrorBox, KeyValues, Loading, PageHeader } from '../components/ui
 import { date, dateTime, label, money } from '../format';
 import { useLoad } from '../hooks';
 import type {
-  ChitActivation, ChitCancelResult, ChitCycle, ChitGroup, ChitQuote, ChitReadiness, ChitTicket, ChitWithdrawResult,
+  ChitActivation, ChitCancelResult, ChitCycle, ChitGroup, ChitPayment, ChitQuote, ChitReadiness, ChitTicket, ChitWithdrawResult,
 } from '../types';
 
 /** Statuses before activation: tickets can still be enrolled, withdrawn or have their security verified, and the group cancelled. */
@@ -41,6 +42,8 @@ function Body({ code }: { code: string }) {
   const [notice, setNotice] = useState<Notice>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [reason, setReason] = useState('');
+  const [receipt, setReceipt] = useState<ChitPayment | null>(null);
+  const [reversing, setReversing] = useState<ChitPayment | null>(null);
   const keys = useIdempotencyKey();
   const path = `/chit/groups/${encodeURIComponent(code)}`;
 
@@ -55,6 +58,10 @@ function Body({ code }: { code: string }) {
   const cycles = useLoad(
     () => (g && !['DRAFT', 'CANCELLED'].includes(g.status) ? get<ChitCycle[]>(`${path}/cycles`) : Promise.resolve([] as ChitCycle[])),
     [code, tick, g?.status]);
+
+  const collecting = !!g && ['ACTIVE', 'CLOSING', 'CLOSED'].includes(g.status);
+  const payments = useLoad(
+    () => (collecting ? get<ChitPayment[]>(`${path}/payments`) : Promise.resolve([] as ChitPayment[])), [code, tick, g?.status]);
 
   function done(text: string) {
     setNotice({ tone: 'good', text });
@@ -79,7 +86,9 @@ function Body({ code }: { code: string }) {
   const live = ts.filter(t => t.status !== 'EXITED');
 
   const ticketCols: Col<ChitTicket>[] = [
-    { key: 'no', header: 'Ticket', render: t => <strong>{t.ticketNo}</strong> },
+    { key: 'no', header: 'Ticket', render: t => (collecting && t.status !== 'EXITED'
+        ? <Link to={`/chit/groups/${encodeURIComponent(code)}/tickets/${t.ticketNo}`}><strong>{t.ticketNo}</strong></Link>
+        : <strong>{t.ticketNo}</strong>) },
     { key: 'cust', header: 'Customer', render: t => t.customerId },
     { key: 'status', header: 'Status', render: t => <ChitBadge status={t.status} /> },
     { key: 'payout', header: 'Payout account', render: t => t.payoutAccountRef ?? '-' },
@@ -172,6 +181,22 @@ function Body({ code }: { code: string }) {
         <Card title={`Cycles (${cycles.data.length})`}>
           <DataTable columns={cycleCols} rows={cycles.data} rowKey={c => c.cycleNo} />
         </Card>
+      )}
+
+      {collecting && <GroupCollectionCard code={g.groupCode} refresh={tick} />}
+
+      {collecting && (
+        <Card title="Recent payments" actions={<Link className="btn" to={`/chit/dues?group=${encodeURIComponent(g.groupCode)}&view=OPEN`}>Record a payment from Dues</Link>}>
+          {payments.loading && !payments.data && <Loading />}
+          {payments.error && <ErrorBox message={payments.error} onRetry={payments.reload} />}
+          {payments.data && <PaymentsTable rows={payments.data} showTicket canChange={canChange} onReceipt={setReceipt} onReverse={setReversing} />}
+        </Card>
+      )}
+
+      {receipt && <ReceiptModal code={g.groupCode} paymentRef={receipt.paymentRef} onClose={() => setReceipt(null)} />}
+      {reversing && (
+        <ReversePaymentDialog p={reversing} actor={actor}
+          onDone={r => { setReversing(null); done(`Payment ${r.paymentRef} reversed.`); }} onClose={() => setReversing(null)} />
       )}
 
       {dialog?.kind === 'open' && (

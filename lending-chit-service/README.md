@@ -7,9 +7,11 @@ Spring Boot 3.3.2, Java 17, JDBC (no JPA), Flyway, one service credential plus a
 Built in phases from `docs/Chit_Fund_Specification_Prompt_v2.md`. See `BUILD_STATUS.md` for what each phase delivers,
 the assumptions, the open questions and what has and has not been verified.
 
-**Where it stands: Phase 3 of 10.** A group can be created, configured, opened for enrolment, filled with tickets
+**Where it stands: Phase 4 of 10.** A group can be created, configured, opened for enrolment, filled with tickets
 (fees and deposits posted to the ledger), activated (rules frozen, cycle calendar built on working days) or cancelled
-with refunds. Demands, payments, auctions and payouts arrive in Phases 4 to 7.
+with refunds. Since Phase 4 it also raises each cycle's instalments on the due date, takes payments (allocated to late
+fees, arrears and the current instalment; the rest held as advance), charges late fees day by day, flags defaulters, and
+can reverse a bounced payment. Auctions, payouts and dividends arrive in Phases 5 to 7.
 
 ## Run it
 
@@ -34,6 +36,28 @@ Render: the `lending-chit-service` block in `render.yaml`.
 | `CHIT_PLATFORM_READ_TIMEOUT_MS` | 90000 | Long, because a free-plan lending-service can take over a minute to wake |
 | `CHIT_WITHDRAWAL_REFUNDS_FEES` | false | Whether a ticket withdrawing before the group starts gets its fees back (its deposit always comes back) |
 | `CHIT_DB_POOL_SIZE` | 20 | Connection pool size; use 3 on the shared free database |
+
+## What exists in Phase 4
+
+Same conventions as below. The business date is always lending-service's, never the caller's.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /groups/{code}/tickets/{no}/payments` | Record money received. Body `{amount, channel, externalRef}`, channel `UPI`, `BANK_TRANSFER`, `CASH_AT_FOREMAN` or `AUTO_DEBIT`. Applied in the group's order (default late fees, oldest arrears, current); the rest is advance. 422 `PAYMENT_EXCEEDS_OBLIGATION` if it is more than the ticket can owe |
+| `POST /groups/{code}/payments/{ref}/reverse` (actor) | Body `{reason}`. Reopens the demands it paid, mirrors the journal. 422 `PAYMENT_ADVANCE_CONSUMED` if its advance was already used; 409 `PAYMENT_ALREADY_REVERSED` |
+| `GET /groups/{code}/payments?ticketNo=` and `/payments/{ref}` | Payments, newest first; one payment is the receipt with every allocation line |
+| `GET /groups/{code}/demands?ticketNo=&status=` | Demands with paid, outstanding, late fee and days overdue |
+| `GET /groups/{code}/tickets/{no}/statement` | A ticket's account: owed, advance held, all demands and payments, open default case |
+| `GET /groups/{code}/tickets/{no}/late-fee-preview?days=` | What would accrue over the next days if nothing is paid |
+| `GET /groups/{code}/statement` | Cycle by cycle: due, collected, outstanding, collection %, and tickets with money overdue |
+| `GET /groups/{code}/default-cases?status=` | Default cases with the reason and figures |
+| `GET /dues?view=UPCOMING\|OVERDUE\|OPEN&groupCode=&withinDays=` | Dues across groups. UPCOMING is projected from cycles not yet raised |
+| `POST /batch/demand-run`, `/batch/late-fee-run`, `/batch/default-run` | The three daily jobs. Optional `?businessDate=` must equal lending-service's current date or the call is refused (409 `BUSINESS_DATE_MISMATCH`). Safe to repeat; returns what changed and any group that failed |
+
+Rules the code follows (also in `BUILD_STATUS.md`): a cycle opens on the first run on or after its due date, and a missed
+day is caught up by the next run; late fees are charged one day at a time and cannot be charged twice for a day; a ticket
+is flagged DEFAULTED when it has the configured number of unpaid instalments past grace (or one past the days limit) and
+is cured automatically when a payment clears everything overdue.
 
 ## What exists in Phase 3
 
@@ -88,14 +112,15 @@ a line must sit on an account of its journal's group, and a posting key can be u
 reversing journal (`LedgerService.reverse`), never by an edit. `TwentyCycleSimulationTest` runs a whole 20-ticket chit
 through the templates and checks the pool nets to zero after the closure sweep.
 
-`scripts/verify_schema.sql` runs 40 checks of the database rules (refused and allowed cases) against a scratch database.
+`scripts/verify_schema.sql` runs 50 checks of the database rules (refused and allowed cases) against a scratch database.
 
 ## Layout
 
 ```
 common/        Money, ChitException, Actor, Audit, Json, Hashing
 domain/        enums, rules, state machines                    (Phase 1)
-calc/          settlement, allocation, late fees, draw          (Phase 1)
+calc/          settlement, allocation, late fees, draw          (Phase 1; demand figures, default detector, advance, limit: Phase 4)
+collection/    demands, payments, late fees, defaults, batch    (Phase 4)
 calendar/      cycle dates on working days                      (Phase 3)
 platform/      lending-service client: business date, calendar  (Phase 3)
 group/         create, rules versions, open enrolment           (Phase 3)

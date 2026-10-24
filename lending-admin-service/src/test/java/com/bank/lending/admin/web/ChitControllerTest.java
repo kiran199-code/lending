@@ -132,6 +132,77 @@ class ChitControllerTest {
     }
 
     @Test
+    void duesAndStatementsAreForwardedWithCheckedReferences() {
+        controller.dues("UPCOMING", "G1", 14, 50, null);
+        assertThat(chit.last().path()).isEqualTo("/dues");
+        assertThat(chit.last().query()).containsEntry("view", "UPCOMING").containsEntry("groupCode", "G1")
+                .containsEntry("withinDays", 14).containsEntry("limit", 50);
+        controller.dues(null, " ", null, null, null);
+        assertThat(chit.last().query().get("groupCode")).isNull();
+
+        controller.ticketStatement("G1", 3);
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/tickets/3/statement");
+        controller.lateFeePreview("G1", 3, 10);
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/tickets/3/late-fee-preview");
+        assertThat(chit.last().query()).containsEntry("days", 10);
+        controller.groupStatement("G1");
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/statement");
+        controller.demands("G1", 3, "OPEN");
+        assertThat(chit.last().query()).containsEntry("ticketNo", 3).containsEntry("status", "OPEN");
+        controller.payments("G1", null);
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/payments");
+        controller.payment("G1", "RCPT-12");
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/payments/RCPT-12");
+        controller.defaultCases("G1", "OPEN");
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/default-cases");
+
+        int before = chit.calls.size();
+        assertThatThrownBy(() -> controller.dues("upcoming", null, null, null, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> controller.dues("OPEN", "../x", null, null, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> controller.payment("G1", "a/b")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(chit.calls).hasSize(before);
+    }
+
+    @Test
+    void recordingAPaymentNeedsAPositiveAmountAndAChannel() {
+        assertThatThrownBy(() -> controller.recordPayment("G1", 2, json("{\"channel\":\"UPI\"}"), "k", null, admin))
+                .hasMessageContaining("amount");
+        assertThatThrownBy(() -> controller.recordPayment("G1", 2, json("{\"amount\":\"500\",\"channel\":\"UPI\"}"), "k", null, admin))
+                .hasMessageContaining("amount");
+        assertThatThrownBy(() -> controller.recordPayment("G1", 2, json("{\"amount\":0,\"channel\":\"UPI\"}"), "k", null, admin))
+                .hasMessageContaining("more than zero");
+        assertThatThrownBy(() -> controller.recordPayment("G1", 2, json("{\"amount\":500}"), "k", null, admin))
+                .hasMessageContaining("channel");
+        assertThatThrownBy(() -> controller.recordPayment("G1", 2, json("{\"amount\":500,\"channel\":\"upi\"}"), "k", null, admin))
+                .hasMessageContaining("channel");
+        assertThat(chit.calls).isEmpty();
+
+        controller.recordPayment("G1", 2, json("{\"amount\":500.50,\"channel\":\"UPI\",\"externalRef\":\"U1\"}"), "k9", "ravi", admin);
+        assertThat(chit.last().method()).isEqualTo(HttpMethod.POST);
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/tickets/2/payments");
+        assertThat(chit.last().key()).isEqualTo("k9");
+        assertThat(chit.last().actor()).isEqualTo("ravi");
+    }
+
+    @Test
+    void reversingNeedsAReasonAndTheDailyJobsCarryNoBodyOrKey() {
+        assertThatThrownBy(() -> controller.reversePayment("G1", "RCPT-1", json("{}"), "k", null, admin)).hasMessageContaining("reason");
+        controller.reversePayment("G1", "RCPT-1", json("{\"reason\":\"cheque bounced\"}"), "k", "meena", admin);
+        assertThat(chit.last().path()).isEqualTo("/groups/G1/payments/RCPT-1/reverse");
+        assertThat(chit.last().actor()).isEqualTo("meena");
+
+        controller.demandRun(null, admin);
+        assertThat(chit.last().path()).isEqualTo("/batch/demand-run");
+        assertThat(chit.last().actor()).isEqualTo("admin");
+        assertThat(chit.last().key()).isNull();
+        assertThat(chit.last().body()).isNull();
+        controller.lateFeeRun("ravi", admin);
+        assertThat(chit.last().path()).isEqualTo("/batch/late-fee-run");
+        controller.defaultRun(null, admin);
+        assertThat(chit.last().path()).isEqualTo("/batch/default-run");
+    }
+
+    @Test
     void previewForwardsTheRulesWithoutAnActorOrKey() {
         controller.preview(json("{\"rules\":{\"chitValue\":20000}}"));
         assertThat(chit.last().path()).isEqualTo("/groups/preview");

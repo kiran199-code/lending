@@ -173,6 +173,120 @@ public class ChitController {
         return client.post("/groups/" + code(code, "code") + "/tickets/" + no + "/security/verify", null, actor(acting, user), key(key));
     }
 
+    // ---------------------------------------------------------------- collection (Phase 4)
+
+    @Operation(summary = "Dues across groups: UPCOMING (not yet raised), OVERDUE, or every OPEN demand")
+    @GetMapping("/dues")
+    public JsonNode dues(@RequestParam(required = false) String view, @RequestParam(required = false) String groupCode,
+                         @RequestParam(required = false) Integer withinDays, @RequestParam(required = false) Integer limit,
+                         @RequestParam(required = false) Integer offset) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("view", word(view, "view"));
+        q.put("groupCode", groupCode == null || groupCode.isBlank() ? null : code(groupCode, "groupCode"));
+        q.put("withinDays", withinDays);
+        q.put("limit", limit);
+        q.put("offset", offset);
+        return client.get("/dues", q);
+    }
+
+    @Operation(summary = "A ticket's account: owed, advance held, demands, payments and any default case")
+    @GetMapping("/groups/{code}/tickets/{no}/statement")
+    public JsonNode ticketStatement(@PathVariable String code, @PathVariable int no) {
+        return client.get("/groups/" + code(code, "code") + "/tickets/" + no + "/statement", Map.of());
+    }
+
+    @Operation(summary = "What would accrue as late fee over the next days if nothing is paid")
+    @GetMapping("/groups/{code}/tickets/{no}/late-fee-preview")
+    public JsonNode lateFeePreview(@PathVariable String code, @PathVariable int no, @RequestParam(required = false) Integer days) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("days", days);
+        return client.get("/groups/" + code(code, "code") + "/tickets/" + no + "/late-fee-preview", q);
+    }
+
+    @Operation(summary = "Cycle by cycle collection for a group")
+    @GetMapping("/groups/{code}/statement")
+    public JsonNode groupStatement(@PathVariable String code) {
+        return client.get("/groups/" + code(code, "code") + "/statement", Map.of());
+    }
+
+    @Operation(summary = "Demands of a group, optionally for one ticket or status")
+    @GetMapping("/groups/{code}/demands")
+    public JsonNode demands(@PathVariable String code, @RequestParam(required = false) Integer ticketNo,
+                            @RequestParam(required = false) String status) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("ticketNo", ticketNo);
+        q.put("status", word(status, "status"));
+        return client.get("/groups/" + code(code, "code") + "/demands", q);
+    }
+
+    @Operation(summary = "Payments of a group, newest first, optionally for one ticket")
+    @GetMapping("/groups/{code}/payments")
+    public JsonNode payments(@PathVariable String code, @RequestParam(required = false) Integer ticketNo) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("ticketNo", ticketNo);
+        return client.get("/groups/" + code(code, "code") + "/payments", q);
+    }
+
+    @Operation(summary = "One payment with every allocation line (the receipt)")
+    @GetMapping("/groups/{code}/payments/{ref}")
+    public JsonNode payment(@PathVariable String code, @PathVariable String ref) {
+        return client.get("/groups/" + code(code, "code") + "/payments/" + code(ref, "ref"), Map.of());
+    }
+
+    @Operation(summary = "Record money received from a ticket holder")
+    @PostMapping("/groups/{code}/tickets/{no}/payments")
+    public JsonNode recordPayment(@PathVariable String code, @PathVariable int no, @RequestBody JsonNode body,
+                                  @RequestHeader(value = "Idempotency-Key", required = false) String key,
+                                  @RequestHeader(value = "X-Acting-As", required = false) String acting, Principal user) {
+        object(body);
+        number(body, "amount");
+        if (body.get("amount").decimalValue().signum() <= 0) {
+            throw new IllegalArgumentException("amount must be more than zero");
+        }
+        text(body, "channel");
+        if (word(body.get("channel").asText(), "channel") == null) {
+            throw new IllegalArgumentException("channel is required");
+        }
+        return client.post("/groups/" + code(code, "code") + "/tickets/" + no + "/payments", body, actor(acting, user), key(key));
+    }
+
+    @Operation(summary = "Reverse a payment (a bounced cheque or a wrong entry)")
+    @PostMapping("/groups/{code}/payments/{ref}/reverse")
+    public JsonNode reversePayment(@PathVariable String code, @PathVariable String ref, @RequestBody JsonNode body,
+                                   @RequestHeader(value = "Idempotency-Key", required = false) String key,
+                                   @RequestHeader(value = "X-Acting-As", required = false) String acting, Principal user) {
+        object(body);
+        text(body, "reason");
+        return client.post("/groups/" + code(code, "code") + "/payments/" + code(ref, "ref") + "/reverse", body, actor(acting, user),
+                key(key));
+    }
+
+    @Operation(summary = "Default cases of a group, optionally by status")
+    @GetMapping("/groups/{code}/default-cases")
+    public JsonNode defaultCases(@PathVariable String code, @RequestParam(required = false) String status) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("status", word(status, "status"));
+        return client.get("/groups/" + code(code, "code") + "/default-cases", q);
+    }
+
+    @Operation(summary = "Run today's demand job now (raises instalments that have fallen due); safe to repeat")
+    @PostMapping("/batch/demand-run")
+    public JsonNode demandRun(@RequestHeader(value = "X-Acting-As", required = false) String acting, Principal user) {
+        return client.post("/batch/demand-run", null, actor(acting, user), null);
+    }
+
+    @Operation(summary = "Run today's late-fee job now; safe to repeat, a day is never charged twice")
+    @PostMapping("/batch/late-fee-run")
+    public JsonNode lateFeeRun(@RequestHeader(value = "X-Acting-As", required = false) String acting, Principal user) {
+        return client.post("/batch/late-fee-run", null, actor(acting, user), null);
+    }
+
+    @Operation(summary = "Run today's default check now; safe to repeat")
+    @PostMapping("/batch/default-run")
+    public JsonNode defaultRun(@RequestHeader(value = "X-Acting-As", required = false) String acting, Principal user) {
+        return client.post("/batch/default-run", null, actor(acting, user), null);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static String key(String sent) {

@@ -1,7 +1,7 @@
 # lending-chit-service: build status
 
 Chit fund microservice for the lending platform. Built in phases from `docs/Chit_Fund_Specification_Prompt_v2.md`.
-Last updated 23 Oct 2026. **Phases 1, 2 and 3 of 10 are built. Phases 4 to 9 are not started.** Phase 3 is awaiting your review; nothing from it is committed.
+Last updated 24 Oct 2026. **Phases 1 to 4 of 10 are built. Phases 5 to 9 are not started.** Phases 1 to 3 are committed and deployed; Phase 4 is awaiting your review and nothing from it is committed.
 
 ## Phase 0: discovery note
 
@@ -56,6 +56,7 @@ com.bank.lending.chit
   platform/      LendingPlatformClient (business date, working-day calendar)         (Phase 3, built)
   calendar/      CycleCalendarGenerator                                               (Phase 3, built)
   enrolment/     quote, enrol, withdraw, verify, activate, cancel                     (Phase 3, built)
+  collection/    demands, payments, late fees, defaults, statements, batch endpoints  (Phase 4, built)
 ```
 
 ### Journal templates still to review (the core ones are in section 12 of the prompt)
@@ -194,6 +195,50 @@ Enrolment, activation, the calendar, security and fees. 25 new main classes and 
 - **The real lending-service was not called.** The client was tested against a stand-in built from the controller's source (`GET /api/v1/business-date` returns `businessDate`; `/working-day?date=` returns `workingDay`). On Render the first call may take a minute if lending-service is asleep.
 - **Not done:** `mvn` build, real JUnit run, Spring startup, Flyway through Spring, Docker build, Render and Compose changes on real infrastructure, concurrent enrolment of the last seat, and your review.
 
-## Next: Phase 4
+## Phase 4: what is built
 
-Demands and payments: create each cycle's demands, collect and allocate payments (late fees, arrears, current), late-fee accrual, default detection and the batch jobs, all against the business date. Questions 3 and 4 are still only needed for Phase 6.
+Demands, payments, allocation, late fees, default detection and the three daily jobs. One new migration (V4, no new tables), a new `collection` package of 14 classes, four pure classes in `calc`, 21 tests added (197 in all).
+
+| Area | What | Notes |
+|---|---|---|
+| Schema | `V4__chit_collection.sql` | `chit_cycle.collection_opened_on`; `chit_demand.raised_on` and a CHECK that `PAID` means subscription (net of dividend) and late fees are both settled; `chit_payment.external_ref`, `reversed_by`; `chit_payment_allocation.from_advance`, `advance_used` with checks; reason and figures on `chit_default_case`. `ResetTables` is unchanged because no table was added. |
+| Demand run | `collection/DemandWriter`, `CollectionBatchService` | Per group, one transaction under the group lock. Every SCHEDULED cycle whose due date has been reached is opened, in order, and gets one demand per ticket in ACTIVE, PRIZED, DEFAULTED or TRANSFERRED status. A missed day is caught up by the next run; a rerun finds nothing to do (unique `(cycle, ticket)` plus `ON CONFLICT DO NOTHING`). Journal `DEMAND:<demandId>`, dated with the run's business date. |
+| Advance | `calc/AdvancePlanner` | A payment larger than what is owed leaves an ADVANCE row. A new demand uses it oldest first (`advance_used`, plus a `from_advance` CURRENT row against the demand). No journal is needed for that move: the payment already credited the subscriber's receivable account. |
+| Dividends | `DemandWriter` | A DECLARED dividend with mode `ADJUST_NEXT_INSTALMENT` from an earlier cycle lowers the next demand (whole dividends only) and posts `DIVIDEND_APPLIED`. Nothing declares dividends until Phase 5, so this path was tested with a hand-inserted row. |
+| Payments | `PaymentService` | Records, allocates via `AllocationEngine` in `allocationOrder`, saves demand figures, posts `PAYMENT:<id>`, cures a defaulter whose overdue is cleared. Receipt reference `RCPT-<id>`. Idempotent on the key. |
+| Reversal | `PaymentService.reverse` | Reduces the demand figures by what the payment paid, marks its allocation rows reversed (not deleted), mirrors the journal (`PAYMENT:<id>:R`). Refused if the payment's advance has already been used by a later demand. |
+| Late fees | `LateFeeWriter`, `calc/LateFeeCalculator` | Walks each overdue open demand day by day from its last charged day to the business date. One `chit_late_fee` row per demand per day; posting key `LATEFEE:<demandId>:<date>`. Cap and flat/per-day rules are the Phase 1 calculator. |
+| Defaults | `DefaultWriter`, `calc/DefaultDetector` | An instalment is missed when something is owed and it is more than `graceDays` past due. Breach = `missedInstalments` reached, or the oldest is `daysOverdue` old. Ticket becomes DEFAULTED and a default case records the reason, counts and shortfall. Nothing is recovered or written off (Phase 6). |
+| Reads | `CollectionReadService`, `CollectionController` | Payments and receipts, demands, ticket statement, group statement (cycle by cycle), default cases, late-fee preview, and `GET /dues` (UPCOMING / OVERDUE / OPEN across groups). |
+| Batch endpoints | `CollectionBatchController` | `POST /batch/demand-run`, `/late-fee-run`, `/default-run`. Optional `businessDate` must equal lending-service's date (`BusinessDateGuard`), else 409 `BUSINESS_DATE_MISMATCH`. One failing group is reported in the summary and the others still run. |
+| Events | `DemandRaised`, `CycleCollectionOpened`, `DividendApplied`, `PaymentReceived`, `PaymentReversed`, `LateFeeAccrued`, `TicketDefaulted`, `TicketCured` | In `chit_event`, readable through the feed. |
+| Errors | 409 `GROUP_NOT_ACTIVE`, `TICKET_NOT_PAYABLE`, `PAYMENT_ALREADY_REVERSED`, `BUSINESS_DATE_MISMATCH`; 422 `PAYMENT_EXCEEDS_OBLIGATION`, `PAYMENT_ADVANCE_CONSUMED` | |
+| Permissions | 7 new codes in `IAM_PERMISSIONS.txt` | `chit.demand.read`, `chit.statement.read`, `chit.payment.read|write|reverse`, `chit.default.read`, `chit.batch.run`. |
+
+### New assumptions for you to confirm or change
+
+1. **Allocation buckets.** LATE_FEES is the fee outstanding on any demand; ARREARS is subscription on cycles before the latest opened one; CURRENT is subscription on the latest opened one. Within a bucket the oldest cycle is paid first. Order is the group's `allocationOrder`.
+2. **A payment can be at most what the ticket can still owe**: outstanding on raised demands, plus the instalments not yet raised, less advance already held. Anything above is refused (`PAYMENT_EXCEEDS_OBLIGATION`) rather than parked as an unexplained credit. Unapplied dividends are ignored, so the limit is slightly generous.
+3. **Money received before the first demand is advance** and is used automatically when the demand is raised.
+4. **Ledger dates.** Demand, late-fee and reversal journals carry the business date of the run that posted them, not the due date, so a day that is already closed is never touched. The demand keeps the real due date; late fees count from it.
+5. **Late-fee catch-up uses today's unpaid amount** for every day it makes good. If the run was skipped for several days and a part payment came in between, the earlier days are charged on the reduced amount, not replayed day by day. This is the one approximation in the job. In normal daily running it never applies.
+6. **Calendar days, not working days,** for grace and late fees (as already assumed in Phase 1). TODO-VERIFY against the real rule.
+7. **Default threshold counts subscription only.** Late fees do not make an instalment "missed". The `shortfall` on a case does include fees owed on overdue demands.
+8. **Cure rule.** A DEFAULTED ticket is cured (back to ACTIVE, or PRIZED if it holds a win) when no raised demand past its due date has anything left to pay, subscription or fee. Cure is automatic on payment. If the next check finds it breached again (for example after a bounced payment), a new case is opened beside the cured one.
+9. **Which tickets owe an instalment:** ACTIVE, PRIZED, DEFAULTED, TRANSFERRED. A prized ticket pays the full subscription (the only rule built).
+10. **Payments and the foreman.** Payments are accepted while the group is ACTIVE or CLOSING. Cash received by the foreman is recorded like any other channel; the ledger treats all channels as pool cash for now. TODO-VERIFY if cash at the foreman should be tracked separately.
+11. **Reversal of a payment whose advance has been used is refused.** Taking it back would need the later demands to be reopened too; that is left to a person (and probably Phase 6).
+12. **The three batch jobs are seeded switched off** in lending-batch-service, so an unverified chit job can never hold up the loan end-of-day. Switch them on from the Configuration screen when you are ready.
+13. **Reads call lending-service for the business date** (days overdue are measured against it). If lending-service is asleep a read can answer 503 `BUSINESS_DATE_UNAVAILABLE` like the writes do.
+
+## Phase 4: how it was checked, and what was not
+
+- **Pure code: checked.** 197 tests pass under the stand-in runner (176 before): demand figures, default detection (grace edge, days limit, either condition), advance use, the payment limit, the business-date guard, and the new error statuses.
+- **Database: checked.** V1 to V4 apply cleanly on PostgreSQL 16; `scripts/verify_schema.sql` now runs 50 checks (10 new for V4) and every refused case is refused.
+- **Services against a real database: checked, with limits.** A sandbox harness (204 checks, all passing) ran the services against PostgreSQL 16: nothing opens before the due date; advance before the first demand; the demand run and its rerun; idempotent payments (replay, reused key); allocation lines for partial, over- and under-payments; a configurable allocation order and a flat fee; late fees with grace, catch-up, cap and rerun; default detection at the grace boundary and its rerun; cure back to ACTIVE and to PRIZED; reversal and re-flagging; refusal of a reversal whose advance was used; dividend adjustment; the dues, statement and preview reads; one broken group not stopping the others; and, after every step, ledger identities (trial balance in balance, receivable = owed less advance, pool cash = payments received, pool = demanded, late-fee income = fees accrued). The harness is **not** in the repo and is **not** Spring: it replaces `JdbcTemplate` with a bridge to PostgreSQL and wraps calls in transactions by hand.
+- **Controllers, wiring, JSON binding: compiled only.** The new REST controllers and the 201/200 statuses have not run. The request bodies are simple records, but nothing has proved the binding.
+- **Not done:** `mvn` build, real JUnit run, Spring startup, Flyway through Spring, Docker build, concurrent payments for one ticket, `ChitApplicationIT` (not extended for Phase 4; it needs Docker), and the live Render deployment.
+
+## Next: Phase 5
+
+Auctions, winner selection, prize payout, dividends. This is where cycles move from COLLECTION_OPEN to AUCTION_OPEN, and where dividends start being declared. Questions 3 and 4 are still only needed for Phase 6.

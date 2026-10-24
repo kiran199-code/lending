@@ -1,4 +1,4 @@
--- Behavioural check of the chit schema (V1 + V2). Run against a scratch database after Flyway has migrated it:
+-- Behavioural check of the chit schema (V1 to V4). Run against a scratch database after Flyway has migrated it:
 --   psql -v ON_ERROR_STOP=1 -d <db> -f scripts/verify_schema.sql
 -- Every "must fail" statement is run inside a sub-block; if it succeeds the script stops with a message.
 -- Everything is rolled back at the end, so it leaves no data behind. Do not run against a database holding real data.
@@ -63,8 +63,8 @@ SELECT pg_temp.must_fail('the same ticket wins two cycles',
   $$UPDATE chit_cycle SET winner_ticket_id=(SELECT t.id FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1) WHERE cycle_no=2$$);
 
 -- demands and payouts -----------------------------------------------------------------------------------------------
-INSERT INTO chit_demand(demand_ref,cycle_id,ticket_id,due_date,subscription_amount)
-  SELECT 'D-1',c.id,t.id,c.due_date,10000 FROM chit_cycle c, chit_ticket t, chit_group g
+INSERT INTO chit_demand(demand_ref,cycle_id,ticket_id,due_date,raised_on,subscription_amount)
+  SELECT 'D-1',c.id,t.id,c.due_date,c.due_date,10000 FROM chit_cycle c, chit_ticket t, chit_group g
    WHERE c.cycle_no=1 AND g.id=c.group_id AND g.group_code='G1' AND t.group_id=g.id AND t.ticket_no=1;
 SELECT pg_temp.must_fail('overpay a demand',
   $$UPDATE chit_demand SET subscription_paid=10000.01 WHERE demand_ref='D-1'$$);
@@ -159,6 +159,35 @@ SELECT pg_temp.must_pass('a returned deposit frees the slot for a new one',
   $$UPDATE chit_security SET status = 'RETURNED', returned_on = '2026-11-04'$$);
 SELECT pg_temp.must_pass('a new deposit after the return',
   $$INSERT INTO chit_security(ticket_id,kind,amount,created_by) SELECT t.id,'DEPOSIT',2000,'t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1$$);
+
+-- V4: collection ---------------------------------------------------------------------------------------------------
+SELECT pg_temp.must_fail('PAID while a late fee is still unpaid',
+  $$UPDATE chit_demand SET late_fee_accrued = 50, status = 'PAID' WHERE demand_ref = 'D-1'$$);
+SELECT pg_temp.must_fail('PAID with the subscription not fully paid',
+  $$UPDATE chit_demand SET subscription_paid = 9000, status = 'PAID' WHERE demand_ref = 'D-1'$$);
+SELECT pg_temp.must_pass('PAID when subscription (net of dividend) and fees are settled',
+  $$UPDATE chit_demand SET status = 'PAID' WHERE demand_ref = 'D-1'$$);
+SELECT pg_temp.must_fail('a demand without the date it was raised',
+  $$INSERT INTO chit_demand(demand_ref,cycle_id,ticket_id,due_date,raised_on,subscription_amount) SELECT 'D-NULL',cycle_id,ticket_id,due_date,NULL,1 FROM chit_demand WHERE demand_ref='D-1'$$);
+
+INSERT INTO chit_payment(payment_ref,group_id,ticket_id,amount,channel,business_date,idempotency_key,created_by)
+  SELECT 'RCPT-V4',g.id,t.id,300,'UPI','2026-11-05','v4-key','t' FROM chit_ticket t JOIN chit_group g ON g.id=t.group_id WHERE g.group_code='G1' AND t.ticket_no=1;
+INSERT INTO chit_payment_allocation(payment_id,demand_id,bucket,amount)
+  SELECT p.id,NULL,'ADVANCE',100 FROM chit_payment p WHERE p.payment_ref='RCPT-V4';
+INSERT INTO chit_payment_allocation(payment_id,demand_id,bucket,amount)
+  SELECT p.id,d.id,'CURRENT',200 FROM chit_payment p, chit_demand d WHERE p.payment_ref='RCPT-V4' AND d.demand_ref='D-1';
+SELECT pg_temp.must_fail('more advance used than the advance row holds',
+  $$UPDATE chit_payment_allocation SET advance_used = 100.01 WHERE bucket = 'ADVANCE'$$);
+SELECT pg_temp.must_pass('advance partly used',
+  $$UPDATE chit_payment_allocation SET advance_used = 40 WHERE bucket = 'ADVANCE'$$);
+SELECT pg_temp.must_fail('advance_used on a row that is not advance',
+  $$UPDATE chit_payment_allocation SET advance_used = 1 WHERE bucket = 'CURRENT'$$);
+SELECT pg_temp.must_fail('from_advance on the advance row itself',
+  $$UPDATE chit_payment_allocation SET from_advance = TRUE WHERE bucket = 'ADVANCE'$$);
+SELECT pg_temp.must_pass('from_advance on a CURRENT row against a demand',
+  $$UPDATE chit_payment_allocation SET from_advance = TRUE WHERE bucket = 'CURRENT'$$);
+SELECT pg_temp.must_fail('from_advance on a LATE_FEES row',
+  $$INSERT INTO chit_payment_allocation(payment_id,demand_id,bucket,amount,from_advance) SELECT p.id,d.id,'LATE_FEES',1,TRUE FROM chit_payment p, chit_demand d WHERE p.payment_ref='RCPT-V4' AND d.demand_ref='D-1'$$);
 
 ROLLBACK;
 \echo 'schema verification finished: every rule above was exercised'

@@ -26,7 +26,7 @@ const SECTIONS: { title: string | null; items: [string, string][] }[] = [
       ['/limits/collateral', 'Collateral'], ['/limits/collateral/new', 'New collateral'], ['/limits/monitoring', 'Monitoring'],
     ],
   },
-  { title: 'Chit funds', items: [['/chit/groups', 'Groups'], ['/chit/groups/new', 'New group']] },
+  { title: 'Chit funds', items: [['/chit/groups', 'Groups'], ['/chit/groups/new', 'New group'], ['/chit/dues', 'Dues & payments']] },
   {
     title: 'Inquiry',
     items: [

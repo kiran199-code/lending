@@ -8,3 +8,10 @@ chit.group.cancel|Cancel a group before it starts and refund fees and deposits|H
 chit.enrolment.read|Read the tickets of a group with their fees and security|LOW
 chit.enrolment.write|Enrol a ticket (records fees and deposit and posts them to the ledger) and withdraw a ticket before activation|MEDIUM
 chit.enrolment.verify|Verify the security recorded for a ticket (checker; must differ from whoever recorded it)|HIGH
+chit.demand.read|Read the demands of a group and the dues across groups (upcoming, overdue, open)|LOW
+chit.statement.read|Read a ticket's account, a group's cycle-by-cycle collection and the late-fee preview|LOW
+chit.payment.read|Read payments and receipts|LOW
+chit.payment.write|Record money received for a ticket; it is applied to the ledger and to the ticket's demands|HIGH
+chit.payment.reverse|Reverse a payment (for example a bounced cheque); reopens the demands it paid and mirrors the ledger entry|HIGH
+chit.default.read|Read default cases|LOW
+chit.batch.run|Run the daily demand, late-fee and default jobs (also by an operator)|HIGH

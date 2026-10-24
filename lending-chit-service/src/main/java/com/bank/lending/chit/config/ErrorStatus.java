@@ -35,6 +35,10 @@ public final class ErrorStatus {
             Map.entry("WITHDRAWAL_NOT_ALLOWED", 409),
             Map.entry("RULES_LOCKED_BY_ENROLMENT", 409),
             Map.entry("ACTIVATION_BLOCKED", 409),
+            Map.entry("GROUP_NOT_ACTIVE", 409),
+            Map.entry("TICKET_NOT_PAYABLE", 409),
+            Map.entry("PAYMENT_ALREADY_REVERSED", 409),
+            Map.entry("BUSINESS_DATE_MISMATCH", 409),
             // a dependency (the lending-service business date) could not be reached: nothing was changed, try again
             Map.entry("BUSINESS_DATE_UNAVAILABLE", 503),
             // internal consistency: these should never come from user input

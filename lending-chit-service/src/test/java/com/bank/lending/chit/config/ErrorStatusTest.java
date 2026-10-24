@@ -21,7 +21,8 @@ class ErrorStatusTest {
         assertEquals(409, ErrorStatus.of("RULES_FROZEN"));
         assertEquals(403, ErrorStatus.of("MAKER_CHECKER_VIOLATION"));
         for (String code : new String[]{"GROUP_CODE_EXISTS", "GROUP_FULL", "ENROLMENT_NOT_OPEN", "WITHDRAWAL_NOT_ALLOWED",
-                "RULES_LOCKED_BY_ENROLMENT", "ACTIVATION_BLOCKED"}) {
+                "RULES_LOCKED_BY_ENROLMENT", "ACTIVATION_BLOCKED", "GROUP_NOT_ACTIVE", "TICKET_NOT_PAYABLE",
+                "PAYMENT_ALREADY_REVERSED", "BUSINESS_DATE_MISMATCH"}) {
             assertEquals(409, ErrorStatus.of(code), code);
         }
     }
@@ -29,6 +30,8 @@ class ErrorStatusTest {
     @Test
     void businessRuleRefusalsAreUnprocessable() {
         assertEquals(422, ErrorStatus.of("CONFIG_INVALID"));
+        assertEquals(422, ErrorStatus.of("PAYMENT_EXCEEDS_OBLIGATION"));
+        assertEquals(422, ErrorStatus.of("PAYMENT_ADVANCE_CONSUMED"));
         assertEquals(422, ErrorStatus.of("DISCOUNT_BELOW_COMMISSION"));
         assertEquals(422, ErrorStatus.of("ENROLMENT_AMOUNT_MISMATCH"));
         assertEquals(422, ErrorStatus.of("GUARANTOR_REQUIRED"));

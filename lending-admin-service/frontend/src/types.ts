@@ -372,3 +372,50 @@ export interface ChitPreview {
   valid: boolean; violations: { code: string; field: string | null; message: string }[]; effectiveRules: Record<string, unknown> | null;
   schedule: { cycleNo: number; dueDate: string; auctionDate: string }[] | null; scheduleError: string | null;
 }
+
+// ---------------------------------------------------------------- chit collection: dues, payments, statements, daily runs
+
+export interface ChitAllocation { cycleNo: number | null; demandRef: string | null; bucket: string; amount: number; fromAdvance: boolean }
+export interface ChitPayment {
+  paymentRef: string; groupCode: string; ticketNo: number; customerId: number; amount: number; channel: string; status: string;
+  businessDate: string; externalRef: string | null; allocated: number; advance: number; allocations: ChitAllocation[] | null;
+  reversalReason: string | null; reversedAt: string | null; reversedBy: string | null; createdAt: string; createdBy: string; replayed?: boolean | null;
+}
+export interface ChitDemand {
+  demandRef: string; cycleNo: number; ticketNo: number; dueDate: string; raisedOn: string; subscriptionAmount: number; dividendAdjustment: number;
+  subscriptionPaid: number; subscriptionOutstanding: number; lateFeeAccrued: number; lateFeePaid: number; lateFeeOutstanding: number;
+  totalOutstanding: number; daysOverdue: number; status: string;
+}
+export interface ChitDefaultCase {
+  ticketNo: number; customerId: number; status: string; openedOn: string; shortfall: number; reason: string | null;
+  missedInstalments: number | null; daysOverdue: number | null; closedOn: string | null; foremanCovered: number | null; openedBy: string | null;
+}
+export interface ChitStatement {
+  groupCode: string; ticketNo: number; customerId: number; ticketStatus: string; asOf: string; subscriptionOutstanding: number;
+  lateFeeOutstanding: number; totalOutstanding: number; advanceHeld: number; totalPaid: number; nextDueDate: string | null;
+  openDefaultCase: ChitDefaultCase | null; demands: ChitDemand[]; payments: ChitPayment[];
+}
+export interface ChitCycleLine {
+  cycleNo: number; status: string; dueDate: string; demands: number; settledDemands: number; due: number; collected: number;
+  outstanding: number; collectedPct: number; lateFeeAccrued: number; lateFeePaid: number;
+}
+export interface ChitDefaulterLine {
+  ticketNo: number; customerId: number; subscriptionOutstanding: number; lateFeeOutstanding: number; overdueInstalments: number; oldestDaysOverdue: number;
+}
+export interface ChitGroupStatement {
+  groupCode: string; groupName: string; asOf: string; cycles: ChitCycleLine[]; totalDue: number; totalCollected: number;
+  totalOutstanding: number; lateFeeOutstanding: number; overdueTickets: ChitDefaulterLine[];
+}
+export interface ChitDue {
+  view: string; groupCode: string; groupName: string; ticketNo: number; customerId: number; ticketStatus: string; cycleNo: number;
+  demandRef: string | null; dueDate: string; daysOverdue: number; subscriptionOutstanding: number; lateFeeOutstanding: number; totalOutstanding: number;
+}
+export interface ChitDuesPage { view: string; asOf: string; rows: ChitDue[]; limit: number; offset: number }
+export interface ChitLateFeePreview {
+  groupCode: string; ticketNo: number; from: string; days: number; rule: string;
+  demands: { demandRef: string; cycleNo: number; dueDate: string; overdue: number; accruedSoFar: number; days: { date: string; accrual: number; cumulative: number }[] }[];
+}
+export interface ChitRunSummary {
+  job: string; businessDate: string; groupsProcessed: number; groupsFailed: number; figures: Record<string, number>;
+  failures: { groupCode: string; code: string; message: string }[];
+}

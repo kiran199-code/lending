@@ -11,7 +11,7 @@ import type { ChitGroup, ChitPreview } from '../types';
 interface Form {
   groupCode: string; name: string; foremanRef: string; chitValue: string; ticketCount: string; instalmentDueDay: string; auctionDay: string;
   startDate: string; commissionPct: string; maxCommissionPct: string; minDiscountPct: string; maxDiscountPct: string;
-  enrolmentFee: string; registrationFee: string; securityDepositPct: string; extra: string;
+  subscription: string; enrolmentFee: string; registrationFee: string; securityDepositPct: string; extra: string;
 }
 
 /** The smoke-test group: two tickets, no fees, first instalment due on the 5th of next month. */
@@ -20,7 +20,7 @@ function initial(): Form {
   return {
     groupCode: '', name: '', foremanRef: 'FOREMAN-1', chitValue: '20000', ticketCount: '2', instalmentDueDay: '5', auctionDay: '10',
     startDate: first, commissionPct: '5', maxCommissionPct: '5', minDiscountPct: '5', maxDiscountPct: '40',
-    enrolmentFee: '', registrationFee: '', securityDepositPct: '', extra: '',
+    subscription: '', enrolmentFee: '', registrationFee: '', securityDepositPct: '', extra: '',
   };
 }
 
@@ -74,7 +74,7 @@ function FormBody() {
     }
     if (!f.startDate) return 'Start date is required';
     r.startDate = f.startDate;
-    for (const [k, n] of [['enrolmentFee', 'Enrolment fee'], ['registrationFee', 'Registration fee'], ['securityDepositPct', 'Security deposit %']] as [keyof Form, string][]) {
+    for (const [k, n] of [['subscription', 'Subscription'], ['enrolmentFee', 'Enrolment fee'], ['registrationFee', 'Registration fee'], ['securityDepositPct', 'Security deposit %']] as [keyof Form, string][]) {
       if (f[k].trim() !== '') {
         const v = num(k, n);
         if (typeof v === 'string') return v;
@@ -154,6 +154,9 @@ function FormBody() {
             <Field label="Largest commission %"><input type="number" step="0.01" min="0" value={f.maxCommissionPct} onChange={set('maxCommissionPct')} /></Field>
             <Field label="Smallest bid discount %"><input type="number" step="0.01" min="0" value={f.minDiscountPct} onChange={set('minDiscountPct')} /></Field>
             <Field label="Largest bid discount %"><input type="number" step="0.01" min="0" value={f.maxDiscountPct} onChange={set('maxDiscountPct')} /></Field>
+            <Field label="Subscription" hint="Each member's instalment. Leave empty to use chit value / tickets (only when that divides exactly). Chit value must equal subscription x tickets">
+              <input type="number" step="0.01" min="0" value={f.subscription} onChange={set('subscription')} />
+            </Field>
             <Field label="Enrolment fee" hint="Leave empty for none"><input type="number" step="0.01" min="0" value={f.enrolmentFee} onChange={set('enrolmentFee')} /></Field>
             <Field label="Registration fee" hint="Leave empty for none"><input type="number" step="0.01" min="0" value={f.registrationFee} onChange={set('registrationFee')} /></Field>
             <Field label="Security deposit %" hint={'Of the chit value. Leave empty unless "securityRule" is DEPOSIT or LIEN_ON_DEPOSIT (set that under other rules)'}><input type="number" step="0.01" min="0" value={f.securityDepositPct} onChange={set('securityDepositPct')} /></Field>
